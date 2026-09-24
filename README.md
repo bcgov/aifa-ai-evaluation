@@ -2,7 +2,7 @@
 
 This project evaluates an AI Form Assist application that communicates with a hosted WebSocket API endpoint. It is designed around the real Water Permitting workflow as the first use case, using a custom wrapper to send prompts to the AIFA application and then evaluate the responses.
 
-The project is intentionally single-tenant for the current scenario, with the prompts and runtime assumptions tuned to that environment. Water Permitting is the initial domain focus, and the same evaluation pattern can be extended to other business use cases later. The core red-team flow stays focused on PyRIT, while optional frameworks such as Promptfoo and DeepEval remain separate and non-blocking extras.
+The project is intentionally single-tenant for the current scenario, with the prompts and runtime assumptions tuned to that environment. Water Permitting is the initial domain focus, and the same evaluation pattern can be extended to other business use cases later. The core red-team flow stays focused on PyRIT, Promptfoo and DeepEval.
 
 ## Core model
 
