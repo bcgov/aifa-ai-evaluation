@@ -13,11 +13,13 @@ from pydantic import BaseModel, Field
 from aifa_pyrit.config import settings
 from aifa_pyrit.orchestrator import RedTeamOrchestrator
 from aifa_pyrit.pyrit_runner import PyRITRunner
+from aifa_pyrit.storage import get_report_store
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 RESULTS_DIR = BASE_DIR / "results"
 RESULTS_DIR.mkdir(exist_ok=True, parents=True)
 FRONTEND_DIR = Path(__file__).resolve().parent / "frontend"
+REPORT_STORE = get_report_store()
 
 AttackType = Literal["PromptSending", "Crescendo", "MultiTurn", "RedTeaming", "PromptSeed"]
 
@@ -41,6 +43,11 @@ def _save_report(report: dict[str, Any], filename: str | None = None) -> Path:
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     if filename is None:
         filename = f"report_{timestamp}.json"
+
+    if REPORT_STORE and REPORT_STORE.__class__.__name__ == "AzureBlobReportStore":
+        REPORT_STORE.save_report(report, filename)
+        return Path(filename)
+
     path = RESULTS_DIR / filename
     with path.open("w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, default=str)
@@ -209,6 +216,11 @@ async def health() -> dict[str, Any]:
 @app.get("/api/reports")
 async def list_reports() -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
+    if REPORT_STORE is not None and REPORT_STORE.__class__.__name__ == "AzureBlobReportStore":
+        stored_items = REPORT_STORE.list_reports()
+        if stored_items:
+            return stored_items
+
     for path in sorted(RESULTS_DIR.glob("*.json"), reverse=True):
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
@@ -250,6 +262,12 @@ async def report_summary() -> dict[str, Any]:
 
 @app.get("/api/reports/{report_name}")
 async def get_report(report_name: str) -> dict[str, Any]:
+    if REPORT_STORE is not None and REPORT_STORE.__class__.__name__ == "AzureBlobReportStore":
+        try:
+            return REPORT_STORE.get_report(report_name)
+        except Exception:
+            pass
+
     path = RESULTS_DIR / report_name
     if not path.exists() or not path.is_file():
         raise HTTPException(status_code=404, detail="Report not found")

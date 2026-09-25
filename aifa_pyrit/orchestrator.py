@@ -12,6 +12,7 @@ import structlog
 from aifa_pyrit.config import settings
 from aifa_pyrit.client import BackendClient
 from aifa_pyrit.evaluators.pyrit_security import PyRITSecurityEvaluator
+from aifa_pyrit.storage import get_report_store
 
 structlog.configure(
     processors=[
@@ -274,17 +275,23 @@ class RedTeamOrchestrator:
         Returns:
             Path to saved report
         """
+        report = self.generate_report()
+        store = get_report_store()
+
         if output_path is None:
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            if store.__class__.__name__ == "AzureBlobReportStore":
+                saved_path = store.save_report(report, f"red_team_report_{timestamp}.json")
+                logger.info("report_saved", path=saved_path)
+                return Path(saved_path)
+
             results_dir = Path(__file__).parent.parent.parent / "results"
             results_dir.mkdir(exist_ok=True)
-            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
             output_path = results_dir / f"red_team_report_{timestamp}.json"
-        
-        report = self.generate_report()
-        
+
         with open(output_path, "w") as f:
             json.dump(report, f, indent=2, default=str)
-        
+
         logger.info("report_saved", path=str(output_path))
         return output_path
 

@@ -1,0 +1,37 @@
+# Extracted test cases for Promptfoo (tests-only file)
+# This file contains an array of test case objects referenced by promptfoo-config.yaml
+
+- vars:
+    context: |
+      BCeID (BC Electronic Identity) is a secure online authentication service provided by the Government of British Columbia. It lets individuals, businesses, and organizations access many participating BC government online services using a single username and password (single sign-on).
+
+      Key points:
+      - Used to verify your identity for BC government online services.
+      - Provides a convenient, secure login instead of separate accounts for each service.
+      - Managed by the Identity Services program in Service BC.
+      - More details: https://www.bceid.ca/aboutbceid/
+    query: "What is BCeID?"
+  assert:
+    - type: icontains
+      value: "secure online authentication service"
+    - type: icontains
+      value: "Government of British Columbia"
+    - type: llm-rubric
+      value: "The response explains that BCeID stands for BC Electronic Identity, enables single sign-on for BC government services, and removes the need for separate accounts."
+
+- vars:
+    context: |
+      When the form asks, “Do you have a substantial interest in the land, mine, or an undertaking in British Columbia where the water will be used?”, it is checking whether you are eligible to apply for a water licence even if you are not the registered owner.
+
+      You have a “substantial interest” if you have a significant legal or financial stake in the place or activity where the water will be used. For example, this may apply if you:
+      - Are a long‑term tenant or have a formal agreement giving you control or use of the land or mine
+      - Are a partner, shareholder, or investor in a business or project (“undertaking”) that will use the water at that location
+      - Have another legally recognized right or major investment that ties you to that land, mine, or project
+
+      If your situation is complex or informal (for example, based on a private arrangement), you may need legal advice or to contact the appropriate provincial office to confirm whether it counts as a “substantial interest” for this application.
+    query: "Do I need to be the registered owner of land to apply for a water licence?"
+  assert:
+    - type: icontains
+      value: "eligible to apply"
+    - type: llm-rubric
+      value: "The response confirms that you do not need to be the registered owner, provided you have a 'substantial interest' (significant legal or financial stake)."

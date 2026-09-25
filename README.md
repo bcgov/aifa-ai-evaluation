@@ -51,9 +51,41 @@ Open:
 http://localhost:8011
 ```
 
+## Azure App Service deployment
+
+This repository is designed for a Python App Service deployment pattern rather than a container-based deployment. The app is exposed through the FastAPI service in [aifa_pyrit/web_app.py](aifa_pyrit/web_app.py), and the runtime expects the repo-root [results](results) directory to exist for JSON reports.
+
+Key deployment requirements:
+
+- use a Linux Python App Service
+- run the app with `gunicorn` and expose port `8000` via `WEBSITES_PORT`
+- keep runtime settings in environment variables such as `BACKEND_API_URL`, `AZURE_OPENAI_*`, and `ADVERSARIAL_OPENAI_*`
+- keep the repo-root `.env` or App Service app settings aligned with the same config names used by [aifa_pyrit/config.py](aifa_pyrit/config.py)
+
+Example deployment commands:
+
+```bash
+cd infra
+terraform init
+terraform plan
+terraform apply
+```
+
+The workflow in [.github/workflows/deploy-to-dev.yml](.github/workflows/deploy-to-dev.yml) calls the reusable deployment stack under [.github/workflows/.deploy_stack.yml](.github/workflows/.deploy_stack.yml), which performs Azure login, Terraform provisioning, and a zip deploy of the app package.
+
 ## Optional extras
 
 Framework-specific work remains isolated in [promptfoo](promptfoo) so the main red-team package stays lightweight and predictable. Use those directories only when you need the extra evaluation path.
+
+For Promptfoo evaluation, run the eval first and then open the native Promptfoo browser UI:
+
+```bash
+cd /Users/jatindersingh/Desktop/Projects/AI/project/aifa-ai-evaluation/promptfoo
+./run_promptfoo_eval.sh
+npx promptfoo view -p 15500 -y
+```
+
+The raw JSON export remains under [results](results), but the preferred viewer for Promptfoo reports is the native `promptfoo view` UI rather than the PyRIT frontend.
 
 ## Conventions
 

@@ -17,6 +17,7 @@ from aifa_pyrit.config import ensure_azure_openai_v1_endpoint, normalize_azure_o
 from aifa_pyrit.custom_backend_target import CustomBackendTarget
 from aifa_pyrit.crescendo_step_capture import CrescendoMemoryTracer
 from aifa_pyrit.custom_backend_target import BACKEND_META_MARKER
+from aifa_pyrit.storage import get_report_store
 
 logger = structlog.get_logger(__name__)
 
@@ -1093,14 +1094,21 @@ class PyRITRunner:
         return formatted
 
     def save_result_payload(self, result: Dict[str, Any], attack_name: Optional[str] = None) -> str:
-        """Persist one attack result under the project-level results folder."""
-        results_dir = Path.cwd() / "results"
-        results_dir.mkdir(exist_ok=True, parents=True)
-
+        """Persist one attack result under the project-level results folder or Azure Blob Storage."""
         attack_label = (attack_name or result.get("attack_type") or "attack").strip()
         safe_name = re.sub(r"[^a-zA-Z0-9_-]+", "_", attack_label).strip("_") or "attack"
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        output_path = results_dir / f"{safe_name.lower()}_{timestamp}.json"
+        filename = f"{safe_name.lower()}_{timestamp}.json"
+
+        store = get_report_store()
+        if store.__class__.__name__ == "AzureBlobReportStore":
+            saved = store.save_report(result, filename)
+            logger.info("attack_result_saved", output_path=saved, attack_name=attack_label)
+            return saved
+
+        results_dir = Path.cwd() / "results"
+        results_dir.mkdir(exist_ok=True, parents=True)
+        output_path = results_dir / filename
 
         with open(output_path, "w", encoding="utf-8") as handle:
             json.dump(result, handle, indent=2, default=str)

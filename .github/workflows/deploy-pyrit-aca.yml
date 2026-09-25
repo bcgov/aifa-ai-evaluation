@@ -1,0 +1,117 @@
+name: Deploy PyRIT to Azure Container Apps
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      AZURE_CONTAINER_REGISTRY: ${{ vars.ACR_NAME || 'aifaevaldevacr' }}
+      IMAGE_NAME: aifa-pyrit
+      IMAGE_TAG: ${{ github.sha }}
+      TF_STATE_RESOURCE_GROUP: ${{ secrets.TF_STATE_RESOURCE_GROUP || 'rg-aifa-ai-evaluation-tfstate' }}
+      TF_STATE_STORAGE_ACCOUNT_NAME: ${{ secrets.TF_STATE_STORAGE_ACCOUNT_NAME }}
+      TF_STATE_CONTAINER_NAME: ${{ secrets.TF_STATE_CONTAINER_NAME || 'tfstate' }}
+      TF_STATE_KEY: ${{ secrets.TF_STATE_KEY || 'aifa-ai-evaluation/aca.tfstate' }}
+      TF_STATE_ACCESS_KEY: ${{ secrets.TF_STATE_ACCESS_KEY }}
+      TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+      TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+      TF_VAR_location: ${{ vars.AZURE_LOCATION || 'eastus' }}
+      TF_VAR_resource_group_name: ${{ vars.ACA_RESOURCE_GROUP || 'rg-aifa-ai-evaluation-aca-dev' }}
+      TF_VAR_environment_name: ${{ vars.ACA_ENVIRONMENT_NAME || 'cae-aifa-ai-evaluation-dev' }}
+      TF_VAR_container_app_name: ${{ vars.ACA_CONTAINER_APP_NAME || 'ca-aifa-pyrit-dev' }}
+      TF_VAR_app_env: ${{ vars.APP_ENV || 'dev' }}
+      TF_VAR_backend_api_url: ${{ vars.BACKEND_API_URL || secrets.BACKEND_API_URL }}
+      TF_VAR_backend_api_timeout: ${{ vars.BACKEND_API_TIMEOUT || '30' }}
+      TF_VAR_azure_openai_api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
+      TF_VAR_azure_openai_endpoint: ${{ vars.AZURE_OPENAI_ENDPOINT || secrets.AZURE_OPENAI_ENDPOINT }}
+      TF_VAR_azure_openai_api_version: ${{ vars.AZURE_OPENAI_API_VERSION || '2025-01-01-preview' }}
+      TF_VAR_azure_openai_deployment: ${{ vars.AZURE_OPENAI_DEPLOYMENT || secrets.AZURE_OPENAI_DEPLOYMENT }}
+      TF_VAR_adversarial_openai_api_key: ${{ secrets.ADVERSARIAL_OPENAI_API_KEY }}
+      TF_VAR_adversarial_openai_endpoint: ${{ vars.ADVERSARIAL_OPENAI_ENDPOINT || secrets.ADVERSARIAL_OPENAI_ENDPOINT }}
+      TF_VAR_adversarial_openai_deployment: ${{ vars.ADVERSARIAL_OPENAI_DEPLOYMENT || secrets.ADVERSARIAL_OPENAI_DEPLOYMENT }}
+      TF_VAR_azure_storage_connection_string: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+      TF_VAR_azure_storage_container_name: ${{ vars.AZURE_STORAGE_CONTAINER_NAME || 'aifa-reports' }}
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_ACCESS_KEY: ${{ secrets.TF_STATE_ACCESS_KEY }}
+      ARM_USE_OIDC: "true"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build azure-cli
+
+      - name: Build Docker image
+        run: |
+          docker build -t ${AZURE_CONTAINER_REGISTRY}.azurecr.io/${IMAGE_NAME}:${IMAGE_TAG} .
+
+      - name: Log in to ACR
+        run: |
+          az acr login --name ${AZURE_CONTAINER_REGISTRY}
+
+      - name: Push image to ACR
+        run: |
+          docker push ${AZURE_CONTAINER_REGISTRY}.azurecr.io/${IMAGE_NAME}:${IMAGE_TAG}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+
+      - name: Terraform init
+        working-directory: infra/aca
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=${TF_STATE_RESOURCE_GROUP}" \
+            -backend-config="storage_account_name=${TF_STATE_STORAGE_ACCOUNT_NAME}" \
+            -backend-config="container_name=${TF_STATE_CONTAINER_NAME}" \
+            -backend-config="key=${TF_STATE_KEY}" \
+            -backend-config="access_key=${TF_STATE_ACCESS_KEY}"
+
+      - name: Terraform apply
+        working-directory: infra/aca
+        run: |
+          terraform apply -auto-approve \
+            -var="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
+            -var="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
+            -var="client_id=${{ secrets.AZURE_CLIENT_ID }}" \
+            -var="location=${{ vars.AZURE_LOCATION || 'eastus' }}" \
+            -var="resource_group_name=${{ vars.ACA_RESOURCE_GROUP || 'rg-aifa-ai-evaluation-aca-dev' }}" \
+            -var="environment_name=${{ vars.ACA_ENVIRONMENT_NAME || 'cae-aifa-ai-evaluation-dev' }}" \
+            -var="container_app_name=${{ vars.ACA_CONTAINER_APP_NAME || 'ca-aifa-pyrit-dev' }}" \
+            -var="app_env=${{ vars.APP_ENV || 'dev' }}" \
+            -var="backend_api_url=${{ vars.BACKEND_API_URL || secrets.BACKEND_API_URL }}" \
+            -var="backend_api_timeout=${{ vars.BACKEND_API_TIMEOUT || '30' }}" \
+            -var="azure_openai_api_key=${{ secrets.AZURE_OPENAI_API_KEY }}" \
+            -var="azure_openai_endpoint=${{ vars.AZURE_OPENAI_ENDPOINT || secrets.AZURE_OPENAI_ENDPOINT }}" \
+            -var="azure_openai_api_version=${{ vars.AZURE_OPENAI_API_VERSION || '2025-01-01-preview' }}" \
+            -var="azure_openai_deployment=${{ vars.AZURE_OPENAI_DEPLOYMENT || secrets.AZURE_OPENAI_DEPLOYMENT }}" \
+            -var="adversarial_openai_api_key=${{ secrets.ADVERSARIAL_OPENAI_API_KEY }}" \
+            -var="adversarial_openai_endpoint=${{ vars.ADVERSARIAL_OPENAI_ENDPOINT || secrets.ADVERSARIAL_OPENAI_ENDPOINT }}" \
+            -var="adversarial_openai_deployment=${{ vars.ADVERSARIAL_OPENAI_DEPLOYMENT || secrets.ADVERSARIAL_OPENAI_DEPLOYMENT }}" \
+            -var="azure_storage_connection_string=${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}" \
+            -var="azure_storage_container_name=${{ vars.AZURE_STORAGE_CONTAINER_NAME || 'aifa-reports' }}"

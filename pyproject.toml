@@ -17,6 +17,9 @@ dependencies = [
     "click>=8.1.0",
     "tabulate>=0.9.0",
     "websockets>=14.0",
+    "fastapi>=0.115.0",
+    "uvicorn>=0.30.0",
+    "gunicorn>=22.0.0",
 ]
 
 [project.optional-dependencies]
