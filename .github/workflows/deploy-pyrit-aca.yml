@@ -51,11 +51,11 @@ jobs:
       - name: Azure login
         uses: azure/login@v2
         with:
-          # Prefer OIDC (no secret) when available; fall back to client secret if provided
+          # Use OIDC federated credentials (no client secret). A manual fallback
+          # check will run later if a client secret exists in the environment.
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          client-secret: ${{ secrets.AZURE_CLIENT_SECRET || '' }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -81,6 +81,34 @@ jobs:
           az account show --query "{name:name, id:id, user:user}" -o json
           echo "Listing role assignments for the current principal (may be empty)..."
           az role assignment list --assignee "${{ secrets.AZURE_CLIENT_ID }}" --all || true
+
+      - name: Auth fallback and diagnostics
+        shell: bash
+        run: |
+          set -eu
+          echo "--- Environment (sanitized) ---"
+          echo "AZURE_CLIENT_ID set: ${AZURE_CLIENT_ID:+yes}"
+          echo "AZURE_CLIENT_SECRET present: ${AZURE_CLIENT_SECRET:+yes}"
+          echo "ARM_USE_OIDC: ${ARM_USE_OIDC:-}
+          echo "--- az CLI version ---"
+          az --version || true
+
+          echo "--- Current account (if any) ---"
+          az account show || true
+
+          if [ -n "${AZURE_CLIENT_SECRET:-}" ]; then
+            echo "Client secret available — attempting manual service-principal login (secret not printed)"
+            az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" --tenant "$AZURE_TENANT_ID" || echo "manual SP login failed"
+          else
+            echo "No client secret — attempting to get an access token via CLI (OIDC flow)"
+            az account get-access-token --resource=https://management.azure.com/ || echo "get-access-token failed"
+          fi
+
+          echo "--- Attempt to list subscriptions via az CLI ---"
+          az account list -o table || echo "az account list failed or returned no subscriptions"
+
+          echo "--- Attempt to list subscriptions via REST API ---"
+          az rest --method get --uri "https://management.azure.com/subscriptions?api-version=2020-01-01" -o table || echo "REST subscriptions query failed"
 
       - name: Push image to ACR
         run: |
