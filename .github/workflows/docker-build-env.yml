@@ -6,6 +6,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      ACR_NAME: ${{ secrets.ACR_NAME }}
+      ACR_RESOURCE_GROUP: ${{ secrets.ACR_RESOURCE_GROUP }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,10 +35,15 @@ jobs:
           docker build -t "$IMAGE_NAME" -f Dockerfile .
           echo "Built image: $IMAGE_NAME"
 
-      - name: (Optional) Push image to registry
-        if: false
+      - name: Push image to Azure Container Registry (optional)
+        if: ${{ secrets.ACR_NAME != '' }}
+        env:
+          IMAGE_NAME: ${{ github.repository }}:latest
+          ACR_NAME: ${{ secrets.ACR_NAME }}
         run: |
-          # Uncomment and configure registry details / secrets to push
-          # docker tag "$IMAGE_NAME" "ghcr.io/${{ github.repository }}:env-baked-${{ github.run_id }}"
-          # docker push "ghcr.io/${{ github.repository }}:env-baked-${{ github.run_id }}"
-          echo "Skipping push (configure this step to push to your registry)"
+          echo "Logging into ACR: $ACR_NAME"
+          az acr login --name "$ACR_NAME"
+          ACR_REPO="$ACR_NAME.azurecr.io/${{ github.repository }}:latest"
+          docker tag "$IMAGE_NAME" "$ACR_REPO"
+          docker push "$ACR_REPO"
+          echo "Pushed $ACR_REPO"
