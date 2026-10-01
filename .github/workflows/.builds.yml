@@ -1,0 +1,31 @@
+name: Build Containers
+
+on:
+  workflow_call:
+    inputs:
+      tags:
+        description: 'Tags to apply to the built containers multiline, separated by newlines'
+        required: true
+        type: string
+permissions:
+  id-token: write
+  contents: write
+  packages: write
+jobs:
+  builds:
+    name: Builds
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and push to GHCR
+        uses: bcgov/action-builder-ghcr@v4.0.0
+        with:
+          package: aifa-ai-evaluation
+          build_context: .
+          build_file: ./Dockerfile
+          tags: |
+            ${{ inputs.tags }}
+            run-${{ github.run_number }}
+          tag_fallback: latest

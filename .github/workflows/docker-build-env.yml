@@ -3,6 +3,11 @@ name: Build Docker image with baked .env
 on:
   workflow_dispatch:
 
+permissions:
+  id-token: write
+  contents: write
+  packages: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -34,6 +39,13 @@ jobs:
           echo "Building $IMAGE_NAME"
           docker build -t "$IMAGE_NAME" -f Dockerfile .
           echo "Built image: $IMAGE_NAME"
+
+      - name: Build & push to GHCR (fallback)
+        if: ${{ env.ACR_NAME == '' }}
+        uses: ./.github/workflows/.builds.yml
+        with:
+          tags: |
+            latest
 
       - name: Push image to Azure Container Registry (optional)
         if: ${{ env.ACR_NAME != '' }}
