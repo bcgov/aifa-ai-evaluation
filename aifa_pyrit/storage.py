@@ -6,11 +6,14 @@ from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+import logging
 
 try:
     from azure.storage.blob import BlobServiceClient
 except Exception:  # pragma: no cover - optional dependency
     BlobServiceClient = None
+
+logger = logging.getLogger(__name__)
 
 
 class ReportStore(ABC):
@@ -77,12 +80,17 @@ class AzureBlobReportStore(ReportStore):
         self.connection_string = connection_string or os.getenv("AZURE_STORAGE_CONNECTION_STRING", "")
         self.container_name = container_name or os.getenv("AZURE_STORAGE_CONTAINER_NAME", "aifa-reports")
         if not self.connection_string:
+            logger.error("AzureBlobReportStore init failed: missing connection string")
             raise ValueError("AZURE_STORAGE_CONNECTION_STRING is required")
 
-        self.client = BlobServiceClient.from_connection_string(self.connection_string)
-        container_client = self.client.get_container_client(self.container_name)
-        container_client.create_container(exist_ok=True)
-        self.container_client = container_client
+        try:
+            self.client = BlobServiceClient.from_connection_string(self.connection_string)
+            container_client = self.client.get_container_client(self.container_name)
+            container_client.create_container(exist_ok=True)
+            self.container_client = container_client
+        except Exception as exc:
+            logger.exception("AzureBlobReportStore failed to initialize: %s", exc)
+            raise
 
     def save_report(self, payload: dict[str, Any], filename: str | None = None) -> str:
         if filename is None:
@@ -113,9 +121,13 @@ class AzureBlobReportStore(ReportStore):
 def get_report_store() -> ReportStore:
     conn = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
     container = os.getenv("AZURE_STORAGE_CONTAINER_NAME")
+    logger.debug("get_report_store: AZURE_STORAGE_CONNECTION_STRING present=%s, AZURE_STORAGE_CONTAINER_NAME=%s", bool(conn), container)
     if conn and container:
         try:
-            return AzureBlobReportStore(connection_string=conn, container_name=container)
-        except Exception:
-            pass
+            store = AzureBlobReportStore(connection_string=conn, container_name=container)
+            logger.info("Using AzureBlobReportStore container=%s", container)
+            return store
+        except Exception as exc:
+            logger.exception("Failed to create AzureBlobReportStore, falling back to LocalReportStore: %s", exc)
+    logger.info("Using LocalReportStore")
     return LocalReportStore()
