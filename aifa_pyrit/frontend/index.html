@@ -330,7 +330,10 @@
     <div class="container">
       <header>
         <h1>NR AI Red Team Browser</h1>
-        <div class="pill">PyRIT-compatible workflow</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <div class="pill">PyRIT-compatible workflow</div>
+          <div id="systemStatus" class="pill">Unknown</div>
+        </div>
       </header>
 
       <div class="grid">
@@ -483,6 +486,7 @@
     <script>
       const reportListEl = document.getElementById('reportList');
       const outputEl = document.getElementById('output');
+      const systemStatusEl = document.getElementById('systemStatus');
       const modeEl = document.getElementById('mode');
       const scanConfigEl = document.getElementById('scan-config');
       const seedConfigEl = document.getElementById('seed-config');

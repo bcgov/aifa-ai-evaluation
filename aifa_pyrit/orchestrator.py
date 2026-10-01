@@ -74,6 +74,30 @@ class RedTeamOrchestrator:
               ]
             }
         """
+        # Prefer loading test cases from a dedicated Azure container when configured.
+        import os
+        from aifa_pyrit.storage import AzureBlobReportStore
+
+        container_file_name = "red_team_test_cases.json"
+        test_container = os.getenv("AZURE_TESTCASES_CONTAINER_NAME") or os.getenv("AZURE_STORAGE_CONTAINER_NAME") or "aifa-data"
+        conn = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+        account = os.getenv("AZURE_STORAGE_ACCOUNT_NAME")
+
+        # If Azure is configured (connection string or managed identity account), try the test container first
+        if (conn or account) and test_container:
+            try:
+                azure_store = AzureBlobReportStore(connection_string=conn if conn else None, container_name=test_container)
+                try:
+                    data = azure_store.get_report(container_file_name)
+                    test_cases = data.get("test_cases", []) if isinstance(data, dict) else []
+                    logger.info("test_cases_loaded_from_azure", count=len(test_cases), container=test_container)
+                    return test_cases
+                except Exception:
+                    logger.debug("failed_to_load_test_cases_from_azure; falling back to local files", exc_info=True)
+            except Exception:
+                logger.debug("azure_blob_reportstore_unavailable", exc_info=True)
+
+        # Local file fallback (original behavior)
         if file_path is None:
             repo_root = Path(__file__).resolve().parent.parent
             candidate_paths = [
@@ -86,15 +110,15 @@ class RedTeamOrchestrator:
         if not file_path.exists():
             logger.warning("test_cases_file_not_found", path=str(file_path))
             return []
-        
+
         try:
             with open(file_path) as f:
                 data = json.load(f)
-            
+
             test_cases = data.get("test_cases", [])
             logger.info("test_cases_loaded", count=len(test_cases), path=str(file_path))
             return test_cases
-            
+
         except Exception as e:
             logger.error("test_cases_load_failed", error=str(e), path=str(file_path))
             return []

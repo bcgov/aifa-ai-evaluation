@@ -13,6 +13,12 @@ try:
 except Exception:  # pragma: no cover - optional dependency
     BlobServiceClient = None
 
+# Optional Managed Identity support
+try:
+    from azure.identity import DefaultAzureCredential
+except Exception:  # pragma: no cover - optional dependency
+    DefaultAzureCredential = None
+
 logger = logging.getLogger(__name__)
 
 
@@ -79,12 +85,28 @@ class AzureBlobReportStore(ReportStore):
 
         self.connection_string = connection_string or os.getenv("AZURE_STORAGE_CONNECTION_STRING", "")
         self.container_name = container_name or os.getenv("AZURE_STORAGE_CONTAINER_NAME", "aifa-reports")
+        # Prefer connection string when provided. If absent, attempt Managed Identity
+        self.use_managed_identity = False
         if not self.connection_string:
-            logger.error("AzureBlobReportStore init failed: missing connection string")
-            raise ValueError("AZURE_STORAGE_CONNECTION_STRING is required")
+            if DefaultAzureCredential is not None:
+                # Expect account name env var when using Managed Identity
+                account_name = os.getenv("AZURE_STORAGE_ACCOUNT_NAME")
+                if not account_name:
+                    logger.error("AzureBlobReportStore init failed: missing AZURE_STORAGE_ACCOUNT_NAME for Managed Identity")
+                    raise ValueError("AZURE_STORAGE_ACCOUNT_NAME is required when AZURE_STORAGE_CONNECTION_STRING is not set")
+                self.account_url = f"https://{account_name}.blob.core.windows.net"
+                self.use_managed_identity = True
+            else:
+                logger.error("AzureBlobReportStore init failed: missing connection string and azure-identity not installed")
+                raise ValueError("AZURE_STORAGE_CONNECTION_STRING is required or install azure-identity and set AZURE_STORAGE_ACCOUNT_NAME for Managed Identity")
 
         try:
-            self.client = BlobServiceClient.from_connection_string(self.connection_string)
+            if self.use_managed_identity:
+                logger.info("Initializing BlobServiceClient with Managed Identity account_url=%s", self.account_url)
+                cred = DefaultAzureCredential()
+                self.client = BlobServiceClient(account_url=self.account_url, credential=cred)
+            else:
+                self.client = BlobServiceClient.from_connection_string(self.connection_string)
             container_client = self.client.get_container_client(self.container_name)
             try:
                 container_client.create_container()
@@ -139,11 +161,17 @@ class AzureBlobReportStore(ReportStore):
 
 def get_report_store() -> ReportStore:
     conn = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+    account = os.getenv("AZURE_STORAGE_ACCOUNT_NAME")
     container = os.getenv("AZURE_STORAGE_CONTAINER_NAME")
-    logger.debug("get_report_store: AZURE_STORAGE_CONNECTION_STRING present=%s, AZURE_STORAGE_CONTAINER_NAME=%s", bool(conn), container)
-    if conn and container:
+    logger.debug("get_report_store: AZURE_STORAGE_CONNECTION_STRING present=%s, AZURE_STORAGE_ACCOUNT_NAME=%s, AZURE_STORAGE_CONTAINER_NAME=%s", bool(conn), account, container)
+    # Use Azure storage when either a connection string + container is provided
+    # or when account name + container are provided for Managed Identity.
+    if (conn and container) or (account and container):
         try:
-            store = AzureBlobReportStore(connection_string=conn, container_name=container)
+            if conn:
+                store = AzureBlobReportStore(connection_string=conn, container_name=container)
+            else:
+                store = AzureBlobReportStore(connection_string=None, container_name=container)
             logger.info("Using AzureBlobReportStore container=%s", container)
             return store
         except Exception as exc:
