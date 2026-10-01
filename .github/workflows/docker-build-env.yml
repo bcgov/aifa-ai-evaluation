@@ -36,7 +36,7 @@ jobs:
           echo "Built image: $IMAGE_NAME"
 
       - name: Push image to Azure Container Registry (optional)
-        if: ${{ secrets.ACR_NAME != '' }}
+        if: ${{ env.ACR_NAME != '' }}
         env:
           IMAGE_NAME: ${{ github.repository }}:latest
           ACR_NAME: ${{ secrets.ACR_NAME }}
