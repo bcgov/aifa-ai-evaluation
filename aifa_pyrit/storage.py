@@ -86,7 +86,26 @@ class AzureBlobReportStore(ReportStore):
         try:
             self.client = BlobServiceClient.from_connection_string(self.connection_string)
             container_client = self.client.get_container_client(self.container_name)
-            container_client.create_container(exist_ok=True)
+            try:
+                container_client.create_container()
+            except Exception as exc:
+                # Prefer to ignore 'container already exists' errors when possible.
+                try:
+                    from azure.core.exceptions import ResourceExistsError
+
+                    if isinstance(exc, ResourceExistsError):
+                        logger.debug("Container already exists: %s", self.container_name)
+                    else:
+                        raise
+                except Exception:
+                    # Fallback: inspect message/status for 409 / already exists and ignore
+                    msg = str(exc)
+                    if "ContainerAlreadyExists" in msg or "already exists" in msg or getattr(getattr(exc, 'status_code', None), '__int__', lambda: None) == 409:
+                        logger.debug("Container already exists (fallback): %s", self.container_name)
+                    else:
+                        logger.exception("AzureBlobReportStore failed to create container: %s", exc)
+                        raise
+
             self.container_client = container_client
         except Exception as exc:
             logger.exception("AzureBlobReportStore failed to initialize: %s", exc)
