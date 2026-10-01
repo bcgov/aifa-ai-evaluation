@@ -12,8 +12,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      ACR_NAME: ${{ secrets.ACR_NAME }}
-      ACR_RESOURCE_GROUP: ${{ secrets.ACR_RESOURCE_GROUP }}
+      ACR_NAME: ${{ inputs.ACA_CONTAINER_APP_NAME }}
+      ACR_RESOURCE_GROUP: ${{ inputs.d94cca-dev-networking }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,7 +31,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.GHCR_TOKEN }}
 
       - name: Build image
         run: |
@@ -46,7 +46,7 @@ jobs:
         if: ${{ env.ACR_NAME != '' }}
         env:
           IMAGE_NAME: ${{ github.repository }}:latest
-          ACR_NAME: ${{ secrets.ACR_NAME }}
+          ACR_NAME: ${{ inputs.ACR_NAME }}
         run: |
           echo "Logging into ACR: $ACR_NAME"
           az acr login --name "$ACR_NAME"
@@ -58,7 +58,7 @@ jobs:
   ghcr_build:
     name: Build & Push to GHCR (fallback)
     needs: build
-    if: ${{ secrets.ACR_NAME == '' }}
+    if: ${{ inputs.ACR_NAME == '' }}
     uses: ./.github/workflows/.builds.yml
     with:
       tags: |
