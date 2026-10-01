@@ -40,12 +40,7 @@ jobs:
           docker build -t "$IMAGE_NAME" -f Dockerfile .
           echo "Built image: $IMAGE_NAME"
 
-      - name: Build & push to GHCR (fallback)
-        if: ${{ env.ACR_NAME == '' }}
-        uses: ./.github/workflows/.builds.yml
-        with:
-          tags: |
-            latest
+      # GHCR build/push is handled in a separate job below when ACR is not configured.
 
       - name: Push image to Azure Container Registry (optional)
         if: ${{ env.ACR_NAME != '' }}
@@ -59,3 +54,12 @@ jobs:
           docker tag "$IMAGE_NAME" "$ACR_REPO"
           docker push "$ACR_REPO"
           echo "Pushed $ACR_REPO"
+
+  ghcr_build:
+    name: Build & Push to GHCR (fallback)
+    needs: build
+    if: ${{ secrets.ACR_NAME == '' }}
+    uses: ./.github/workflows/.builds.yml
+    with:
+      tags: |
+        latest
