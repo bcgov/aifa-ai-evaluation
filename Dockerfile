@@ -18,4 +18,5 @@ RUN python -m pip install --upgrade pip && \
 
 EXPOSE 8000
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--timeout", "180", "--workers", "2", "aifa_pyrit.web_app:app"]
+# Use Gunicorn with Uvicorn worker for ASGI (FastAPI) apps
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--timeout", "180", "--workers", "2", "-k", "uvicorn.workers.UvicornWorker", "aifa_pyrit.web_app:app"]
