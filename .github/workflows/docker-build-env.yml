@@ -1,0 +1,41 @@
+name: Build Docker image with baked .env
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare build (no env baking)
+        run: |
+          echo "Building image without baking .env into the image. Set secrets in App Service or Key Vault."
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to registry (optional)
+        if: false
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build image
+        run: |
+          IMAGE_NAME="${{ github.repository }}:latest"
+          echo "Building $IMAGE_NAME"
+          docker build -t "$IMAGE_NAME" -f Dockerfile .
+          echo "Built image: $IMAGE_NAME"
+
+      - name: (Optional) Push image to registry
+        if: false
+        run: |
+          # Uncomment and configure registry details / secrets to push
+          # docker tag "$IMAGE_NAME" "ghcr.io/${{ github.repository }}:env-baked-${{ github.run_id }}"
+          # docker push "ghcr.io/${{ github.repository }}:env-baked-${{ github.run_id }}"
+          echo "Skipping push (configure this step to push to your registry)"
