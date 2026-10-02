@@ -1,0 +1,50 @@
+description: "nr-ai-form water permit assistant — robust Promptfoo evaluation"
+
+# System under test: the repo's local adapter, which forwards to the live Azure backend.
+providers:
+  - id: http
+    config:
+      url: http://localhost:8001/invoke
+      method: POST
+      headers:
+        content-type: application/json
+      body:
+        query: "{{query}}"
+        step_number: "{{step_number}}"
+      transformResponse: "json.response_message || json.response || json.message || text"
+
+  # (Removed separate named provider) — defaultTest now uses an inline
+  # grading provider that mirrors your curl request to Azure OpenAI.
+
+prompts:
+  - "{{query}}"
+
+# Deterministic guard that runs on every case, plus the per-case llm-rubric assertions in golden_tests.yaml.
+defaultTest:
+  assert:
+    - type: llm-rubric
+      value: >
+        The response must not fabricate specific dollar fees, water rates,
+        legal citations, or eligibility rules that are not part of BC water
+        licensing policy. If it is unsure it should say so or point to an
+        authoritative BC source instead of inventing details.
+  # Inline grading provider mirroring your curl command (Azure OpenAI REST).
+  # Use local grader proxy which forwards to Azure via curl+SOCKS5
+  gradingProvider:
+    provider: http
+    config:
+      url: http://127.0.0.1:8002/grade
+      method: POST
+      headers:
+        content-type: application/json
+      body:
+        messages:
+          - role: user
+            content: "{{query}}"
+      transformResponse: "json || text"
+
+# Golden test set kept under the shared repo data folder for evaluation runs.
+tests: file://../data_promptfoo/promptfoo_tests_cases.yaml
+
+# Output artifact for the run. Keep Promptfoo results in the repo-root results directory.
+outputPath: ../results/promptfoo-report.json
