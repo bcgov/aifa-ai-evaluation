@@ -279,6 +279,15 @@ async def get_report(report_name: str) -> dict[str, Any]:
 
 @app.get("/api/reports/{report_name}/insights")
 async def get_report_insights(report_name: str) -> dict[str, Any]:
+    # Try Azure-backed store first (if configured), then fall back to local results dir
+    if REPORT_STORE is not None and REPORT_STORE.__class__.__name__ == "AzureBlobReportStore":
+        try:
+            data = REPORT_STORE.get_report(report_name)
+            return _report_insights(data)
+        except Exception:
+            # fall through to local file lookup
+            pass
+
     path = RESULTS_DIR / report_name
     if not path.exists() or not path.is_file():
         raise HTTPException(status_code=404, detail="Report not found")
