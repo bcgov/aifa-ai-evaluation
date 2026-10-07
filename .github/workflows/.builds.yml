@@ -47,6 +47,17 @@ jobs:
           TAGS: ${{ inputs.tags }}
         run: |
           set -euo pipefail
+
+          BUILD_CONTEXT="${BUILD_CONTEXT:-.}"
+          BUILD_FILE="${BUILD_FILE:-./Dockerfile}"
+
+          if [ -z "$BUILD_CONTEXT" ]; then
+            BUILD_CONTEXT="."
+          fi
+          if [ -z "$BUILD_FILE" ]; then
+            BUILD_FILE="./Dockerfile"
+          fi
+
           # Normalize tags into an array; add run number tag as fallback
           IFS=$'\n' read -r -d '' -a tag_array <<< "$TAGS" || true
           tag_array+=("run-${{ github.run_number }}")
@@ -56,5 +67,5 @@ jobs:
               continue
             fi
             echo "Building and pushing: $REPO:$t"
-            docker buildx build --push --platform linux/amd64 -t "$REPO:$t" -f "$BUILD_FILE" "$BUILD_CONTEXT"
+            docker buildx build --push --platform linux/amd64 --tag "$REPO:$t" --file "$BUILD_FILE" "$BUILD_CONTEXT"
           done
