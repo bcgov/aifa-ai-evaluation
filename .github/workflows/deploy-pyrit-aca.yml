@@ -27,6 +27,7 @@ jobs:
       TF_VAR_location: ${{ vars.AZURE_LOCATION || 'eastus' }}
       TF_VAR_resource_group_name: ${{ vars.ACA_RESOURCE_GROUP || 'rg-aifa-ai-evaluation-aca-dev' }}
       TF_VAR_environment_name: ${{ vars.ACA_ENVIRONMENT_NAME || 'cae-aifa-ai-evaluation-dev' }}
+      TF_VAR_container_registry_name: ${{ vars.ACR_NAME || 'aifaevaldevacr' }}
       TF_VAR_container_app_name: ${{ vars.ACA_CONTAINER_APP_NAME || 'ca-aifa-pyrit-dev' }}
       TF_VAR_app_env: ${{ vars.APP_ENV || 'dev' }}
       TF_VAR_backend_api_url: ${{ vars.BACKEND_API_URL || secrets.BACKEND_API_URL }}
@@ -82,6 +83,27 @@ jobs:
           fi
           echo "AZURE_CONTAINER_REGISTRY=$CLEAN_ACR" >> "$GITHUB_ENV"
           echo "Using ACR name: $CLEAN_ACR"
+
+      - name: Ensure ACR exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESOURCE_GROUP="${TF_VAR_resource_group_name:-rg-aifa-ai-evaluation-aca-dev}"
+          LOCATION="${TF_VAR_location:-eastus}"
+
+          az group create --name "$RESOURCE_GROUP" --location "$LOCATION" >/dev/null
+
+          if ! az acr show --name "${AZURE_CONTAINER_REGISTRY}" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
+            echo "Creating Azure Container Registry '${AZURE_CONTAINER_REGISTRY}' in resource group '${RESOURCE_GROUP}'"
+            az acr create \
+              --name "${AZURE_CONTAINER_REGISTRY}" \
+              --resource-group "$RESOURCE_GROUP" \
+              --location "$LOCATION" \
+              --sku Basic \
+              --admin-enabled true >/dev/null
+          else
+            echo "Using existing Azure Container Registry '${AZURE_CONTAINER_REGISTRY}' in resource group '${RESOURCE_GROUP}'"
+          fi
 
       - name: Build Docker image
         run: |
@@ -155,6 +177,7 @@ jobs:
             -var="location=${{ vars.AZURE_LOCATION || 'eastus' }}" \
             -var="resource_group_name=${{ vars.ACA_RESOURCE_GROUP || 'rg-aifa-ai-evaluation-aca-dev' }}" \
             -var="environment_name=${{ vars.ACA_ENVIRONMENT_NAME || 'cae-aifa-ai-evaluation-dev' }}" \
+            -var="container_registry_name=${AZURE_CONTAINER_REGISTRY}" \
             -var="container_app_name=${{ vars.ACA_CONTAINER_APP_NAME || 'ca-aifa-pyrit-dev' }}" \
             -var="app_env=${{ vars.APP_ENV || 'dev' }}" \
             -var="backend_api_url=${{ vars.BACKEND_API_URL || secrets.BACKEND_API_URL }}" \
