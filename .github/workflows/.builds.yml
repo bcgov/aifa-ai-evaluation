@@ -7,6 +7,16 @@ on:
         description: 'Tags to apply to the built containers multiline, separated by newlines'
         required: true
         type: string
+      build_context:
+        description: 'Build context path (default .)'
+        required: false
+        type: string
+        default: '.'
+      build_file:
+        description: 'Dockerfile path (default ./Dockerfile)'
+        required: false
+        type: string
+        default: './Dockerfile'
 permissions:
   id-token: write
   contents: write
@@ -19,13 +29,32 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build and push to GHCR
-        uses: bcgov/action-builder-ghcr@v4.0.0
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
         with:
-          package: aifa-ai-evaluation
-          build_context: .
-          build_file: ./Dockerfile
-          tags: |
-            ${{ inputs.tags }}
-            run-${{ github.run_number }}
-          tag_fallback: latest
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push images (buildx)
+        env:
+          BUILD_CONTEXT: ${{ inputs.build_context }}
+          BUILD_FILE: ${{ inputs.build_file }}
+          REPO: ghcr.io/${{ github.repository }}
+          TAGS: ${{ inputs.tags }}
+        run: |
+          set -euo pipefail
+          # Normalize tags into an array; add run number tag as fallback
+          IFS=$'\n' read -r -d '' -a tag_array <<< "$TAGS" || true
+          tag_array+=("run-${{ github.run_number }}")
+          for t in "${tag_array[@]}"; do
+            t=$(echo "$t" | xargs)
+            if [ -z "$t" ]; then
+              continue
+            fi
+            echo "Building and pushing: $REPO:$t"
+            docker buildx build --push --platform linux/amd64 -t "$REPO:$t" -f "$BUILD_FILE" "$BUILD_CONTEXT"
+          done
