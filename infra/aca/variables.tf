@@ -46,14 +46,26 @@ variable "container_app_name" {
   default     = "ca-aifa-pyrit-dev"
 }
 
+variable "container_registry_enabled" {
+  description = "Whether to provision and use an Azure Container Registry for the Container App. Set false when using external registries such as GHCR."
+  type        = bool
+  default     = true
+}
+
 variable "container_registry_name" {
   description = "Azure Container Registry name, must be globally unique."
   type        = string
   default     = "aifaevaldevacr"
 }
 
+variable "image_registry" {
+  description = "Optional image registry host, for example ghcr.io/bcgov/aifa-ai-evaluation. If blank, defaults to the Azure Container Registry login server."
+  type        = string
+  default     = ""
+}
+
 variable "image_name" {
-  description = "Image name stored in Azure Container Registry."
+  description = "Image name stored in the selected registry."
   type        = string
   default     = "aifa-pyrit"
 }
@@ -62,6 +74,25 @@ variable "image_tag" {
   description = "Image tag for the PyRIT service."
   type        = string
   default     = "latest"
+}
+
+variable "registry_server" {
+  description = "External registry server to use when container_registry_enabled is false. Example: ghcr.io"
+  type        = string
+  default     = ""
+}
+
+variable "registry_username" {
+  description = "Username for the external registry connection."
+  type        = string
+  default     = ""
+}
+
+variable "registry_password" {
+  description = "Password/token used to authenticate to the external registry."
+  type        = string
+  default     = ""
+  sensitive   = true
 }
 
 variable "app_env" {

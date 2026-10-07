@@ -2,20 +2,64 @@ name: Deploy to ACA
 
 on:
   workflow_dispatch:
+    inputs:
+      command:
+        description: 'Run "plan" to preview, or "apply" to deploy'
+        required: false
+        default: 'plan'
+        type: choice
+        options:
+          - plan
+          - apply
   push:
     branches: [ main ]
 
 permissions:
   id-token: write
-  contents: read
+  contents: write
+  packages: write
 
 jobs:
-  build-and-deploy:
+  branch-slug:
+    name: Branch Slug
+    runs-on: ubuntu-24.04
+    outputs:
+      branch_slug: ${{ steps.slug.outputs.branch_slug }}
+    steps:
+      - name: Compute branch slug
+        id: slug
+        shell: bash
+        run: |
+          branch="${{ github.ref_name }}"
+          slug=$(echo "$branch" | tr '[:upper:]' '[:lower:]' | sed 's|/|-|g' | sed 's/[^a-z0-9-]/-/g' | sed 's/-\{2,\}/-/g' | sed 's/^-//;s/-$//')
+          slug="${slug:0:15}"
+          slug=$(echo "$slug" | sed 's/-$//')
+          echo "branch_slug=$slug" >> "$GITHUB_OUTPUT"
+          echo "Branch slug: $slug"
+
+  builds:
+    if: github.event_name == 'push' || inputs.command == 'apply'
+    concurrency:
+      group: builds-aca-${{ github.run_id }}
+      cancel-in-progress: true
+    uses: ./.github/workflows/.builds.yml
+    with:
+      tags: |
+        latest
+        dev-aca-${{ github.run_number }}
+
+  deploy:
+    name: ${{ inputs.command == 'plan' && 'Plan' || 'Deploy' }} ACA
+    needs: [builds, branch-slug]
+    if: always() && (needs.builds.result == 'success' || needs.builds.result == 'skipped')
     runs-on: ubuntu-latest
     env:
       AZURE_CONTAINER_REGISTRY: ${{ vars.ACR_NAME || 'aifaevaldevacr' }}
-      IMAGE_NAME: aifa-pyrit
-      IMAGE_TAG: ${{ github.sha }}
+      GHCR_IMAGE_REGISTRY: ghcr.io/${{ github.repository }}
+      GHCR_IMAGE_NAME: aifa-ai-evaluation
+      GHCR_IMAGE_TAG: dev-aca-${{ github.run_number }}
+      IMAGE_NAME: aifa-ai-evaluation
+      IMAGE_TAG: dev-aca-${{ github.run_number }}
       TF_STATE_RESOURCE_GROUP: ${{ secrets.TF_STATE_RESOURCE_GROUP || 'rg-aifa-ai-evaluation-tfstate' }}
       TF_STATE_STORAGE_ACCOUNT_NAME: ${{ secrets.TF_STATE_STORAGE_ACCOUNT_NAME }}
       TF_STATE_CONTAINER_NAME: ${{ secrets.TF_STATE_CONTAINER_NAME || 'tfstate' }}
@@ -27,7 +71,14 @@ jobs:
       TF_VAR_location: ${{ vars.AZURE_LOCATION || 'eastus' }}
       TF_VAR_resource_group_name: ${{ vars.ACA_RESOURCE_GROUP || 'rg-aifa-ai-evaluation-aca-dev' }}
       TF_VAR_environment_name: ${{ vars.ACA_ENVIRONMENT_NAME || 'cae-aifa-ai-evaluation-dev' }}
-      TF_VAR_container_registry_name: ${{ vars.ACR_NAME || 'aifaevaldevacr' }}
+      TF_VAR_container_registry_enabled: false
+      TF_VAR_container_registry_name: ""
+      TF_VAR_image_registry: ghcr.io/${{ github.repository }}
+      TF_VAR_image_name: aifa-ai-evaluation
+      TF_VAR_image_tag: dev-aca-${{ github.run_number }}
+      TF_VAR_registry_server: ghcr.io
+      TF_VAR_registry_username: ${{ github.actor }}
+      TF_VAR_registry_password: ${{ secrets.GITHUB_TOKEN }}
       TF_VAR_container_app_name: ${{ vars.ACA_CONTAINER_APP_NAME || 'ca-aifa-pyrit-dev' }}
       TF_VAR_app_env: ${{ vars.APP_ENV || 'dev' }}
       TF_VAR_backend_api_url: ${{ vars.BACKEND_API_URL || secrets.BACKEND_API_URL }}
@@ -54,103 +105,9 @@ jobs:
       - name: Azure login
         uses: azure/login@v2
         with:
-          # Use OIDC federated credentials (no client secret). A manual fallback
-          # check will run later if a client secret exists in the environment.
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install build azure-cli
-
-      - name: Normalize ACR name
-        shell: bash
-        run: |
-          set -euo pipefail
-          CLEAN_ACR="${AZURE_CONTAINER_REGISTRY:-aifaevaldevacr}"
-          CLEAN_ACR="${CLEAN_ACR//[^a-zA-Z0-9]/}"
-          CLEAN_ACR="$(printf '%s' "$CLEAN_ACR" | tr '[:upper:]' '[:lower:]')"
-          if [ "${#CLEAN_ACR}" -lt 5 ] || [ "${#CLEAN_ACR}" -gt 50 ]; then
-            echo "AZURE_CONTAINER_REGISTRY must be 5-50 alphanumeric characters after sanitization; got '$CLEAN_ACR'" >&2
-            exit 1
-          fi
-          echo "AZURE_CONTAINER_REGISTRY=$CLEAN_ACR" >> "$GITHUB_ENV"
-          echo "Using ACR name: $CLEAN_ACR"
-
-      - name: Ensure ACR exists
-        shell: bash
-        run: |
-          set -euo pipefail
-          RESOURCE_GROUP="${TF_VAR_resource_group_name:-rg-aifa-ai-evaluation-aca-dev}"
-          LOCATION="${TF_VAR_location:-eastus}"
-
-          az group create --name "$RESOURCE_GROUP" --location "$LOCATION" >/dev/null
-
-          if ! az acr show --name "${AZURE_CONTAINER_REGISTRY}" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
-            echo "Creating Azure Container Registry '${AZURE_CONTAINER_REGISTRY}' in resource group '${RESOURCE_GROUP}'"
-            az acr create \
-              --name "${AZURE_CONTAINER_REGISTRY}" \
-              --resource-group "$RESOURCE_GROUP" \
-              --location "$LOCATION" \
-              --sku Basic \
-              --admin-enabled true >/dev/null
-          else
-            echo "Using existing Azure Container Registry '${AZURE_CONTAINER_REGISTRY}' in resource group '${RESOURCE_GROUP}'"
-          fi
-
-      - name: Build Docker image
-        run: |
-          docker build -t ${AZURE_CONTAINER_REGISTRY}.azurecr.io/${IMAGE_NAME}:${IMAGE_TAG} .
-
-      - name: Log in to ACR
-        run: |
-          az acr login --name ${AZURE_CONTAINER_REGISTRY}
-
-      - name: Verify Azure account and RBAC
-        run: |
-          echo "Checking current Azure account..."
-          az account show --query "{name:name, id:id, user:user}" -o json
-          echo "Listing role assignments for the current principal (may be empty)..."
-          az role assignment list --assignee "${{ secrets.AZURE_CLIENT_ID }}" --all || true
-
-      - name: Auth fallback and diagnostics
-        shell: bash
-        run: |
-          set -eu
-          printf "--- Environment (sanitized) ---\n"
-          printf "AZURE_CLIENT_ID set: %s\n" "${AZURE_CLIENT_ID:+yes}"
-          printf "AZURE_CLIENT_SECRET present: %s\n" "${AZURE_CLIENT_SECRET:+yes}"
-          printf "ARM_USE_OIDC: %s\n" "${ARM_USE_OIDC:-}"
-          printf "--- az CLI version ---\n"
-          az --version || true
-
-          printf "--- Current account (if any) ---\n"
-          az account show || true
-
-          if [ -n "${AZURE_CLIENT_SECRET:-}" ]; then
-            printf "Client secret available — attempting manual service-principal login (secret not printed)\n"
-            az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" --tenant "$AZURE_TENANT_ID" || printf "manual SP login failed\n"
-          else
-            printf "No client secret — attempting to get an access token via CLI (OIDC flow)\n"
-            az account get-access-token --resource=https://management.azure.com/ || printf "get-access-token failed\n"
-          fi
-
-          printf "--- Attempt to list subscriptions via az CLI ---\n"
-          az account list -o table || printf "az account list failed or returned no subscriptions\n"
-
-          printf "--- Attempt to list subscriptions via REST API ---\n"
-          az rest --method get --uri "https://management.azure.com/subscriptions?api-version=2020-01-01" -o table || printf "REST subscriptions query failed\n"
-
-      - name: Push image to ACR
-        run: |
-          docker push ${AZURE_CONTAINER_REGISTRY}.azurecr.io/${IMAGE_NAME}:${IMAGE_TAG}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -167,7 +124,41 @@ jobs:
             -backend-config="key=${TF_STATE_KEY}" \
             -backend-config="access_key=${TF_STATE_ACCESS_KEY}"
 
+      - name: Terraform plan
+        if: inputs.command == 'plan' || github.event_name == 'push'
+        working-directory: infra/aca
+        run: |
+          terraform plan \
+            -var="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
+            -var="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
+            -var="client_id=${{ secrets.AZURE_CLIENT_ID }}" \
+            -var="location=${{ vars.AZURE_LOCATION || 'eastus' }}" \
+            -var="resource_group_name=${{ vars.ACA_RESOURCE_GROUP || 'rg-aifa-ai-evaluation-aca-dev' }}" \
+            -var="environment_name=${{ vars.ACA_ENVIRONMENT_NAME || 'cae-aifa-ai-evaluation-dev' }}" \
+            -var="container_registry_enabled=false" \
+            -var="container_registry_name="" \
+            -var="image_registry=ghcr.io/${{ github.repository }}" \
+            -var="image_name=aifa-ai-evaluation" \
+            -var="image_tag=dev-aca-${{ github.run_number }}" \
+            -var="registry_server=ghcr.io" \
+            -var="registry_username=${{ github.actor }}" \
+            -var="registry_password=${{ secrets.GITHUB_TOKEN }}" \
+            -var="container_app_name=${{ vars.ACA_CONTAINER_APP_NAME || 'ca-aifa-pyrit-dev' }}" \
+            -var="app_env=${{ vars.APP_ENV || 'dev' }}" \
+            -var="backend_api_url=${{ vars.BACKEND_API_URL || secrets.BACKEND_API_URL }}" \
+            -var="backend_api_timeout=${{ vars.BACKEND_API_TIMEOUT || '30' }}" \
+            -var="azure_openai_api_key=${{ secrets.AZURE_OPENAI_API_KEY }}" \
+            -var="azure_openai_endpoint=${{ vars.AZURE_OPENAI_ENDPOINT || secrets.AZURE_OPENAI_ENDPOINT }}" \
+            -var="azure_openai_api_version=${{ vars.AZURE_OPENAI_API_VERSION || '2025-01-01-preview' }}" \
+            -var="azure_openai_deployment=${{ vars.AZURE_OPENAI_DEPLOYMENT || secrets.AZURE_OPENAI_DEPLOYMENT }}" \
+            -var="adversarial_openai_api_key=${{ secrets.ADVERSARIAL_OPENAI_API_KEY }}" \
+            -var="adversarial_openai_endpoint=${{ vars.ADVERSARIAL_OPENAI_ENDPOINT || secrets.ADVERSARIAL_OPENAI_ENDPOINT }}" \
+            -var="adversarial_openai_deployment=${{ vars.ADVERSARIAL_OPENAI_DEPLOYMENT || secrets.ADVERSARIAL_OPENAI_DEPLOYMENT }}" \
+            -var="azure_storage_connection_string=${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}" \
+            -var="azure_storage_container_name=${{ vars.AZURE_STORAGE_CONTAINER_NAME || 'aifa-reports' }}"
+
       - name: Terraform apply
+        if: inputs.command == 'apply'
         working-directory: infra/aca
         run: |
           terraform apply -auto-approve \
@@ -177,7 +168,14 @@ jobs:
             -var="location=${{ vars.AZURE_LOCATION || 'eastus' }}" \
             -var="resource_group_name=${{ vars.ACA_RESOURCE_GROUP || 'rg-aifa-ai-evaluation-aca-dev' }}" \
             -var="environment_name=${{ vars.ACA_ENVIRONMENT_NAME || 'cae-aifa-ai-evaluation-dev' }}" \
-            -var="container_registry_name=${AZURE_CONTAINER_REGISTRY}" \
+            -var="container_registry_enabled=false" \
+            -var="container_registry_name="" \
+            -var="image_registry=ghcr.io/${{ github.repository }}" \
+            -var="image_name=aifa-ai-evaluation" \
+            -var="image_tag=dev-aca-${{ github.run_number }}" \
+            -var="registry_server=ghcr.io" \
+            -var="registry_username=${{ github.actor }}" \
+            -var="registry_password=${{ secrets.GITHUB_TOKEN }}" \
             -var="container_app_name=${{ vars.ACA_CONTAINER_APP_NAME || 'ca-aifa-pyrit-dev' }}" \
             -var="app_env=${{ vars.APP_ENV || 'dev' }}" \
             -var="backend_api_url=${{ vars.BACKEND_API_URL || secrets.BACKEND_API_URL }}" \

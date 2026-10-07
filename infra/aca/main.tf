@@ -28,6 +28,8 @@ resource "random_string" "suffix" {
 }
 
 resource "azurerm_container_registry" "main" {
+  count = var.container_registry_enabled ? 1 : 0
+
   name                = lower(replace(var.container_registry_name, "/[^a-z0-9]/", ""))
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
@@ -47,9 +49,12 @@ resource "azurerm_container_app" "pyrit" {
     type = "SystemAssigned"
   }
 
-  secret {
-    name  = "registry-password"
-    value = azurerm_container_registry.main.admin_password
+  dynamic "secret" {
+    for_each = (var.registry_password != "" || var.container_registry_enabled) ? [1] : []
+    content {
+      name  = "registry-password"
+      value = var.registry_password != "" ? var.registry_password : azurerm_container_registry.main[0].admin_password
+    }
   }
 
   ingress {
@@ -64,8 +69,8 @@ resource "azurerm_container_app" "pyrit" {
   }
 
   registry {
-    server   = azurerm_container_registry.main.login_server
-    username = azurerm_container_registry.main.admin_username
+    server              = var.registry_server != "" ? var.registry_server : azurerm_container_registry.main[0].login_server
+    username            = var.registry_username != "" ? var.registry_username : azurerm_container_registry.main[0].admin_username
     password_secret_name = "registry-password"
   }
 
@@ -75,7 +80,7 @@ resource "azurerm_container_app" "pyrit" {
 
     container {
       name   = "pyrit"
-      image  = "${azurerm_container_registry.main.login_server}/${var.image_name}:${var.image_tag}"
+      image  = var.image_registry != "" ? "${var.image_registry}/${var.image_name}:${var.image_tag}" : "${azurerm_container_registry.main[0].login_server}/${var.image_name}:${var.image_tag}"
       cpu    = 0.5
       memory = "1Gi"
 

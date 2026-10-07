@@ -14,6 +14,11 @@ output "container_app_url" {
 }
 
 output "acr_login_server" {
-  description = "Azure Container Registry login server."
-  value       = azurerm_container_registry.main.login_server
+  description = "Azure Container Registry login server when one is provisioned; otherwise empty."
+  value       = var.container_registry_enabled ? azurerm_container_registry.main[0].login_server : ""
+}
+
+output "image_reference" {
+  description = "Resolved image reference for the deployed Container App."
+  value       = var.image_registry != "" ? "${var.image_registry}/${var.image_name}:${var.image_tag}" : (var.container_registry_enabled ? "${azurerm_container_registry.main[0].login_server}/${var.image_name}:${var.image_tag}" : "")
 }
