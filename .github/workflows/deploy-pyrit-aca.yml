@@ -2,6 +2,8 @@ name: Deploy PyRIT to Azure Container Apps
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ main ]
 
 permissions:
   id-token: write
@@ -86,29 +88,29 @@ jobs:
         shell: bash
         run: |
           set -eu
-          echo "--- Environment (sanitized) ---"
-          echo "AZURE_CLIENT_ID set: ${AZURE_CLIENT_ID:+yes}"
-          echo "AZURE_CLIENT_SECRET present: ${AZURE_CLIENT_SECRET:+yes}"
-          echo "ARM_USE_OIDC: ${ARM_USE_OIDC:-}
-          echo "--- az CLI version ---"
+          printf "--- Environment (sanitized) ---\n"
+          printf "AZURE_CLIENT_ID set: %s\n" "${AZURE_CLIENT_ID:+yes}"
+          printf "AZURE_CLIENT_SECRET present: %s\n" "${AZURE_CLIENT_SECRET:+yes}"
+          printf "ARM_USE_OIDC: %s\n" "${ARM_USE_OIDC:-}"
+          printf "--- az CLI version ---\n"
           az --version || true
 
-          echo "--- Current account (if any) ---"
+          printf "--- Current account (if any) ---\n"
           az account show || true
 
           if [ -n "${AZURE_CLIENT_SECRET:-}" ]; then
-            echo "Client secret available — attempting manual service-principal login (secret not printed)"
-            az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" --tenant "$AZURE_TENANT_ID" || echo "manual SP login failed"
+            printf "Client secret available — attempting manual service-principal login (secret not printed)\n"
+            az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" --tenant "$AZURE_TENANT_ID" || printf "manual SP login failed\n"
           else
-            echo "No client secret — attempting to get an access token via CLI (OIDC flow)"
-            az account get-access-token --resource=https://management.azure.com/ || echo "get-access-token failed"
+            printf "No client secret — attempting to get an access token via CLI (OIDC flow)\n"
+            az account get-access-token --resource=https://management.azure.com/ || printf "get-access-token failed\n"
           fi
 
-          echo "--- Attempt to list subscriptions via az CLI ---"
-          az account list -o table || echo "az account list failed or returned no subscriptions"
+          printf "--- Attempt to list subscriptions via az CLI ---\n"
+          az account list -o table || printf "az account list failed or returned no subscriptions\n"
 
-          echo "--- Attempt to list subscriptions via REST API ---"
-          az rest --method get --uri "https://management.azure.com/subscriptions?api-version=2020-01-01" -o table || echo "REST subscriptions query failed"
+          printf "--- Attempt to list subscriptions via REST API ---\n"
+          az rest --method get --uri "https://management.azure.com/subscriptions?api-version=2020-01-01" -o table || printf "REST subscriptions query failed\n"
 
       - name: Push image to ACR
         run: |
