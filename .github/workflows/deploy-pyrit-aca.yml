@@ -56,9 +56,7 @@ jobs:
     env:
       AZURE_CONTAINER_REGISTRY: ${{ vars.ACR_NAME || 'aifaevaldevacr' }}
       GHCR_IMAGE_REGISTRY: ghcr.io/${{ github.repository }}
-      GHCR_IMAGE_NAME: aifa-ai-evaluation
       GHCR_IMAGE_TAG: dev-aca-${{ github.run_number }}
-      IMAGE_NAME: aifa-ai-evaluation
       IMAGE_TAG: dev-aca-${{ github.run_number }}
       TF_STATE_RESOURCE_GROUP: ${{ secrets.TF_STATE_RESOURCE_GROUP || 'rg-aifa-ai-evaluation-tfstate' }}
       TF_STATE_STORAGE_ACCOUNT_NAME: ${{ secrets.TF_STATE_STORAGE_ACCOUNT_NAME }}
@@ -73,16 +71,19 @@ jobs:
       TF_VAR_environment_name: ${{ vars.ACA_ENVIRONMENT_NAME || 'cae-aifa-ai-evaluation-dev' }}
       TF_VAR_container_registry_enabled: false
       TF_VAR_container_registry_name: ""
-      TF_VAR_image_registry: ghcr.io/${{ github.repository }}
-      TF_VAR_image_name: aifa-ai-evaluation
+      TF_VAR_image_registry: ghcr.io
+      TF_VAR_pyrit_image_name: ${{ github.repository }}-pyrit
+      TF_VAR_frontend_image_name: ${{ github.repository }}-frontend
+      TF_VAR_promptfoo_image_name: ${{ github.repository }}-promptfoo
       TF_VAR_image_tag: dev-aca-${{ github.run_number }}
       TF_VAR_registry_server: ghcr.io
       TF_VAR_registry_username: ${{ github.actor }}
       TF_VAR_registry_password: ${{ secrets.GITHUB_TOKEN }}
-      TF_VAR_container_app_name: ${{ vars.ACA_CONTAINER_APP_NAME || 'ca-aifa-pyrit-dev' }}
+      TF_VAR_container_app_name: ${{ vars.ACA_CONTAINER_APP_NAME || 'ca-aifa-ai-evaluation-dev' }}
       TF_VAR_app_env: ${{ vars.APP_ENV || 'dev' }}
-      TF_VAR_backend_api_url: ${{ vars.BACKEND_API_URL || secrets.BACKEND_API_URL }}
+      TF_VAR_backend_api_url: ${{ vars.BACKEND_API_URL || secrets.BACKEND_API_URL || 'http://localhost:8000' }}
       TF_VAR_backend_api_timeout: ${{ vars.BACKEND_API_TIMEOUT || '30' }}
+      TF_VAR_promptfoo_run_token: ${{ secrets.PROMPTFOO_RUN_TOKEN }}
       TF_VAR_azure_openai_api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
       TF_VAR_azure_openai_endpoint: ${{ vars.AZURE_OPENAI_ENDPOINT || secrets.AZURE_OPENAI_ENDPOINT }}
       TF_VAR_azure_openai_api_version: ${{ vars.AZURE_OPENAI_API_VERSION || '2025-01-01-preview' }}
@@ -158,17 +159,20 @@ jobs:
             -var="resource_group_name=${{ vars.ACA_RESOURCE_GROUP || 'rg-aifa-ai-evaluation-aca-dev' }}" \
             -var="environment_name=${{ vars.ACA_ENVIRONMENT_NAME || 'cae-aifa-ai-evaluation-dev' }}" \
             -var="container_registry_enabled=false" \
-            -var="container_registry_name="" \
-            -var="image_registry=ghcr.io/${{ github.repository }}" \
-            -var="image_name=aifa-ai-evaluation" \
+            -var="container_registry_name=''" \
+            -var="image_registry=ghcr.io" \
+            -var="pyrit_image_name=${{ github.repository }}-pyrit" \
+            -var="frontend_image_name=${{ github.repository }}-frontend" \
+            -var="promptfoo_image_name=${{ github.repository }}-promptfoo" \
             -var="image_tag=dev-aca-${{ github.run_number }}" \
             -var="registry_server=ghcr.io" \
             -var="registry_username=${{ github.actor }}" \
             -var="registry_password=${{ secrets.GITHUB_TOKEN }}" \
-            -var="container_app_name=${{ vars.ACA_CONTAINER_APP_NAME || 'ca-aifa-pyrit-dev' }}" \
+            -var="container_app_name=${{ vars.ACA_CONTAINER_APP_NAME || 'ca-aifa-ai-evaluation-dev' }}" \
             -var="app_env=${{ vars.APP_ENV || 'dev' }}" \
-            -var="backend_api_url=${{ vars.BACKEND_API_URL || secrets.BACKEND_API_URL }}" \
+            -var="backend_api_url=${{ vars.BACKEND_API_URL || secrets.BACKEND_API_URL || 'http://localhost:8000' }}" \
             -var="backend_api_timeout=${{ vars.BACKEND_API_TIMEOUT || '30' }}" \
+            -var="promptfoo_run_token=${{ secrets.PROMPTFOO_RUN_TOKEN }}" \
             -var="azure_openai_api_key=${{ secrets.AZURE_OPENAI_API_KEY }}" \
             -var="azure_openai_endpoint=${{ vars.AZURE_OPENAI_ENDPOINT || secrets.AZURE_OPENAI_ENDPOINT }}" \
             -var="azure_openai_api_version=${{ vars.AZURE_OPENAI_API_VERSION || '2025-01-01-preview' }}" \
@@ -191,17 +195,20 @@ jobs:
             -var="resource_group_name=${{ vars.ACA_RESOURCE_GROUP || 'rg-aifa-ai-evaluation-aca-dev' }}" \
             -var="environment_name=${{ vars.ACA_ENVIRONMENT_NAME || 'cae-aifa-ai-evaluation-dev' }}" \
             -var="container_registry_enabled=false" \
-            -var="container_registry_name="" \
-            -var="image_registry=ghcr.io/${{ github.repository }}" \
-            -var="image_name=aifa-ai-evaluation" \
+            -var="container_registry_name=''" \
+            -var="image_registry=ghcr.io" \
+            -var="pyrit_image_name=${{ github.repository }}-pyrit" \
+            -var="frontend_image_name=${{ github.repository }}-frontend" \
+            -var="promptfoo_image_name=${{ github.repository }}-promptfoo" \
             -var="image_tag=dev-aca-${{ github.run_number }}" \
             -var="registry_server=ghcr.io" \
             -var="registry_username=${{ github.actor }}" \
             -var="registry_password=${{ secrets.GITHUB_TOKEN }}" \
-            -var="container_app_name=${{ vars.ACA_CONTAINER_APP_NAME || 'ca-aifa-pyrit-dev' }}" \
+            -var="container_app_name=${{ vars.ACA_CONTAINER_APP_NAME || 'ca-aifa-ai-evaluation-dev' }}" \
             -var="app_env=${{ vars.APP_ENV || 'dev' }}" \
-            -var="backend_api_url=${{ vars.BACKEND_API_URL || secrets.BACKEND_API_URL }}" \
+            -var="backend_api_url=${{ vars.BACKEND_API_URL || secrets.BACKEND_API_URL || 'http://localhost:8000' }}" \
             -var="backend_api_timeout=${{ vars.BACKEND_API_TIMEOUT || '30' }}" \
+            -var="promptfoo_run_token=${{ secrets.PROMPTFOO_RUN_TOKEN }}" \
             -var="azure_openai_api_key=${{ secrets.AZURE_OPENAI_API_KEY }}" \
             -var="azure_openai_endpoint=${{ vars.AZURE_OPENAI_ENDPOINT || secrets.AZURE_OPENAI_ENDPOINT }}" \
             -var="azure_openai_api_version=${{ vars.AZURE_OPENAI_API_VERSION || '2025-01-01-preview' }}" \

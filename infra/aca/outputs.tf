@@ -5,20 +5,30 @@ output "resource_group_name" {
 
 output "container_app_name" {
   description = "The deployed Container App name."
-  value       = azurerm_container_app.pyrit.name
+  value       = azurerm_container_app.main.name
 }
 
 output "container_app_url" {
-  description = "HTTPS URL for the PyRIT Container App."
-  value       = "https://${azurerm_container_app.pyrit.latest_revision_fqdn}"
+  description = "HTTPS URL for the frontend Container App entry point."
+  value       = "https://${azurerm_container_app.main.latest_revision_fqdn}"
+}
+
+output "pyrit_image_reference" {
+  description = "Resolved image reference for the PyRIT container."
+  value       = local.pyrit_image
+}
+
+output "frontend_image_reference" {
+  description = "Resolved image reference for the frontend container."
+  value       = local.frontend_image
+}
+
+output "promptfoo_image_reference" {
+  description = "Resolved image reference for the Promptfoo container."
+  value       = local.promptfoo_image
 }
 
 output "acr_login_server" {
   description = "Azure Container Registry login server when one is provisioned; otherwise empty."
   value       = var.container_registry_enabled ? azurerm_container_registry.main[0].login_server : ""
-}
-
-output "image_reference" {
-  description = "Resolved image reference for the deployed Container App."
-  value       = var.image_registry != "" ? "${var.image_registry}/${var.image_name}:${var.image_tag}" : (var.container_registry_enabled ? "${azurerm_container_registry.main[0].login_server}/${var.image_name}:${var.image_tag}" : "")
 }

@@ -38,7 +38,13 @@ resource "azurerm_container_registry" "main" {
   tags                = var.common_tags
 }
 
-resource "azurerm_container_app" "pyrit" {
+locals {
+  pyrit_image = var.image_registry != "" ? "${var.image_registry}/${var.pyrit_image_name}:${var.image_tag}" : "${azurerm_container_registry.main[0].login_server}/${var.pyrit_image_name}:${var.image_tag}"
+  frontend_image = var.image_registry != "" ? "${var.image_registry}/${var.frontend_image_name}:${var.image_tag}" : "${azurerm_container_registry.main[0].login_server}/${var.frontend_image_name}:${var.image_tag}"
+  promptfoo_image = var.image_registry != "" ? "${var.image_registry}/${var.promptfoo_image_name}:${var.image_tag}" : "${azurerm_container_registry.main[0].login_server}/${var.promptfoo_image_name}:${var.image_tag}"
+}
+
+resource "azurerm_container_app" "main" {
   name                         = var.container_app_name
   container_app_environment_id = azurerm_container_app_environment.main.id
   resource_group_name          = azurerm_resource_group.main.name
@@ -59,7 +65,7 @@ resource "azurerm_container_app" "pyrit" {
 
   ingress {
     external_enabled = true
-    target_port      = 8000
+    target_port      = 80
     transport        = "auto"
 
     traffic_weight {
@@ -79,8 +85,30 @@ resource "azurerm_container_app" "pyrit" {
     max_replicas = 2
 
     container {
+      name   = "frontend"
+      image  = local.frontend_image
+      cpu    = 0.25
+      memory = "0.5Gi"
+
+      env {
+        name  = "PORT"
+        value = "80"
+      }
+
+      env {
+        name  = "APP_ENV"
+        value = var.app_env
+      }
+
+      env {
+        name  = "BACKEND_API_URL"
+        value = "http://localhost:8000"
+      }
+    }
+
+    container {
       name   = "pyrit"
-      image  = var.image_registry != "" ? "${var.image_registry}/${var.image_name}:${var.image_tag}" : "${azurerm_container_registry.main[0].login_server}/${var.image_name}:${var.image_tag}"
+      image  = local.pyrit_image
       cpu    = 0.5
       memory = "1Gi"
 
@@ -152,6 +180,68 @@ resource "azurerm_container_app" "pyrit" {
       env {
         name  = "AZURE_STORAGE_CONTAINER_NAME"
         value = var.azure_storage_container_name
+      }
+    }
+
+    container {
+      name   = "promptfoo"
+      image  = local.promptfoo_image
+      cpu    = 0.5
+      memory = "1Gi"
+
+      env {
+        name  = "PORT"
+        value = "8001"
+      }
+
+      env {
+        name  = "APP_ENV"
+        value = var.app_env
+      }
+
+      env {
+        name  = "BACKEND_API_URL"
+        value = "http://localhost:8000"
+      }
+
+      env {
+        name  = "PROMPTFOO_RUN_TOKEN"
+        value = var.promptfoo_run_token
+      }
+
+      env {
+        name  = "AZURE_OPENAI_API_KEY"
+        value = var.azure_openai_api_key
+      }
+
+      env {
+        name  = "AZURE_OPENAI_ENDPOINT"
+        value = var.azure_openai_endpoint
+      }
+
+      env {
+        name  = "AZURE_OPENAI_API_VERSION"
+        value = var.azure_openai_api_version
+      }
+
+      env {
+        name  = "AZURE_OPENAI_DEPLOYMENT"
+        value = var.azure_openai_deployment
+      }
+
+      env {
+        name  = "ADVERSARIAL_OPENAI_API_KEY"
+        value = var.adversarial_openai_api_key
+      }
+
+      env {
+        name  = "ADVERSARIAL_OPENAI_ENDPOINT"
+        value = var.adversarial_openai_endpoint
+      }
+
+      env {
+        name  = "ADVERSARIAL_OPENAI_DEPLOYMENT"
+        value = var.adversarial_openai_deployment
       }
     }
   }

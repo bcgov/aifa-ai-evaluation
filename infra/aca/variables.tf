@@ -59,19 +59,31 @@ variable "container_registry_name" {
 }
 
 variable "image_registry" {
-  description = "Optional image registry host, for example ghcr.io/bcgov/aifa-ai-evaluation. If blank, defaults to the Azure Container Registry login server."
+  description = "Image registry host, for example ghcr.io. If blank, defaults to the Azure Container Registry login server."
   type        = string
   default     = ""
 }
 
-variable "image_name" {
-  description = "Image name stored in the selected registry."
+variable "pyrit_image_name" {
+  description = "Image repository name for the PyRIT service, such as bcgov/aifa-ai-evaluation-pyrit."
   type        = string
-  default     = "aifa-pyrit"
+  default     = "aifa-ai-evaluation-pyrit"
+}
+
+variable "frontend_image_name" {
+  description = "Image repository name for the frontend service."
+  type        = string
+  default     = "aifa-ai-evaluation-frontend"
+}
+
+variable "promptfoo_image_name" {
+  description = "Image repository name for the Promptfoo service."
+  type        = string
+  default     = "aifa-ai-evaluation-promptfoo"
 }
 
 variable "image_tag" {
-  description = "Image tag for the PyRIT service."
+  description = "Shared image tag for the multi-container service set."
   type        = string
   default     = "latest"
 }
@@ -105,6 +117,13 @@ variable "backend_api_url" {
   description = "Hosted AI Form Assist backend endpoint used by the evaluation app."
   type        = string
   default     = "http://localhost:8000"
+}
+
+variable "promptfoo_run_token" {
+  description = "Optional token required to invoke the Promptfoo runner endpoint."
+  type        = string
+  default     = ""
+  sensitive   = true
 }
 
 variable "backend_api_timeout" {

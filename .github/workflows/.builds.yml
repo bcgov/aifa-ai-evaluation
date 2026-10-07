@@ -43,7 +43,7 @@ jobs:
         env:
           BUILD_CONTEXT: ${{ inputs.build_context }}
           BUILD_FILE: ${{ inputs.build_file }}
-          REPO: ghcr.io/${{ github.repository }}
+          REPO_BASE: ghcr.io/${{ github.repository }}
           TAGS: ${{ inputs.tags }}
         run: |
           set -euo pipefail
@@ -58,14 +58,45 @@ jobs:
             BUILD_FILE="./Dockerfile"
           fi
 
-          # Normalize tags into an array; add run number tag as fallback
-          IFS=$'\n' read -r -d '' -a tag_array <<< "$TAGS" || true
-          tag_array+=("run-${{ github.run_number }}")
-          for t in "${tag_array[@]}"; do
-            t=$(echo "$t" | xargs)
-            if [ -z "$t" ]; then
-              continue
+          # Normalize tags, deduplicate and add run number as fallback.
+          declare -a tag_array=()
+          while IFS= read -r tag; do
+            tag="${tag//[$'\r\n']/}"
+            tag="$(echo "$tag" | xargs)"
+            if [ -n "$tag" ]; then
+              tag_array+=("$tag")
             fi
-            echo "Building and pushing: $REPO:$t"
-            docker buildx build --push --platform linux/amd64 --tag "$REPO:$t" --file "$BUILD_FILE" "$BUILD_CONTEXT"
+          done <<< "$TAGS"
+          tag_array+=("run-${{ github.run_number }}")
+
+          declare -A seen=()
+          unique_tags=()
+          for tag in "${tag_array[@]}"; do
+            if [ -n "$tag" ] && [[ -z "${seen[$tag]:-}" ]]; then
+              seen["$tag"]=1
+              unique_tags+=("$tag")
+            fi
+          done
+
+          for service in pyrit frontend promptfoo; do
+            case "$service" in
+              pyrit)
+                service_context="."
+                service_file="aifa_pyrit/Dockerfile"
+                ;;
+              frontend)
+                service_context="./frontend-common"
+                service_file="./frontend-common/Dockerfile"
+                ;;
+              promptfoo)
+                service_context="./promptfoo"
+                service_file="./promptfoo/Dockerfile"
+                ;;
+            esac
+
+            for tag in "${unique_tags[@]}"; do
+              image="${REPO_BASE}-${service}:${tag}"
+              echo "Building and pushing: $image"
+              docker buildx build --push --platform linux/amd64 --tag "$image" --file "$service_file" "$service_context"
+            done
           done
