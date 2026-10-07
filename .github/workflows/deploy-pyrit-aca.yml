@@ -124,6 +124,28 @@ jobs:
             -backend-config="key=${TF_STATE_KEY}" \
             -backend-config="access_key=${TF_STATE_ACCESS_KEY}"
 
+      - name: Adopt existing resource group if present
+        working-directory: infra/aca
+        shell: bash
+        run: |
+          set -euo pipefail
+          RG_NAME="${TF_VAR_resource_group_name:-rg-aifa-ai-evaluation-aca-dev}"
+          if az group exists --name "$RG_NAME" >/tmp/rg_exists.json; then
+            if [ "$(cat /tmp/rg_exists.json)" = "true" ]; then
+              RG_ID="$(az group show --name "$RG_NAME" --query id -o tsv)"
+              if ! terraform state list | grep -q '^azurerm_resource_group.main$'; then
+                echo "Importing existing resource group '$RG_NAME' into Terraform state..."
+                terraform import azurerm_resource_group.main "$RG_ID"
+              else
+                echo "Resource group '$RG_NAME' is already in Terraform state."
+              fi
+            else
+              echo "Resource group '$RG_NAME' does not exist yet; Terraform will create it."
+            fi
+          else
+            echo "Unable to determine whether resource group '$RG_NAME' exists; continuing."
+          fi
+
       - name: Terraform plan
         if: inputs.command == 'plan' || github.event_name == 'push'
         working-directory: infra/aca
