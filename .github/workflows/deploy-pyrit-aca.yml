@@ -1,4 +1,4 @@
-name: Deploy PyRIT to Azure Container Apps
+name: Deploy to ACA
 
 on:
   workflow_dispatch:
