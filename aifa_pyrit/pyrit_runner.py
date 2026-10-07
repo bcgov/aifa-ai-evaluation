@@ -15,7 +15,7 @@ from io import StringIO
 import structlog
 from aifa_pyrit.config import ensure_azure_openai_v1_endpoint, normalize_azure_openai_endpoint, settings
 from aifa_pyrit.custom_backend_target import CustomBackendTarget
-from aifa_pyrit.crescendo_step_capture import CrescendoMemoryTracer
+from aifa_pyrit.crescendo_step_capture import CrescendoMemoryTracer, message_role, message_text
 from aifa_pyrit.custom_backend_target import BACKEND_META_MARKER
 from aifa_pyrit.storage import get_report_store
 
@@ -127,8 +127,8 @@ class PyRITRunner:
         user_message = None
 
         for msg in messages:
-            role = getattr(msg, "api_role", getattr(msg, "role", ""))
-            content = getattr(msg, "converted_value", "") or getattr(msg, "original_value", "")
+            role = message_role(msg)
+            content = message_text(msg)
 
             if role == "user":
                 user_message = content
@@ -136,8 +136,8 @@ class PyRITRunner:
                 response_text, backend_meta = PyRITRunner._split_response_and_backend_meta(str(content))
                 turns.append(
                     {
-                        "prompt": str(user_message)[:500],
-                        "response": response_text[:500],
+                        "prompt": str(user_message)[:2000],
+                        "response": response_text[:2000],
                         "outcome": str(outcome),
                         **backend_meta,
                     }
@@ -466,11 +466,11 @@ class PyRITRunner:
         )
 
         if memory:
-            turns = self._try_extract_adversarial_turns(memory, adversarial_conv_ids, outcome)
+            turns = self._try_extract_objective_turns(memory, conversation_id, executed_turns, outcome)
             if turns:
                 return turns
 
-            turns = self._try_extract_objective_turns(memory, conversation_id, executed_turns, outcome)
+            turns = self._try_extract_adversarial_turns(memory, adversarial_conv_ids, outcome)
             if turns:
                 return turns
 
