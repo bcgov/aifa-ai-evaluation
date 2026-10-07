@@ -83,19 +83,22 @@ jobs:
               pyrit)
                 service_context="."
                 service_file="aifa_pyrit/Dockerfile"
+                package_name="aifa-ai-evaluation-pyrit"
                 ;;
               frontend)
                 service_context="./frontend-common"
                 service_file="./frontend-common/Dockerfile"
+                package_name="aifa-ai-evaluation-frontend"
                 ;;
               promptfoo)
                 service_context="./promptfoo"
                 service_file="./promptfoo/Dockerfile"
+                package_name="aifa-ai-evaluation-promptfoo"
                 ;;
             esac
 
             for tag in "${unique_tags[@]}"; do
-              image="${REPO_BASE}-${service}:${tag}"
+              image="${REPO_BASE}/${package_name}:${tag}"
               echo "Building and pushing: $image"
               docker buildx build --push --platform linux/amd64 --tag "$image" --file "$service_file" "$service_context"
             done

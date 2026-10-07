@@ -71,10 +71,10 @@ jobs:
       TF_VAR_environment_name: ${{ vars.ACA_ENVIRONMENT_NAME || 'cae-aifa-ai-evaluation-dev' }}
       TF_VAR_container_registry_enabled: false
       TF_VAR_container_registry_name: ""
-      TF_VAR_image_registry: ghcr.io
-      TF_VAR_pyrit_image_name: ${{ github.repository }}-pyrit
-      TF_VAR_frontend_image_name: ${{ github.repository }}-frontend
-      TF_VAR_promptfoo_image_name: ${{ github.repository }}-promptfoo
+      TF_VAR_image_registry: ghcr.io/${{ github.repository }}
+      TF_VAR_pyrit_image_name: aifa-ai-evaluation-pyrit
+      TF_VAR_frontend_image_name: aifa-ai-evaluation-frontend
+      TF_VAR_promptfoo_image_name: aifa-ai-evaluation-promptfoo
       TF_VAR_image_tag: dev-aca-${{ github.run_number }}
       TF_VAR_registry_server: ghcr.io
       TF_VAR_registry_username: ${{ github.actor }}
