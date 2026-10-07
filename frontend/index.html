@@ -344,6 +344,7 @@
               <select id="mode">
                 <option value="scan">Run PyRIT scan</option>
                 <option value="seed">Run seed attack</option>
+                <option value="promptfoo">Run Promptfoo eval</option>
               </select>
             </div>
 
@@ -384,6 +385,20 @@
               <div class="field">
                 <label for="limitSeeds">Limit seeds</label>
                 <input id="limitSeeds" type="number" min="1" placeholder="optional" />
+              </div>
+            </div>
+
+            <div id="promptfoo-config" style="display:none;">
+              <div class="field">
+                <label for="promptfooToken">Promptfoo run token (optional)</label>
+                <input id="promptfooToken" placeholder="If set on server, provide x-run-token header" />
+              </div>
+              <div class="field">
+                <label for="promptfooWait">Wait for results</label>
+                <select id="promptfooWait">
+                  <option value="true">Yes (wait for POST to finish)</option>
+                  <option value="false">No (run async if supported)</option>
+                </select>
               </div>
             </div>
 
@@ -484,12 +499,16 @@
     </div>
 
     <script>
+      // Frontend controller: load reports, toggle UI, and run attacks
       const reportListEl = document.getElementById('reportList');
+      const promptfooTokenEl = document.getElementById('promptfooToken');
+      const promptfooWaitEl = document.getElementById('promptfooWait');
       const outputEl = document.getElementById('output');
       const systemStatusEl = document.getElementById('systemStatus');
       const modeEl = document.getElementById('mode');
       const scanConfigEl = document.getElementById('scan-config');
       const seedConfigEl = document.getElementById('seed-config');
+      const promptfooConfigEl = document.getElementById('promptfoo-config');
       const reportCountEl = document.getElementById('reportCount');
       const successCountEl = document.getElementById('successCount');
       const errorCountEl = document.getElementById('errorCount');
@@ -509,169 +528,137 @@
       const attackDrilldownEl = document.getElementById('attackDrilldown');
       const categoryScoresEl = document.getElementById('categoryScores');
 
-      function renderBarChart(containerEl, items, maxValue) {
+      function setOutput(text) {
+        outputEl.innerHTML = `<pre>${typeof text === 'string' ? text : JSON.stringify(text, null, 2)}</pre>`;
+      }
+
+      function toggleMode() {
+        const mode = modeEl.value;
+        scanConfigEl.style.display = mode === 'scan' ? '' : 'none';
+        seedConfigEl.style.display = mode === 'seed' ? '' : 'none';
+        promptfooConfigEl.style.display = mode === 'promptfoo' ? '' : 'none';
+      }
+
+      function renderBarChart(containerEl, items) {
+        if (!containerEl) return;
         if (!items || !items.length) {
           containerEl.innerHTML = '<div class="muted">No data available.</div>';
           return;
         }
-
-        const highest = maxValue || Math.max(...items.map(item => Number(item.count || 0)), 1);
+        const highest = Math.max(...items.map(i => Number(i.count || 0)), 1);
         containerEl.innerHTML = items.map(item => {
           const count = Number(item.count || 0);
-          const percent = Math.max((count / highest) * 100, count > 0 ? 16 : 0);
+          const percent = Math.max((count / highest) * 100, count > 0 ? 8 : 0);
           return `
             <div class="bar-row">
               <div class="bar-meta"><span>${String(item.name || 'unknown')}</span><strong>${count}</strong></div>
               <div class="bar-track"><div class="bar-fill" style="width:${percent}%"></div></div>
-            </div>
-          `;
+            </div>`;
         }).join('');
       }
 
       function renderScoreBadges(items) {
-        if (!items || !items.length) {
-          categoryScoresEl.innerHTML = '<div class="muted">No category scores available.</div>';
-          return;
-        }
-
-        categoryScoresEl.innerHTML = items.map(item => {
-          const total = Number(item.count || 0);
-          const success = Number(item.success_count || 0);
-          const score = total ? Math.round((success / total) * 100) : 0;
-          const label = score >= 70 ? 'Low risk' : score >= 45 ? 'Medium risk' : 'High risk';
-          const badgeTone = score >= 70 ? '#22c55e' : score >= 45 ? '#f59e0b' : '#f87171';
-          return `
-            <div class="score-badge" style="border-color:${badgeTone}33; background:${badgeTone}1A; color:${badgeTone};">
-              <strong>${String(item.name || 'unknown')}</strong>
-              <span>${score}%</span>
-              <span>(${label})</span>
-            </div>
-          `;
-        }).join('');
+        if (!categoryScoresEl) return;
+        if (!items || !items.length) { categoryScoresEl.innerHTML = '<div class="muted">No category scores available.</div>'; return; }
+        categoryScoresEl.innerHTML = items.map(item => `<div class="score-badge"><strong>${item.name}</strong><span>${item.count || 0}</span></div>`).join('');
       }
 
       function renderDrilldown(items) {
-        if (!items || !items.length) {
-          attackDrilldownEl.innerHTML = '<li class="muted">No attack drill-down available.</li>';
-          return;
-        }
-
-        attackDrilldownEl.innerHTML = items.slice(0, 17).map((item, index) => {
-          const attackType = String(item.attack_type || 'unknown');
-          const query = String(item.query || 'No query available');
-          const response = String(item.response_preview || 'No response preview available');
-          const turnCount = Number(item.turn_count || 0);
-          return `
-            <li class="drilldown-item ${index === 0 ? 'open' : ''}">
-              <button class="drilldown-toggle" type="button">
-                <div><strong>${attackType}</strong> · ${turnCount} turns</div>
-                <div class="muted">${query.slice(0, 120)}</div>
-              </button>
-              <div class="drilldown-details">
-                <div class="muted">${response.slice(0, 220)}</div>
-              </div>
-            </li>
-          `;
-        }).join('');
-
-        attackDrilldownEl.querySelectorAll('.drilldown-toggle').forEach(button => {
-          button.addEventListener('click', () => {
-            const item = button.closest('.drilldown-item');
-            item.classList.toggle('open');
-          });
-        });
-      }
-
-      function renderInsightPanels(insights) {
-        const outcomeItems = insights?.outcome_distribution || [];
-        const attackItems = insights?.attack_breakdown || [];
-        const drilldownItems = insights?.case_drilldown || [];
-        const scoreItems = (attackItems || []).map(item => ({
-          name: item.name,
-          count: item.count,
-          success_count: item.queries ? Math.max(0, item.count - Math.ceil(item.count * 0.4)) : item.count,
-        }));
-
-        renderBarChart(outcomeChartEl, outcomeItems);
-        renderBarChart(attackChartEl, attackItems);
-        renderScoreBadges(scoreItems);
-        renderDrilldown(drilldownItems);
+        if (!attackDrilldownEl) return;
+        if (!items || !items.length) { attackDrilldownEl.innerHTML = '<li class="muted">No attack drill-down available.</li>'; return; }
+        attackDrilldownEl.innerHTML = items.slice(0, 17).map((it, idx) => `
+          <li class="drilldown-item ${idx===0?'open':''}">
+            <button class="drilldown-toggle" type="button"><div><strong>${it.attack_type||it.name||'unknown'}</strong> · ${it.turn_count||0} turns</div><div class="muted">${(it.query||'').slice(0,120)}</div></button>
+            <div class="drilldown-details"><div class="muted">${(it.response_preview||'').slice(0,220)}</div></div>
+          </li>`).join('');
+        attackDrilldownEl.querySelectorAll('.drilldown-toggle').forEach(b => b.addEventListener('click', e => b.closest('.drilldown-item').classList.toggle('open')));
       }
 
       function renderResultRows(report) {
+        if (!detailResultContentEl) return;
         const rows = Array.isArray(report?.results) ? report.results : [];
-        if (!rows.length) {
-          detailResultContentEl.innerHTML = '<div class="muted">No result rows available.</div>';
-          return;
-        }
-
-        detailResultContentEl.innerHTML = rows.map((item, index) => {
-          const attackType = item.attack_type || 'unknown';
-          const query = item.query || item.prompt || item.case_name || `Result ${index + 1}`;
-          const outcome = item.outcome || item.status || 'unknown';
-          const response = item.response || item.response_preview || item.summary || 'No response';
-          const turns = Array.isArray(item.turns) ? item.turns : (Array.isArray(item.results?.turns) ? item.results.turns : []);
-          const turnText = turns.length ? `${turns.length} turns` : 'single result';
-          return `
-            <div class="drilldown-item open" style="padding: 12px 0;">
-              <button class="drilldown-toggle" type="button">
-                <div><strong>${String(attackType)}</strong> · ${turnText}</div>
-                <div class="muted">${String(query).slice(0, 110)}</div>
-              </button>
-              <div class="drilldown-details" style="display:block;">
-                <div><span class="status ${outcome && String(outcome).toLowerCase().includes('success') ? 'success' : outcome && String(outcome).toLowerCase().includes('error') ? 'danger' : 'warning'}" style="margin-bottom: 6px; display:inline-block;">${String(outcome)}</span></div>
-                <div class="muted">${String(response).slice(0, 220)}</div>
-              </div>
-            </div>
-          `;
-        }).join('');
+        if (!rows.length) { detailResultContentEl.innerHTML = '<div class="muted">No result rows available.</div>'; return; }
+        detailResultContentEl.innerHTML = rows.map((item, i) => `
+          <div class="drilldown-item open"><button class="drilldown-toggle"><div><strong>${item.attack_type||'unknown'}</strong></div><div class="muted">${(item.query||item.prompt||'').slice(0,120)}</div></button><div class="drilldown-details"><div class="muted">${(item.response||'').slice(0,220)}</div></div></div>`).join('');
       }
 
-      async function setOutput(message) {
-        outputEl.innerHTML = `<pre>${message}</pre>`;
-      }
-
-      function toggleMode() {
-        const value = modeEl.value;
-        scanConfigEl.style.display = value === 'scan' ? 'block' : 'none';
-        seedConfigEl.style.display = value === 'seed' ? 'block' : 'none';
+      function renderInsightPanels(insights) {
+        renderBarChart(outcomeChartEl, insights?.outcome_distribution || []);
+        renderBarChart(attackChartEl, insights?.attack_breakdown || []);
+        renderScoreBadges((insights?.attack_breakdown || []).map(a=>({name:a.name,count:a.count})));
+        renderDrilldown(insights?.case_drilldown || []);
       }
 
       async function loadReports() {
         try {
-          const [reportsResponse, summaryResponse] = await Promise.all([
-            fetch('/api/reports'),
-            fetch('/api/reports/summary')
-          ]);
+          const [reportsResp, summaryResp] = await Promise.all([fetch('/api/reports'), fetch('/api/reports/summary')]);
+          const reports = await reportsResp.json();
+          const summary = await summaryResp.json().catch(()=>({}));
+          reportCountEl.textContent = String(summary.total_reports||reports.length||0);
+          successCountEl.textContent = String(summary.successful_reports||0);
+          errorCountEl.textContent = String(summary.error_reports||0);
+          lastRunEl.textContent = summary.last_updated ? new Date(summary.last_updated).toLocaleString() : '—';
 
-          const reports = await reportsResponse.json();
-          const summary = await summaryResponse.json();
-
-          const filterValue = reportStatusFilterEl.value;
-          const searchValue = (reportSearchEl.value || '').trim().toLowerCase();
-          const filteredReports = reports.filter(report => {
-            const status = String(report.summary.status || 'unknown');
-            const matchesStatus = filterValue === 'all' || status.toLowerCase() === filterValue;
-            const matchesSearch = !searchValue || report.name.toLowerCase().includes(searchValue) || status.toLowerCase().includes(searchValue);
-            return matchesStatus && matchesSearch;
+          const search = (reportSearchEl.value||'').toLowerCase();
+          const statusFilter = reportStatusFilterEl.value || 'all';
+          const filtered = reports.filter(r=>{
+            if (statusFilter!=='all' && String(r.summary.status||'').toLowerCase()!==statusFilter) return false;
+            if (!search) return true;
+            return r.name.toLowerCase().includes(search) || JSON.stringify(r.summary||{}).toLowerCase().includes(search);
           });
 
-          reportCountEl.textContent = String(filteredReports.length);
-          successCountEl.textContent = String(summary.successful_reports || 0);
-          errorCountEl.textContent = String(summary.error_reports || 0);
-          if (filteredReports.length > 0) {
-            lastRunEl.textContent = new Date(filteredReports[0].updated_at).toLocaleTimeString();
-          } else if (reports.length > 0) {
-            lastRunEl.textContent = new Date(reports[0].updated_at).toLocaleTimeString();
-          } else {
-            lastRunEl.textContent = '—';
-          }
+          reportListEl.innerHTML = filtered.slice(0,8).map(r=>{
+            const status = String(r.summary.status||'unknown');
+            const css = status==='ok'?'success':status==='unreadable'?'warning':'danger';
+            return `<div class="report-item"><div class="report-item-header"><div><div><strong>${r.name}</strong></div><div class="muted">${new Date(r.updated_at).toLocaleString()}</div></div><div class="status ${css}">${status}</div></div><div class="muted" style="margin-top:8px;">${Number(r.summary.total_turns||0)} turns · ${Number(r.summary.total_cases||0)} cases</div><div class="report-actions"><button data-name="${r.name}" data-action="view">View report</button><button class="ghost-button" data-name="${r.name}" data-action="export">Export JSON</button></div></div>`;
+          }).join('');
 
-          if (!filteredReports.length) {
-            reportListEl.innerHTML = '<div class="report-item muted">No matching reports found.</div>';
-            return;
-          }
+          reportListEl.querySelectorAll('button[data-name]').forEach(btn=>btn.addEventListener('click', async (e)=>{
+            const name = btn.dataset.name, action = btn.dataset.action;
+            if (action==='export') {
+              const rep = await fetch(`/api/reports/${name}`).then(r=>r.json());
+              const blob = new Blob([JSON.stringify(rep,null,2)],{type:'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download=name; a.click(); URL.revokeObjectURL(url); return;
+            }
+            const [report, insights] = await Promise.all([fetch(`/api/reports/${name}`).then(r=>r.json()), fetch(`/api/reports/${name}/insights`).then(r=>r.json())]);
+            detailAttackEl.textContent = insights.report_metadata.attack_type || 'unknown';
+            detailTurnsEl.textContent = String(insights.summary.turn_count||0);
+            detailSuccessEl.textContent = String(insights.summary.successful_turns||0);
+            detailErrorsEl.textContent = String(insights.summary.error_count||0);
+            detailTimestampEl.textContent = insights.report_metadata.timestamp||'Unknown timestamp';
+            renderResultRows(report); renderInsightPanels(insights);
+            detailTimelineEl.innerHTML = (insights.execution_timeline||insights.timeline||[]).map(entry=>`<li><div><strong>Step ${entry.step}</strong> · ${entry.attack_type||'unknown'} · ${entry.outcome||'unknown'}</div><div class="muted">${(entry.query||entry.prompt||'').slice(0,120)}</div></li>`).join('') || '<li><div class="muted">No turn-by-turn details available.</div></li>';
+            reportDetailEl.style.display = 'block'; setOutput(report);
+          }));
 
+        } catch (err) { systemStatusEl.textContent='Error'; setOutput(`Unable to load reports: ${err.message||err}`); }
+      }
+
+      async function runScan() {
+        const mode = modeEl.value; setOutput('Starting attack...'); systemStatusEl.textContent='Running';
+        try {
+          if (mode==='promptfoo') {
+            const token = (promptfooTokenEl.value||'').trim(); const headers = token?{'x-run-token':token}:{ };
+            const resp = await fetch('/api/run-promptfoo',{method:'POST', headers}); const body = await resp.json().catch(()=>({})); if (!resp.ok) throw new Error(body.detail||JSON.stringify(body)); systemStatusEl.textContent='Promptfoo finished'; await loadReports(); setOutput(body); return;
+          }
+          let endpoint='/api/run-scan'; let payload={ attack_type: document.getElementById('attackType').value, use_file:true, threat_models: document.getElementById('threatModels').value, cases: document.getElementById('caseFilter').value||null, max_iterations: Number(document.getElementById('maxIterations').value||5) };
+          if (mode==='seed') { endpoint='/api/run-seed-attack'; payload={ datasets: document.getElementById('seedDatasets').value||null, limit_seeds: document.getElementById('limitSeeds').value?Number(document.getElementById('limitSeeds').value):null, verbose:true }; }
+          const response = await fetch(endpoint,{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+          const result = await response.json(); if (!response.ok) throw new Error(result.detail||JSON.stringify(result)); setOutput({status:result.status, report: result.report_name||null, summary: result.summary||{}}); await loadReports(); systemStatusEl.textContent='Ready';
+        } catch (err) { systemStatusEl.textContent='Error'; setOutput(`Attack failed: ${err.message||err}`); }
+      }
+
+      // Wire controls
+      document.getElementById('runButton').addEventListener('click', runScan);
+      document.getElementById('refreshButton').addEventListener('click', loadReports);
+      modeEl.addEventListener('change', toggleMode);
+      reportSearchEl.addEventListener('input', () => loadReports());
+      reportStatusFilterEl.addEventListener('change', () => loadReports());
+
+      // Init
+      (function init(){ toggleMode(); loadReports(); systemStatusEl.textContent='Ready'; setOutput('Ready to run a scan.'); })();
+    </script>
+  </body>
+</html>
           reportListEl.innerHTML = filteredReports.slice(0, 8).map(report => {
             const status = String(report.summary.status || 'unknown');
             const cssClass = status === 'ok' ? 'success' : status === 'unreadable' ? 'warning' : 'danger';
@@ -781,26 +768,3 @@
           systemStatusEl.textContent = 'Running';
           setOutput(JSON.stringify({
             status: result.status,
-            report_name: result.report_name,
-            summary: result.summary,
-            result: result.result || result.results || null,
-          }, null, 2));
-
-          await loadReports();
-          systemStatusEl.textContent = 'Healthy';
-        } catch (error) {
-          systemStatusEl.textContent = 'Error';
-          setOutput(`Error: ${error.message}`);
-        }
-      }
-
-      modeEl.addEventListener('change', toggleMode);
-      reportSearchEl.addEventListener('input', loadReports);
-      reportStatusFilterEl.addEventListener('change', loadReports);
-      document.getElementById('runButton').addEventListener('click', runScan);
-      document.getElementById('refreshButton').addEventListener('click', loadReports);
-      toggleMode();
-      loadReports();
-    </script>
-  </body>
-</html>

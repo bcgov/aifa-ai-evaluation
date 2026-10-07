@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: aifa_pyrit/Dockerfile
+    image: aifa-backend:local
+    container_name: aifa-backend
+    ports:
+      - "8011:8011"
+    environment:
+      - PROMPTFOO_RUN_TOKEN=${PROMPTFOO_RUN_TOKEN:-}
+    volumes:
+      - ./results:/app/results
+      - ./results-promptfoo:/app/results-promptfoo
+      - ./data:/app/data
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend-common
+    image: aifa-frontend:local
+    container_name: aifa-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  promptfoo:
+    build: ./promptfoo
+    image: aifa-promptfoo-runner:local
+    container_name: aifa-promptfoo
+    command: ["./run_promptfoo_eval.sh"]
+    volumes:
+      - ./results-promptfoo:/app/results-promptfoo
+      - ./promptfoo:/app/promptfoo
+      - ./aifa_pyrit:/app/aifa_pyrit
+    depends_on:
+      - backend
+    restart: "no"

@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -18,8 +19,12 @@ from aifa_pyrit.storage import get_report_store
 BASE_DIR = Path(__file__).resolve().parents[1]
 RESULTS_DIR = BASE_DIR / "results"
 RESULTS_DIR.mkdir(exist_ok=True, parents=True)
-FRONTEND_DIR = Path(__file__).resolve().parent / "frontend"
+FRONTEND_DIR = BASE_DIR / "frontend"
 REPORT_STORE = get_report_store()
+PROMPTFOO_SCRIPT = BASE_DIR / "promptfoo" / "run_promptfoo_eval.sh"
+PROMPTFOO_RESULT = BASE_DIR / "results-promptfoo" / "promptfoo-report.json"
+PROMPTFOO_RUN_TOKEN = os.getenv("PROMPTFOO_RUN_TOKEN")
+PROMPTFOO_LOCK = asyncio.Lock()
 
 AttackType = Literal["PromptSending", "Crescendo", "MultiTurn", "RedTeaming", "PromptSeed"]
 
@@ -365,6 +370,76 @@ async def run_seed_attack(request: RunSeedAttackRequest) -> dict[str, Any]:
         "summary": _summarize_report(result),
         "result": result,
     }
+
+
+@app.post("/api/run-promptfoo")
+async def run_promptfoo(request: Request) -> dict[str, Any]:
+    # Optional token-based auth: set PROMPTFOO_RUN_TOKEN env var to require X-Run-Token header
+    if PROMPTFOO_RUN_TOKEN:
+        header = request.headers.get("x-run-token")
+        if not header or header != PROMPTFOO_RUN_TOKEN:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
+    # Run the promptfoo orchestration script and collect the produced report
+    if not PROMPTFOO_SCRIPT.exists():
+        raise HTTPException(status_code=404, detail="Promptfoo runner not found")
+
+    # Ensure results-promptfoo dir exists
+    PROMPTFOO_RESULT.parent.mkdir(exist_ok=True, parents=True)
+
+    async with PROMPTFOO_LOCK:
+        proc = await asyncio.create_subprocess_exec(
+            str(PROMPTFOO_SCRIPT),
+            cwd=str(PROMPTFOO_SCRIPT.parent),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=900)
+        except asyncio.TimeoutError:
+            proc.kill()
+            raise HTTPException(status_code=504, detail="Promptfoo run timed out")
+
+            # If the runner returns a non-zero code but produced a usable result
+            # file, continue and return that report (the Promptfoo process may
+            # emit non-fatal errors such as telemetry shutdown timeouts). Only
+            # fail if no output file was produced.
+            stdout, stderr = stdout or b"", stderr or b""
+            stderr_text = stderr.decode(errors='replace')[:2000]
+            if proc.returncode != 0 and not PROMPTFOO_RESULT.exists():
+                msg = stderr_text[:500]
+                raise HTTPException(status_code=500, detail=f"Promptfoo failed: {msg}")
+
+    if not PROMPTFOO_RESULT.exists():
+        raise HTTPException(status_code=500, detail="Promptfoo did not produce a result file")
+
+    try:
+        data = json.loads(PROMPTFOO_RESULT.read_text(encoding='utf-8'))
+    except Exception as exc:
+        # If the JSON is invalid but the file exists, return a readable error
+        # message and include the raw text so the frontend can show partial
+        # information instead of failing entirely.
+        raw = PROMPTFOO_RESULT.read_text(encoding='utf-8', errors='replace')
+        return {
+            "status": "success_with_warnings",
+            "report_name": PROMPTFOO_RESULT.name,
+            "summary": {"status": "unreadable"},
+            "raw": raw[:10000],
+            "stderr": stderr_text,
+        }
+
+    # Optionally store in the report store
+    if REPORT_STORE and REPORT_STORE.__class__.__name__ == "AzureBlobReportStore":
+        try:
+            REPORT_STORE.save_report(data, PROMPTFOO_RESULT.name)
+        except Exception:
+            pass
+
+    resp = {"status": "success", "report_name": PROMPTFOO_RESULT.name, "summary": _summarize_report(data)}
+    if proc.returncode != 0:
+        resp["status"] = "success_with_warnings"
+        resp["stderr"] = stderr_text
+    return resp
 
 
 if FRONTEND_DIR.exists():

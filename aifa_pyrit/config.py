@@ -7,7 +7,17 @@ from pathlib import Path
 from typing import Optional
 
 from pydantic import AliasChoices, Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# pydantic-settings is an optional runtime dependency in some environments.
+# Try to import it, but fall back to using pydantic.BaseModel as a minimal
+# compatibility shim so the app can start even if the package isn't installed.
+try:
+    from pydantic_settings import BaseSettings, SettingsConfigDict  # type: ignore
+except Exception:
+    from pydantic import BaseModel as BaseSettings
+
+    class SettingsConfigDict(dict):
+        pass
 
 
 def normalize_azure_openai_endpoint(endpoint: str) -> str:

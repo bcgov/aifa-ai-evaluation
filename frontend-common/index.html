@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>NR AI Evaluation - Control</title>
+    <style>
+      body{font-family:Inter,Segoe UI,Arial;margin:0;background:#0b1220;color:#e6eef8}
+      header{display:flex;justify-content:space-between;align-items:center;padding:18px 28px;background:#071024}
+      main{max-width:1100px;margin:28px auto;padding:0 20px}
+      .tabs{display:flex;gap:12px}
+      .tab{padding:8px 14px;border-radius:8px;background:#0d1a2b;cursor:pointer}
+      .panel{margin-top:20px;background:#071226;padding:18px;border-radius:12px}
+      button{padding:10px 14px;border-radius:8px;border:none;background:#0ea5e9;color:#042433;cursor:pointer}
+      .muted{color:#8ea1b8}
+      .row{display:flex;gap:12px;align-items:center}
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>NR AI Evaluation Control</h1>
+      <div class="row">
+        <nav class="tabs">
+          <div id="tab-pyrit" class="tab">PyRIT</div>
+          <div id="tab-promptfoo" class="tab">Promptfoo</div>
+        </nav>
+      </div>
+    </header>
+    <main>
+      <section id="panel-pyrit" class="panel">
+        <h3>Run PyRIT scan</h3>
+        <div class="row" style="margin-top:12px;">
+          <button id="run-pyrit">Run PyRIT</button>
+          <button id="refresh-pyrit">Refresh reports</button>
+        </div>
+        <pre id="pyrit-output" style="margin-top:14px;background:#04111b;padding:12px;border-radius:8px;min-height:120px"></pre>
+      </section>
+
+      <section id="panel-promptfoo" class="panel" style="display:none;">
+        <h3>Run Promptfoo eval</h3>
+        <div class="row" style="margin-top:12px;">
+          <button id="run-promptfoo">Run Promptfoo</button>
+          <button id="refresh-promptfoo">Refresh promptfoo report</button>
+        </div>
+        <pre id="promptfoo-output" style="margin-top:14px;background:#04111b;padding:12px;border-radius:8px;min-height:120px"></pre>
+      </section>
+    </main>
+
+    <script>
+      const panelPyrit = document.getElementById('panel-pyrit');
+      const panelPromptfoo = document.getElementById('panel-promptfoo');
+      document.getElementById('tab-pyrit').addEventListener('click', ()=>{panelPyrit.style.display='block';panelPromptfoo.style.display='none'});
+      document.getElementById('tab-promptfoo').addEventListener('click', ()=>{panelPyrit.style.display='none';panelPromptfoo.style.display='block'});
+
+      async function runPyrit(){
+        document.getElementById('pyrit-output').textContent='Starting...';
+        const res = await fetch('/api/run-scan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({attack_type:'PromptSending',use_file:true})});
+        const j = await res.json();
+        document.getElementById('pyrit-output').textContent=JSON.stringify(j,null,2);
+      }
+
+      async function runPromptfoo(){
+        document.getElementById('promptfoo-output').textContent='Starting promptfoo...';
+        const res = await fetch('/api/run-promptfoo',{method:'POST'});
+        const j = await res.json();
+        document.getElementById('promptfoo-output').textContent=JSON.stringify(j,null,2);
+      }
+
+      document.getElementById('run-pyrit').addEventListener('click', runPyrit);
+      document.getElementById('run-promptfoo').addEventListener('click', runPromptfoo);
+    </script>
+  </body>
+</html>
