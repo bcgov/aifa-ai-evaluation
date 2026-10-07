@@ -74,10 +74,10 @@ jobs:
         run: |
           set -euo pipefail
           CLEAN_ACR="${AZURE_CONTAINER_REGISTRY:-aifaevaldevacr}"
-          CLEAN_ACR="${CLEAN_ACR// /-}"
-          CLEAN_ACR="$(printf '%s' "$CLEAN_ACR" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9-')"
-          if [ -z "$CLEAN_ACR" ]; then
-            echo "AZURE_CONTAINER_REGISTRY is empty after sanitization" >&2
+          CLEAN_ACR="${CLEAN_ACR//[^a-zA-Z0-9]/}"
+          CLEAN_ACR="$(printf '%s' "$CLEAN_ACR" | tr '[:upper:]' '[:lower:]')"
+          if [ "${#CLEAN_ACR}" -lt 5 ] || [ "${#CLEAN_ACR}" -gt 50 ]; then
+            echo "AZURE_CONTAINER_REGISTRY must be 5-50 alphanumeric characters after sanitization; got '$CLEAN_ACR'" >&2
             exit 1
           fi
           echo "AZURE_CONTAINER_REGISTRY=$CLEAN_ACR" >> "$GITHUB_ENV"
