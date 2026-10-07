@@ -69,6 +69,20 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install build azure-cli
 
+      - name: Normalize ACR name
+        shell: bash
+        run: |
+          set -euo pipefail
+          CLEAN_ACR="${AZURE_CONTAINER_REGISTRY:-aifaevaldevacr}"
+          CLEAN_ACR="${CLEAN_ACR// /-}"
+          CLEAN_ACR="$(printf '%s' "$CLEAN_ACR" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9-')"
+          if [ -z "$CLEAN_ACR" ]; then
+            echo "AZURE_CONTAINER_REGISTRY is empty after sanitization" >&2
+            exit 1
+          fi
+          echo "AZURE_CONTAINER_REGISTRY=$CLEAN_ACR" >> "$GITHUB_ENV"
+          echo "Using ACR name: $CLEAN_ACR"
+
       - name: Build Docker image
         run: |
           docker build -t ${AZURE_CONTAINER_REGISTRY}.azurecr.io/${IMAGE_NAME}:${IMAGE_TAG} .
