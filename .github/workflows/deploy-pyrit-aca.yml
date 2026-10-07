@@ -160,10 +160,10 @@ jobs:
             -var="environment_name=${{ vars.ACA_ENVIRONMENT_NAME || 'cae-aifa-ai-evaluation-dev' }}" \
             -var="container_registry_enabled=false" \
             -var="container_registry_name=''" \
-            -var="image_registry=ghcr.io" \
-            -var="pyrit_image_name=${{ github.repository }}-pyrit" \
-            -var="frontend_image_name=${{ github.repository }}-frontend" \
-            -var="promptfoo_image_name=${{ github.repository }}-promptfoo" \
+            -var="image_registry=ghcr.io/${{ github.repository }}" \
+            -var="pyrit_image_name=aifa-ai-evaluation-pyrit" \
+            -var="frontend_image_name=aifa-ai-evaluation-frontend" \
+            -var="promptfoo_image_name=aifa-ai-evaluation-promptfoo" \
             -var="image_tag=dev-aca-${{ github.run_number }}" \
             -var="registry_server=ghcr.io" \
             -var="registry_username=${{ github.actor }}" \
@@ -196,10 +196,10 @@ jobs:
             -var="environment_name=${{ vars.ACA_ENVIRONMENT_NAME || 'cae-aifa-ai-evaluation-dev' }}" \
             -var="container_registry_enabled=false" \
             -var="container_registry_name=''" \
-            -var="image_registry=ghcr.io" \
-            -var="pyrit_image_name=${{ github.repository }}-pyrit" \
-            -var="frontend_image_name=${{ github.repository }}-frontend" \
-            -var="promptfoo_image_name=${{ github.repository }}-promptfoo" \
+            -var="image_registry=ghcr.io/${{ github.repository }}" \
+            -var="pyrit_image_name=aifa-ai-evaluation-pyrit" \
+            -var="frontend_image_name=aifa-ai-evaluation-frontend" \
+            -var="promptfoo_image_name=aifa-ai-evaluation-promptfoo" \
             -var="image_tag=dev-aca-${{ github.run_number }}" \
             -var="registry_server=ghcr.io" \
             -var="registry_username=${{ github.actor }}" \
