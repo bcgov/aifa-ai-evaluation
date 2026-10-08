@@ -9,7 +9,7 @@ resource "azurerm_resource_group" "main" {
 }
 
 resource "azurerm_log_analytics_workspace" "main" {
-  name                = "law-${replace(var.environment_name, "-", "")}-${random_string.suffix.result}"
+  name                = "law-${replace(var.environment_name, "-", "")}" 
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
   sku                 = "PerGB2018"
@@ -18,6 +18,7 @@ resource "azurerm_log_analytics_workspace" "main" {
 
   lifecycle {
     prevent_destroy = true
+    ignore_changes  = [name]
   }
 }
 
@@ -31,12 +32,6 @@ resource "azurerm_container_app_environment" "main" {
   lifecycle {
     prevent_destroy = true
   }
-}
-
-resource "random_string" "suffix" {
-  length  = 6
-  upper   = false
-  special = false
 }
 
 resource "azurerm_container_registry" "main" {
