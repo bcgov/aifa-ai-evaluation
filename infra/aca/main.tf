@@ -2,6 +2,10 @@ resource "azurerm_resource_group" "main" {
   name     = var.resource_group_name
   location = var.location
   tags     = var.common_tags
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "azurerm_log_analytics_workspace" "main" {
@@ -11,6 +15,10 @@ resource "azurerm_log_analytics_workspace" "main" {
   sku                 = "PerGB2018"
   retention_in_days   = 30
   tags                = var.common_tags
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "azurerm_container_app_environment" "main" {
@@ -19,6 +27,10 @@ resource "azurerm_container_app_environment" "main" {
   resource_group_name        = azurerm_resource_group.main.name
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
   tags                       = var.common_tags
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "random_string" "suffix" {
@@ -36,6 +48,10 @@ resource "azurerm_container_registry" "main" {
   sku                 = "Basic"
   admin_enabled       = true
   tags                = var.common_tags
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 locals {
@@ -50,6 +66,10 @@ resource "azurerm_container_app" "main" {
   resource_group_name          = azurerm_resource_group.main.name
   revision_mode                = "Single"
   tags                         = var.common_tags
+
+  lifecycle {
+    prevent_destroy = true
+  }
 
   identity {
     type = "SystemAssigned"
