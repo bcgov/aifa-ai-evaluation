@@ -19,4 +19,5 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN pip install --no-cache-dir pydantic-settings pydantic python-dotenv structlog httpx[socks] click tabulate websockets gunicorn || true
 RUN pip install --no-cache-dir pyrit || true
 COPY . /app
-CMD ["uvicorn", "aifa_pyrit.web_app:app", "--host", "0.0.0.0", "--port", "8011"]
+ENV PORT=8000
+CMD ["sh", "-c", "uvicorn aifa_pyrit.web_app:app --host 0.0.0.0 --port ${PORT}"]

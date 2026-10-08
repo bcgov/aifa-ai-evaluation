@@ -29,6 +29,14 @@ PROMPTFOO_LOCK = asyncio.Lock()
 AttackType = Literal["PromptSending", "Crescendo", "MultiTurn", "RedTeaming", "PromptSeed"]
 
 
+def resolve_runtime_port() -> int:
+    value = os.getenv("PORT", "8000")
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 8000
+
+
 class RunScanRequest(BaseModel):
     attack_type: AttackType = "PromptSending"
     use_file: bool = True
@@ -449,7 +457,7 @@ if FRONTEND_DIR.exists():
 def main() -> None:
     import uvicorn
 
-    uvicorn.run("aifa_pyrit.web_app:app", host="0.0.0.0", port=8011, reload=True)
+    uvicorn.run("aifa_pyrit.web_app:app", host="0.0.0.0", port=resolve_runtime_port(), reload=True)
 
 
 if __name__ == "__main__":
