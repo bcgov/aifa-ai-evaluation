@@ -1,4 +1,4 @@
 window.__APP_CONFIG__ = {
-  pyritApiUrl: "${PYRIT_API_URL:-/api/run-scan}",
-  promptfooApiUrl: "${PROMPTFOO_API_URL:-/api/run-promptfoo}"
+  pyritApiUrl: "${PYRIT_API_URL}",
+  promptfooApiUrl: "${PROMPTFOO_API_URL}"
 };
