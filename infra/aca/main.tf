@@ -135,12 +135,12 @@ resource "azurerm_container_app" "main" {
 
       env {
         name  = "PYRIT_API_URL"
-        value = "http://localhost:8000/api/run-scan"
+        value = "/api/run-scan"
       }
 
       env {
         name  = "PROMPTFOO_API_URL"
-        value = "http://localhost:8001/api/run-promptfoo"
+        value = "/api/run-promptfoo"
       }
     }
 
