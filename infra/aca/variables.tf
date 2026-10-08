@@ -31,13 +31,13 @@ variable "location" {
 variable "resource_group_name" {
   description = "Resource group for the PyRIT ACA deployment."
   type        = string
-  default     = "rg-aifa-ai-evaluation-aca-dev"
+  default     = "nr-ai-form-dev"
 }
 
 variable "environment_name" {
   description = "Container Apps environment name."
   type        = string
-  default     = "cae-aifa-ai-evaluation-dev"
+  default     = "nraif-671b-dev-dev-containerenv"
 }
 
 variable "container_app_name" {

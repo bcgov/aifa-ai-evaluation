@@ -22,6 +22,16 @@ resource "azurerm_log_analytics_workspace" "main" {
   }
 }
 
+resource "random_string" "suffix" {
+  length  = 6
+  upper   = false
+  special = false
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
 resource "azurerm_container_app_environment" "main" {
   name                       = var.environment_name
   location                   = azurerm_resource_group.main.location
@@ -31,6 +41,14 @@ resource "azurerm_container_app_environment" "main" {
 
   lifecycle {
     prevent_destroy = true
+    ignore_changes = [
+      name,
+      infrastructure_resource_group_name,
+      infrastructure_subnet_id,
+      log_analytics_workspace_id,
+      workload_profile,
+      tags,
+    ]
   }
 }
 

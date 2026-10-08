@@ -73,8 +73,8 @@ jobs:
       TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
       TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
       TF_VAR_location: ${{ vars.AZURE_LOCATION || 'eastus' }}
-      TF_VAR_resource_group_name: ${{ vars.ACA_RESOURCE_GROUP || 'rg-aifa-ai-evaluation-aca-dev' }}
-      TF_VAR_environment_name: ${{ vars.ACA_ENVIRONMENT_NAME || 'cae-aifa-ai-evaluation-dev' }}
+      TF_VAR_resource_group_name: ${{ vars.ACA_RESOURCE_GROUP || secrets.ACA_RESOURCE_GROUP || 'nr-ai-form-dev' }}
+      TF_VAR_environment_name: ${{ vars.ACA_ENVIRONMENT_NAME || secrets.ACA_ENVIRONMENT_NAME || 'nraif-671b-dev-dev-containerenv' }}
       TF_VAR_container_registry_enabled: false
       TF_VAR_container_registry_name: ""
       TF_VAR_image_registry: ghcr.io/${{ github.repository }}
