@@ -156,12 +156,15 @@ jobs:
             terraform init -backend=false -reconfigure
           fi
 
-      - name: Adopt existing resource group if present
+      - name: Adopt existing Azure resources if present
         working-directory: infra/aca
         shell: bash
         run: |
           set -euo pipefail
           RG_NAME="${TF_VAR_resource_group_name:-rg-aifa-ai-evaluation-aca-dev}"
+          ENV_NAME="${TF_VAR_environment_name:-cae-aifa-ai-evaluation-dev}"
+          APP_NAME="${TF_VAR_container_app_name:-ca-aifa-ai-evaluation-dev}"
+
           if az group exists --name "$RG_NAME" >/tmp/rg_exists.json; then
             if [ "$(cat /tmp/rg_exists.json)" = "true" ]; then
               RG_ID="$(az group show --name "$RG_NAME" --query id -o tsv)"
@@ -170,6 +173,36 @@ jobs:
                 terraform import azurerm_resource_group.main "$RG_ID"
               else
                 echo "Resource group '$RG_NAME' is already in Terraform state."
+              fi
+
+              LAW_ID="$(az monitor log-analytics workspace show -g "$RG_NAME" -n "law-${ENV_NAME//-/}" --query id -o tsv 2>/dev/null || true)"
+              if [[ -n "$LAW_ID" ]]; then
+                if ! terraform state list | grep -q '^azurerm_log_analytics_workspace.main$'; then
+                  echo "Importing existing Log Analytics workspace for '$RG_NAME' into Terraform state..."
+                  terraform import azurerm_log_analytics_workspace.main "$LAW_ID"
+                else
+                  echo "Log Analytics workspace is already in Terraform state."
+                fi
+              fi
+
+              ENV_ID="$(az containerapp env show -g "$RG_NAME" -n "$ENV_NAME" --query id -o tsv 2>/dev/null || true)"
+              if [[ -n "$ENV_ID" ]]; then
+                if ! terraform state list | grep -q '^azurerm_container_app_environment.main$'; then
+                  echo "Importing existing Container App environment '$ENV_NAME' into Terraform state..."
+                  terraform import azurerm_container_app_environment.main "$ENV_ID"
+                else
+                  echo "Container App environment '$ENV_NAME' is already in Terraform state."
+                fi
+              fi
+
+              APP_ID="$(az containerapp show -g "$RG_NAME" -n "$APP_NAME" --query id -o tsv 2>/dev/null || true)"
+              if [[ -n "$APP_ID" ]]; then
+                if ! terraform state list | grep -q '^azurerm_container_app.main$'; then
+                  echo "Importing existing Container App '$APP_NAME' into Terraform state..."
+                  terraform import azurerm_container_app.main "$APP_ID"
+                else
+                  echo "Container App '$APP_NAME' is already in Terraform state."
+                fi
               fi
             else
               echo "Resource group '$RG_NAME' does not exist yet; Terraform will create it."

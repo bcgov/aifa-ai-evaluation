@@ -1084,22 +1084,57 @@ assign_storage_roles() {
     if [[ "$CREATE_STORAGE" != "true" ]]; then
         return 0
     fi
-    
-    log_info "Storage access permissions..."
-    log_info "Storage permissions are managed through security group membership"
-    log_info "Ensure the security group has appropriate storage permissions:"
-    log_info "  - Storage Blob Data Contributor"
-    log_info "  - Storage Account Contributor"
-    
-    # Get storage account resource ID for reference
-    if [[ "$DRY_RUN" == "false" ]]; then
-        STORAGE_ACCOUNT_ID=$(az storage account show --name "$STORAGE_ACCOUNT" --resource-group "$RESOURCE_GROUP" --query "id" --output tsv)
-        log_info "Storage Account ID: $STORAGE_ACCOUNT_ID"
-    else
-        log_info "[DRY-RUN] Would note storage account permissions requirements"
+
+    log_info "Ensuring the GitHub OIDC managed identity has Terraform state storage permissions..."
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[DRY-RUN] Would assign Storage Blob Data Contributor and Storage Account Contributor on storage account '$STORAGE_ACCOUNT'"
+        return 0
     fi
-    
-    log_success "Storage permissions documentation completed"
+
+    if [[ -z "${PRINCIPAL_ID:-}" ]]; then
+        log_warning "PRINCIPAL_ID is not set; cannot assign storage roles."
+        return 0
+    fi
+
+    local storage_account_id
+    storage_account_id=$(az storage account show \
+        --name "$STORAGE_ACCOUNT" \
+        --resource-group "$RESOURCE_GROUP" \
+        --query "id" \
+        --output tsv 2>/dev/null || true)
+
+    if [[ -z "$storage_account_id" ]]; then
+        log_warning "Storage account '$STORAGE_ACCOUNT' not found; skipping storage RBAC assignment."
+        return 0
+    fi
+
+    local role_name
+    for role_name in "Storage Blob Data Contributor" "Storage Account Contributor"; do
+        local existing_assignment
+        existing_assignment=$(az role assignment list \
+            --assignee-object-id "$PRINCIPAL_ID" \
+            --scope "$storage_account_id" \
+            --role "$role_name" \
+            --query "[0].id" \
+            --output tsv 2>/dev/null || true)
+
+        if [[ -n "$existing_assignment" ]]; then
+            log_success "Role '$role_name' already assigned to managed identity on storage account '$STORAGE_ACCOUNT'"
+            continue
+        fi
+
+        log_info "Creating role assignment '$role_name' for managed identity on storage account '$STORAGE_ACCOUNT'..."
+        az role assignment create \
+            --assignee-object-id "$PRINCIPAL_ID" \
+            --assignee-principal-type ServicePrincipal \
+            --role "$role_name" \
+            --scope "$storage_account_id" >/dev/null
+
+        log_success "Assigned '$role_name' to managed identity on storage account '$STORAGE_ACCOUNT'"
+    done
+
+    log_success "Storage permissions configured for Terraform remote state access"
 }
 
 
