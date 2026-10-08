@@ -66,8 +66,8 @@ jobs:
     env:
       AZURE_CONTAINER_REGISTRY: ${{ vars.ACR_NAME || 'aifaevaldevacr' }}
       GHCR_IMAGE_REGISTRY: ghcr.io/${{ github.repository }}
-      GHCR_IMAGE_TAG: sha-${{ github.sha }}
-      IMAGE_TAG: sha-${{ github.sha }}
+      GHCR_IMAGE_TAG: run-${{ github.run_id }}
+      IMAGE_TAG: run-${{ github.run_id }}
       TF_STATE_RESOURCE_GROUP: ${{ vars.TF_STATE_RESOURCE_GROUP || secrets.TF_STATE_RESOURCE_GROUP || 'rg-aifa-ai-evaluation-tfstate' }}
       TF_STATE_STORAGE_ACCOUNT_NAME: ${{ vars.TF_STATE_STORAGE_ACCOUNT_NAME || secrets.TF_STATE_STORAGE_ACCOUNT_NAME }}
       TF_STATE_CONTAINER_NAME: ${{ vars.TF_STATE_CONTAINER_NAME || secrets.TF_STATE_CONTAINER_NAME || 'tfstate' }}
@@ -86,7 +86,7 @@ jobs:
       TF_VAR_pyrit_image_name: aifa-ai-evaluation-pyrit
       TF_VAR_frontend_image_name: aifa-ai-evaluation-frontend
       TF_VAR_promptfoo_image_name: aifa-ai-evaluation-promptfoo
-      TF_VAR_image_tag: sha-${{ github.sha }}
+      TF_VAR_image_tag: run-${{ github.run_id }}
       TF_VAR_registry_server: ghcr.io
       TF_VAR_registry_username: ${{ github.actor }}
       TF_VAR_registry_password: ${{ secrets.GITHUB_TOKEN }}
@@ -233,7 +233,7 @@ jobs:
             -var="pyrit_image_name=aifa-ai-evaluation-pyrit" \
             -var="frontend_image_name=aifa-ai-evaluation-frontend" \
             -var="promptfoo_image_name=aifa-ai-evaluation-promptfoo" \
-            -var="image_tag=sha-${{ github.sha }}" \
+            -var="image_tag=run-${{ github.run_id }}" \
             -var="registry_server=ghcr.io" \
             -var="registry_username=${{ github.actor }}" \
             -var="registry_password=${{ secrets.GITHUB_TOKEN }}" \
@@ -269,7 +269,7 @@ jobs:
             -var="pyrit_image_name=aifa-ai-evaluation-pyrit" \
             -var="frontend_image_name=aifa-ai-evaluation-frontend" \
             -var="promptfoo_image_name=aifa-ai-evaluation-promptfoo" \
-            -var="image_tag=sha-${{ github.sha }}" \
+            -var="image_tag=run-${{ github.run_id }}" \
             -var="registry_server=ghcr.io" \
             -var="registry_username=${{ github.actor }}" \
             -var="registry_password=${{ secrets.GITHUB_TOKEN }}" \
