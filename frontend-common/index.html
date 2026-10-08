@@ -51,8 +51,8 @@
       const panelPyrit = document.getElementById('panel-pyrit');
       const panelPromptfoo = document.getElementById('panel-promptfoo');
       const appConfig = window.__APP_CONFIG__ || {};
-      const PYRIT_API_URL = appConfig.pyritApiUrl || '/api/run-scan';
-      const PROMPTFOO_API_URL = appConfig.promptfooApiUrl || '/api/run-promptfoo';
+      const PYRIT_API_URL = appConfig.pyritApiUrl || 'http://localhost:8011/api/run-scan';
+      const PROMPTFOO_API_URL = appConfig.promptfooApiUrl || 'http://localhost:8011/api/run-promptfoo';
 
       document.getElementById('tab-pyrit').addEventListener('click', ()=>{panelPyrit.style.display='block';panelPromptfoo.style.display='none'});
       document.getElementById('tab-promptfoo').addEventListener('click', ()=>{panelPyrit.style.display='none';panelPromptfoo.style.display='block'});
