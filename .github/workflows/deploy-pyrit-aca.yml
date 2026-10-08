@@ -12,7 +12,11 @@ on:
           - plan
           - apply
   push:
-    branches: [ main ]
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - main
 
 permissions:
   id-token: write
@@ -42,7 +46,7 @@ jobs:
           echo "Branch slug: $slug"
 
   builds:
-    if: github.event_name == 'push' || inputs.command == 'apply'
+    if: github.event_name == 'push' || github.event_name == 'pull_request' || inputs.command == 'apply'
     concurrency:
       group: builds-aca-${{ github.run_id }}
       cancel-in-progress: true
@@ -50,7 +54,8 @@ jobs:
     with:
       tags: |
         latest
-        dev-aca-${{ github.run_number }}
+        sha-${{ github.sha }}
+        run-${{ github.run_id }}
 
   deploy:
     name: ${{ inputs.command == 'plan' && 'Plan' || 'Deploy' }} ACA
@@ -61,8 +66,8 @@ jobs:
     env:
       AZURE_CONTAINER_REGISTRY: ${{ vars.ACR_NAME || 'aifaevaldevacr' }}
       GHCR_IMAGE_REGISTRY: ghcr.io/${{ github.repository }}
-      GHCR_IMAGE_TAG: dev-aca-${{ github.run_number }}
-      IMAGE_TAG: dev-aca-${{ github.run_number }}
+      GHCR_IMAGE_TAG: sha-${{ github.sha }}
+      IMAGE_TAG: sha-${{ github.sha }}
       TF_STATE_RESOURCE_GROUP: ${{ vars.TF_STATE_RESOURCE_GROUP || secrets.TF_STATE_RESOURCE_GROUP || 'rg-aifa-ai-evaluation-tfstate' }}
       TF_STATE_STORAGE_ACCOUNT_NAME: ${{ vars.TF_STATE_STORAGE_ACCOUNT_NAME || secrets.TF_STATE_STORAGE_ACCOUNT_NAME }}
       TF_STATE_CONTAINER_NAME: ${{ vars.TF_STATE_CONTAINER_NAME || secrets.TF_STATE_CONTAINER_NAME || 'tfstate' }}
@@ -81,7 +86,7 @@ jobs:
       TF_VAR_pyrit_image_name: aifa-ai-evaluation-pyrit
       TF_VAR_frontend_image_name: aifa-ai-evaluation-frontend
       TF_VAR_promptfoo_image_name: aifa-ai-evaluation-promptfoo
-      TF_VAR_image_tag: dev-aca-${{ github.run_number }}
+      TF_VAR_image_tag: sha-${{ github.sha }}
       TF_VAR_registry_server: ghcr.io
       TF_VAR_registry_username: ${{ github.actor }}
       TF_VAR_registry_password: ${{ secrets.GITHUB_TOKEN }}
@@ -228,7 +233,7 @@ jobs:
             -var="pyrit_image_name=aifa-ai-evaluation-pyrit" \
             -var="frontend_image_name=aifa-ai-evaluation-frontend" \
             -var="promptfoo_image_name=aifa-ai-evaluation-promptfoo" \
-            -var="image_tag=dev-aca-${{ github.run_number }}" \
+            -var="image_tag=sha-${{ github.sha }}" \
             -var="registry_server=ghcr.io" \
             -var="registry_username=${{ github.actor }}" \
             -var="registry_password=${{ secrets.GITHUB_TOKEN }}" \
@@ -264,7 +269,7 @@ jobs:
             -var="pyrit_image_name=aifa-ai-evaluation-pyrit" \
             -var="frontend_image_name=aifa-ai-evaluation-frontend" \
             -var="promptfoo_image_name=aifa-ai-evaluation-promptfoo" \
-            -var="image_tag=dev-aca-${{ github.run_number }}" \
+            -var="image_tag=sha-${{ github.sha }}" \
             -var="registry_server=ghcr.io" \
             -var="registry_username=${{ github.actor }}" \
             -var="registry_password=${{ secrets.GITHUB_TOKEN }}" \
