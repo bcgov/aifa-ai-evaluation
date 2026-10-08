@@ -56,16 +56,17 @@ jobs:
     name: ${{ inputs.command == 'plan' && 'Plan' || 'Deploy' }} ACA
     needs: [builds, branch-slug]
     if: always() && (needs.builds.result == 'success' || needs.builds.result == 'skipped')
+    environment: dev
     runs-on: ubuntu-latest
     env:
       AZURE_CONTAINER_REGISTRY: ${{ vars.ACR_NAME || 'aifaevaldevacr' }}
       GHCR_IMAGE_REGISTRY: ghcr.io/${{ github.repository }}
       GHCR_IMAGE_TAG: dev-aca-${{ github.run_number }}
       IMAGE_TAG: dev-aca-${{ github.run_number }}
-      TF_STATE_RESOURCE_GROUP: ${{ secrets.TF_STATE_RESOURCE_GROUP || 'rg-aifa-ai-evaluation-tfstate' }}
-      TF_STATE_STORAGE_ACCOUNT_NAME: ${{ secrets.TF_STATE_STORAGE_ACCOUNT_NAME }}
-      TF_STATE_CONTAINER_NAME: ${{ secrets.TF_STATE_CONTAINER_NAME || 'tfstate' }}
-      TF_STATE_KEY: ${{ secrets.TF_STATE_KEY || 'aifa-ai-evaluation/aca.tfstate' }}
+      TF_STATE_RESOURCE_GROUP: ${{ vars.TF_STATE_RESOURCE_GROUP || secrets.TF_STATE_RESOURCE_GROUP || 'rg-aifa-ai-evaluation-tfstate' }}
+      TF_STATE_STORAGE_ACCOUNT_NAME: ${{ vars.TF_STATE_STORAGE_ACCOUNT_NAME || secrets.TF_STATE_STORAGE_ACCOUNT_NAME }}
+      TF_STATE_CONTAINER_NAME: ${{ vars.TF_STATE_CONTAINER_NAME || secrets.TF_STATE_CONTAINER_NAME || 'tfstate' }}
+      TF_STATE_KEY: ${{ vars.TF_STATE_KEY || secrets.TF_STATE_KEY || 'aifa-ai-evaluation/aca.tfstate' }}
       TF_STATE_ACCESS_KEY: ${{ secrets.TF_STATE_ACCESS_KEY }}
       TF_STATE_USE_AZUREAD_AUTH: "true"
       TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
