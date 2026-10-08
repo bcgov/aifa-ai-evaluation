@@ -46,22 +46,27 @@
       </section>
     </main>
 
+    <script src="/config.js"></script>
     <script>
       const panelPyrit = document.getElementById('panel-pyrit');
       const panelPromptfoo = document.getElementById('panel-promptfoo');
+      const appConfig = window.__APP_CONFIG__ || {};
+      const PYRIT_API_URL = appConfig.pyritApiUrl || '/api/run-scan';
+      const PROMPTFOO_API_URL = appConfig.promptfooApiUrl || '/api/run-promptfoo';
+
       document.getElementById('tab-pyrit').addEventListener('click', ()=>{panelPyrit.style.display='block';panelPromptfoo.style.display='none'});
       document.getElementById('tab-promptfoo').addEventListener('click', ()=>{panelPyrit.style.display='none';panelPromptfoo.style.display='block'});
 
       async function runPyrit(){
         document.getElementById('pyrit-output').textContent='Starting...';
-        const res = await fetch('/api/run-scan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({attack_type:'PromptSending',use_file:true})});
+        const res = await fetch(PYRIT_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({attack_type:'PromptSending',use_file:true})});
         const j = await res.json();
         document.getElementById('pyrit-output').textContent=JSON.stringify(j,null,2);
       }
 
       async function runPromptfoo(){
         document.getElementById('promptfoo-output').textContent='Starting promptfoo...';
-        const res = await fetch('/api/run-promptfoo',{method:'POST'});
+        const res = await fetch(PROMPTFOO_API_URL,{method:'POST'});
         const j = await res.json();
         document.getElementById('promptfoo-output').textContent=JSON.stringify(j,null,2);
       }

@@ -73,8 +73,8 @@ locals {
   promptfoo_image = var.image_registry != "" ? "${var.image_registry}/${var.promptfoo_image_name}:${var.image_tag}" : "${azurerm_container_registry.main[0].login_server}/${var.promptfoo_image_name}:${var.image_tag}"
 }
 
-resource "azurerm_container_app" "main" {
-  name                         = var.container_app_name
+resource "azurerm_container_app" "frontend" {
+  name                         = var.frontend_container_app_name
   container_app_environment_id = azurerm_container_app_environment.main.id
   resource_group_name          = azurerm_resource_group.main.name
   revision_mode                = "Single"
@@ -134,10 +134,61 @@ resource "azurerm_container_app" "main" {
       }
 
       env {
-        name  = "BACKEND_API_URL"
-        value = "http://localhost:8000"
+        name  = "PYRIT_API_URL"
+        value = var.pyrit_backend_api_url
+      }
+
+      env {
+        name  = "PROMPTFOO_API_URL"
+        value = var.promptfoo_backend_api_url
       }
     }
+  }
+}
+
+resource "azurerm_container_app" "pyrit" {
+  name                         = var.pyrit_container_app_name
+  container_app_environment_id = azurerm_container_app_environment.main.id
+  resource_group_name          = azurerm_resource_group.main.name
+  revision_mode                = "Single"
+  tags                         = var.common_tags
+
+  lifecycle {
+    prevent_destroy = true
+  }
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  dynamic "secret" {
+    for_each = (var.registry_password != "" || var.container_registry_enabled) ? [1] : []
+    content {
+      name  = "registry-password"
+      value = var.registry_password != "" ? var.registry_password : azurerm_container_registry.main[0].admin_password
+    }
+  }
+
+  ingress {
+    external_enabled = false
+    target_port      = 8000
+    transport        = "auto"
+
+    traffic_weight {
+      percentage      = 100
+      latest_revision = true
+    }
+  }
+
+  registry {
+    server              = var.registry_server != "" ? var.registry_server : azurerm_container_registry.main[0].login_server
+    username            = var.registry_username != "" ? var.registry_username : azurerm_container_registry.main[0].admin_username
+    password_secret_name = "registry-password"
+  }
+
+  template {
+    min_replicas = 1
+    max_replicas = 2
 
     container {
       name   = "pyrit"
@@ -215,6 +266,52 @@ resource "azurerm_container_app" "main" {
         value = var.azure_storage_container_name
       }
     }
+  }
+}
+
+resource "azurerm_container_app" "promptfoo" {
+  name                         = var.promptfoo_container_app_name
+  container_app_environment_id = azurerm_container_app_environment.main.id
+  resource_group_name          = azurerm_resource_group.main.name
+  revision_mode                = "Single"
+  tags                         = var.common_tags
+
+  lifecycle {
+    prevent_destroy = true
+  }
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  dynamic "secret" {
+    for_each = (var.registry_password != "" || var.container_registry_enabled) ? [1] : []
+    content {
+      name  = "registry-password"
+      value = var.registry_password != "" ? var.registry_password : azurerm_container_registry.main[0].admin_password
+    }
+  }
+
+  ingress {
+    external_enabled = false
+    target_port      = 8001
+    transport        = "auto"
+
+    traffic_weight {
+      percentage      = 100
+      latest_revision = true
+    }
+  }
+
+  registry {
+    server              = var.registry_server != "" ? var.registry_server : azurerm_container_registry.main[0].login_server
+    username            = var.registry_username != "" ? var.registry_username : azurerm_container_registry.main[0].admin_username
+    password_secret_name = "registry-password"
+  }
+
+  template {
+    min_replicas = 1
+    max_replicas = 2
 
     container {
       name   = "promptfoo"

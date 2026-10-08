@@ -86,8 +86,13 @@ jobs:
       TF_VAR_registry_username: ${{ github.actor }}
       TF_VAR_registry_password: ${{ secrets.GITHUB_TOKEN }}
       TF_VAR_container_app_name: ${{ vars.ACA_CONTAINER_APP_NAME || 'ca-aifa-ai-evaluation-dev' }}
+      TF_VAR_frontend_container_app_name: ${{ vars.ACA_FRONTEND_CONTAINER_APP_NAME || 'ca-aifa-frontend-dev' }}
+      TF_VAR_pyrit_container_app_name: ${{ vars.ACA_PYRIT_CONTAINER_APP_NAME || 'ca-aifa-pyrit-private-dev' }}
+      TF_VAR_promptfoo_container_app_name: ${{ vars.ACA_PROMPTFOO_CONTAINER_APP_NAME || 'ca-aifa-promptfoo-private-dev' }}
       TF_VAR_app_env: ${{ vars.APP_ENV || 'dev' }}
       TF_VAR_backend_api_url: ${{ vars.BACKEND_API_URL || secrets.BACKEND_API_URL || 'http://localhost:8000' }}
+      TF_VAR_pyrit_backend_api_url: ${{ vars.PYRIT_BACKEND_API_URL || secrets.PYRIT_BACKEND_API_URL || 'https://ca-aifa-pyrit-private-dev.<replace-with-environment-domain>/api' }}
+      TF_VAR_promptfoo_backend_api_url: ${{ vars.PROMPTFOO_BACKEND_API_URL || secrets.PROMPTFOO_BACKEND_API_URL || 'https://ca-aifa-promptfoo-private-dev.<replace-with-environment-domain>/api' }}
       TF_VAR_backend_api_timeout: ${{ vars.BACKEND_API_TIMEOUT || '30' }}
       TF_VAR_promptfoo_run_token: ${{ secrets.PROMPTFOO_RUN_TOKEN }}
       TF_VAR_azure_openai_api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
@@ -163,7 +168,9 @@ jobs:
           set -euo pipefail
           RG_NAME="${TF_VAR_resource_group_name:-rg-aifa-ai-evaluation-aca-dev}"
           ENV_NAME="${TF_VAR_environment_name:-cae-aifa-ai-evaluation-dev}"
-          APP_NAME="${TF_VAR_container_app_name:-ca-aifa-ai-evaluation-dev}"
+          FRONTEND_APP_NAME="${TF_VAR_frontend_container_app_name:-ca-aifa-frontend-dev}"
+          PYRIT_APP_NAME="${TF_VAR_pyrit_container_app_name:-ca-aifa-pyrit-private-dev}"
+          PROMPTFOO_APP_NAME="${TF_VAR_promptfoo_container_app_name:-ca-aifa-promptfoo-private-dev}"
 
           if az group exists --name "$RG_NAME" >/tmp/rg_exists.json; then
             if [ "$(cat /tmp/rg_exists.json)" = "true" ]; then
@@ -195,13 +202,33 @@ jobs:
                 fi
               fi
 
-              APP_ID="$(az containerapp show -g "$RG_NAME" -n "$APP_NAME" --query id -o tsv 2>/dev/null || true)"
-              if [[ -n "$APP_ID" ]]; then
-                if ! terraform state list | grep -q '^azurerm_container_app.main$'; then
-                  echo "Importing existing Container App '$APP_NAME' into Terraform state..."
-                  terraform import azurerm_container_app.main "$APP_ID"
+              FRONTEND_APP_ID="$(az containerapp show -g "$RG_NAME" -n "$FRONTEND_APP_NAME" --query id -o tsv 2>/dev/null || true)"
+              if [[ -n "$FRONTEND_APP_ID" ]]; then
+                if ! terraform state list | grep -q '^azurerm_container_app.frontend$'; then
+                  echo "Importing existing frontend Container App '$FRONTEND_APP_NAME' into Terraform state..."
+                  terraform import azurerm_container_app.frontend "$FRONTEND_APP_ID"
                 else
-                  echo "Container App '$APP_NAME' is already in Terraform state."
+                  echo "Frontend Container App '$FRONTEND_APP_NAME' is already in Terraform state."
+                fi
+              fi
+
+              PYRIT_APP_ID="$(az containerapp show -g "$RG_NAME" -n "$PYRIT_APP_NAME" --query id -o tsv 2>/dev/null || true)"
+              if [[ -n "$PYRIT_APP_ID" ]]; then
+                if ! terraform state list | grep -q '^azurerm_container_app.pyrit$'; then
+                  echo "Importing existing PyRIT Container App '$PYRIT_APP_NAME' into Terraform state..."
+                  terraform import azurerm_container_app.pyrit "$PYRIT_APP_ID"
+                else
+                  echo "PyRIT Container App '$PYRIT_APP_NAME' is already in Terraform state."
+                fi
+              fi
+
+              PROMPTFOO_APP_ID="$(az containerapp show -g "$RG_NAME" -n "$PROMPTFOO_APP_NAME" --query id -o tsv 2>/dev/null || true)"
+              if [[ -n "$PROMPTFOO_APP_ID" ]]; then
+                if ! terraform state list | grep -q '^azurerm_container_app.promptfoo$'; then
+                  echo "Importing existing Promptfoo Container App '$PROMPTFOO_APP_NAME' into Terraform state..."
+                  terraform import azurerm_container_app.promptfoo "$PROMPTFOO_APP_ID"
+                else
+                  echo "Promptfoo Container App '$PROMPTFOO_APP_NAME' is already in Terraform state."
                 fi
               fi
             else
@@ -233,8 +260,13 @@ jobs:
             -var="registry_username=${{ github.actor }}" \
             -var="registry_password=${{ secrets.GITHUB_TOKEN }}" \
             -var="container_app_name=${{ vars.ACA_CONTAINER_APP_NAME || 'ca-aifa-ai-evaluation-dev' }}" \
+            -var="frontend_container_app_name=${{ vars.ACA_FRONTEND_CONTAINER_APP_NAME || 'ca-aifa-frontend-dev' }}" \
+            -var="pyrit_container_app_name=${{ vars.ACA_PYRIT_CONTAINER_APP_NAME || 'ca-aifa-pyrit-private-dev' }}" \
+            -var="promptfoo_container_app_name=${{ vars.ACA_PROMPTFOO_CONTAINER_APP_NAME || 'ca-aifa-promptfoo-private-dev' }}" \
             -var="app_env=${{ vars.APP_ENV || 'dev' }}" \
             -var="backend_api_url=${{ vars.BACKEND_API_URL || secrets.BACKEND_API_URL || 'http://localhost:8000' }}" \
+            -var="pyrit_backend_api_url=${{ vars.PYRIT_BACKEND_API_URL || secrets.PYRIT_BACKEND_API_URL || 'https://ca-aifa-pyrit-private-dev.<replace-with-environment-domain>/api' }}" \
+            -var="promptfoo_backend_api_url=${{ vars.PROMPTFOO_BACKEND_API_URL || secrets.PROMPTFOO_BACKEND_API_URL || 'https://ca-aifa-promptfoo-private-dev.<replace-with-environment-domain>/api' }}" \
             -var="backend_api_timeout=${{ vars.BACKEND_API_TIMEOUT || '30' }}" \
             -var="promptfoo_run_token=${{ secrets.PROMPTFOO_RUN_TOKEN }}" \
             -var="azure_openai_api_key=${{ secrets.AZURE_OPENAI_API_KEY }}" \
@@ -269,8 +301,13 @@ jobs:
             -var="registry_username=${{ github.actor }}" \
             -var="registry_password=${{ secrets.GITHUB_TOKEN }}" \
             -var="container_app_name=${{ vars.ACA_CONTAINER_APP_NAME || 'ca-aifa-ai-evaluation-dev' }}" \
+            -var="frontend_container_app_name=${{ vars.ACA_FRONTEND_CONTAINER_APP_NAME || 'ca-aifa-frontend-dev' }}" \
+            -var="pyrit_container_app_name=${{ vars.ACA_PYRIT_CONTAINER_APP_NAME || 'ca-aifa-pyrit-private-dev' }}" \
+            -var="promptfoo_container_app_name=${{ vars.ACA_PROMPTFOO_CONTAINER_APP_NAME || 'ca-aifa-promptfoo-private-dev' }}" \
             -var="app_env=${{ vars.APP_ENV || 'dev' }}" \
             -var="backend_api_url=${{ vars.BACKEND_API_URL || secrets.BACKEND_API_URL || 'http://localhost:8000' }}" \
+            -var="pyrit_backend_api_url=${{ vars.PYRIT_BACKEND_API_URL || secrets.PYRIT_BACKEND_API_URL || 'https://ca-aifa-pyrit-private-dev.<replace-with-environment-domain>/api' }}" \
+            -var="promptfoo_backend_api_url=${{ vars.PROMPTFOO_BACKEND_API_URL || secrets.PROMPTFOO_BACKEND_API_URL || 'https://ca-aifa-promptfoo-private-dev.<replace-with-environment-domain>/api' }}" \
             -var="backend_api_timeout=${{ vars.BACKEND_API_TIMEOUT || '30' }}" \
             -var="promptfoo_run_token=${{ secrets.PROMPTFOO_RUN_TOKEN }}" \
             -var="azure_openai_api_key=${{ secrets.AZURE_OPENAI_API_KEY }}" \
