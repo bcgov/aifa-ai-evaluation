@@ -41,27 +41,9 @@ variable "environment_name" {
 }
 
 variable "container_app_name" {
-  description = "Legacy frontend Container App name kept for compatibility. New deployments should use frontend_container_app_name."
+  description = "Name of the single multi-container ACA that hosts frontend, PyRIT, and Promptfoo."
   type        = string
   default     = "ca-aifa-pyrit-dev"
-}
-
-variable "frontend_container_app_name" {
-  description = "Public frontend Container App name."
-  type        = string
-  default     = "ca-aifa-frontend-dev"
-}
-
-variable "pyrit_container_app_name" {
-  description = "Private PyRIT Container App name."
-  type        = string
-  default     = "ca-aifa-pyrit-private-dev"
-}
-
-variable "promptfoo_container_app_name" {
-  description = "Private Promptfoo Container App name."
-  type        = string
-  default     = "ca-aifa-promptfoo-private-dev"
 }
 
 variable "container_registry_enabled" {
@@ -135,18 +117,6 @@ variable "backend_api_url" {
   description = "Hosted AI Form Assist backend endpoint used by the evaluation app."
   type        = string
   default     = "http://localhost:8000"
-}
-
-variable "pyrit_backend_api_url" {
-  description = "Public or private URL for the PyRIT backend app accessible by the frontend."
-  type        = string
-  default     = "https://ca-aifa-pyrit-private-dev.<replace-with-environment-domain>/api"
-}
-
-variable "promptfoo_backend_api_url" {
-  description = "Public or private URL for the Promptfoo app accessible by the frontend."
-  type        = string
-  default     = "https://ca-aifa-promptfoo-private-dev.<replace-with-environment-domain>/api"
 }
 
 variable "promptfoo_run_token" {

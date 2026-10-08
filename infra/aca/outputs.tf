@@ -4,28 +4,13 @@ output "resource_group_name" {
 }
 
 output "container_app_name" {
-  description = "The deployed public frontend Container App name."
-  value       = azurerm_container_app.frontend.name
+  description = "The deployed multi-container Container App name."
+  value       = azurerm_container_app.main.name
 }
 
 output "container_app_url" {
-  description = "HTTPS URL for the public frontend Container App entry point."
-  value       = "https://${azurerm_container_app.frontend.latest_revision_fqdn}"
-}
-
-output "frontend_container_app_url" {
-  description = "HTTPS URL for the public frontend Container App entry point."
-  value       = "https://${azurerm_container_app.frontend.latest_revision_fqdn}"
-}
-
-output "pyrit_container_app_url" {
-  description = "HTTPS URL for the private PyRIT Container App."
-  value       = "https://${azurerm_container_app.pyrit.latest_revision_fqdn}"
-}
-
-output "promptfoo_container_app_url" {
-  description = "HTTPS URL for the private Promptfoo Container App."
-  value       = "https://${azurerm_container_app.promptfoo.latest_revision_fqdn}"
+  description = "HTTPS URL for the public frontend entry point on the unified Container App."
+  value       = "https://${azurerm_container_app.main.latest_revision_fqdn}"
 }
 
 output "pyrit_image_reference" {
