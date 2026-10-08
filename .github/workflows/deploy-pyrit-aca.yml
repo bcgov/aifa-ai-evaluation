@@ -19,6 +19,10 @@ permissions:
   contents: write
   packages: write
 
+concurrency:
+  group: aca-deploy-${{ github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   branch-slug:
     name: Branch Slug
@@ -63,6 +67,7 @@ jobs:
       TF_STATE_CONTAINER_NAME: ${{ secrets.TF_STATE_CONTAINER_NAME || 'tfstate' }}
       TF_STATE_KEY: ${{ secrets.TF_STATE_KEY || 'aifa-ai-evaluation/aca.tfstate' }}
       TF_STATE_ACCESS_KEY: ${{ secrets.TF_STATE_ACCESS_KEY }}
+      TF_STATE_USE_AZUREAD_AUTH: "true"
       TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
       TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -96,7 +101,6 @@ jobs:
       ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      ARM_ACCESS_KEY: ${{ secrets.TF_STATE_ACCESS_KEY }}
       ARM_USE_OIDC: "true"
 
     steps:
@@ -117,13 +121,39 @@ jobs:
 
       - name: Terraform init
         working-directory: infra/aca
+        shell: bash
         run: |
-          terraform init \
-            -backend-config="resource_group_name=${TF_STATE_RESOURCE_GROUP}" \
-            -backend-config="storage_account_name=${TF_STATE_STORAGE_ACCOUNT_NAME}" \
-            -backend-config="container_name=${TF_STATE_CONTAINER_NAME}" \
-            -backend-config="key=${TF_STATE_KEY}" \
-            -backend-config="access_key=${TF_STATE_ACCESS_KEY}"
+          set -euo pipefail
+
+          if [[ -n "${TF_STATE_STORAGE_ACCOUNT_NAME:-}" ]]; then
+            echo "Using Azure Storage remote state backend."
+
+            if [[ "${TF_STATE_USE_AZUREAD_AUTH:-true}" == "true" ]]; then
+              echo "Using Azure AD/OIDC auth for remote state backend."
+              terraform init \
+                -reconfigure \
+                -backend-config="resource_group_name=${TF_STATE_RESOURCE_GROUP}" \
+                -backend-config="storage_account_name=${TF_STATE_STORAGE_ACCOUNT_NAME}" \
+                -backend-config="container_name=${TF_STATE_CONTAINER_NAME}" \
+                -backend-config="key=${TF_STATE_KEY}" \
+                -backend-config="use_azuread_auth=true"
+            elif [[ -n "${TF_STATE_ACCESS_KEY:-}" ]]; then
+              echo "Using storage account access key for remote state backend."
+              terraform init \
+                -reconfigure \
+                -backend-config="resource_group_name=${TF_STATE_RESOURCE_GROUP}" \
+                -backend-config="storage_account_name=${TF_STATE_STORAGE_ACCOUNT_NAME}" \
+                -backend-config="container_name=${TF_STATE_CONTAINER_NAME}" \
+                -backend-config="key=${TF_STATE_KEY}" \
+                -backend-config="access_key=${TF_STATE_ACCESS_KEY}"
+            else
+              echo "Remote state storage was configured without a usable auth method; falling back to local state."
+              terraform init -backend=false -reconfigure
+            fi
+          else
+            echo "Remote Terraform backend secrets are missing; falling back to local state for this run."
+            terraform init -backend=false -reconfigure
+          fi
 
       - name: Adopt existing resource group if present
         working-directory: infra/aca
@@ -151,7 +181,7 @@ jobs:
         if: inputs.command == 'plan' || github.event_name == 'push'
         working-directory: infra/aca
         run: |
-          terraform plan \
+          terraform plan -lock=false \
             -var="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
             -var="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
             -var="client_id=${{ secrets.AZURE_CLIENT_ID }}" \
@@ -187,7 +217,7 @@ jobs:
         if: inputs.command == 'apply'
         working-directory: infra/aca
         run: |
-          terraform apply -auto-approve \
+          terraform apply -auto-approve -lock=false \
             -var="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
             -var="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
             -var="client_id=${{ secrets.AZURE_CLIENT_ID }}" \

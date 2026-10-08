@@ -1450,6 +1450,38 @@ EOF
         --env "$GITHUB_ENVIRONMENT" \
         --body "$STORAGE_ACCOUNT"
 
+    gh secret set TF_STATE_RESOURCE_GROUP \
+        --repo "$GITHUB_REPO" \
+        --env "$GITHUB_ENVIRONMENT" \
+        --body "$RESOURCE_GROUP"
+    gh secret set TF_STATE_STORAGE_ACCOUNT_NAME \
+        --repo "$GITHUB_REPO" \
+        --env "$GITHUB_ENVIRONMENT" \
+        --body "$STORAGE_ACCOUNT"
+    gh secret set TF_STATE_CONTAINER_NAME \
+        --repo "$GITHUB_REPO" \
+        --env "$GITHUB_ENVIRONMENT" \
+        --body "$STORAGE_CONTAINER"
+    gh secret set TF_STATE_KEY \
+        --repo "$GITHUB_REPO" \
+        --env "$GITHUB_ENVIRONMENT" \
+        --body "terraform.tfstate"
+
+    if [[ "$CREATE_STORAGE" == "true" ]]; then
+        local tf_state_key
+        tf_state_key=$(az storage account keys list \
+            --account-name "$STORAGE_ACCOUNT" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query "[0].value" \
+            --output tsv 2>/dev/null || true)
+        if [[ -n "$tf_state_key" ]]; then
+            gh secret set TF_STATE_ACCESS_KEY \
+                --repo "$GITHUB_REPO" \
+                --env "$GITHUB_ENVIRONMENT" \
+                --body "$tf_state_key"
+        fi
+    fi
+
     log_success "Secrets and variables added to GitHub environment '$GITHUB_ENVIRONMENT'."
     return 0
 
