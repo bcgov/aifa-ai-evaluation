@@ -26,6 +26,10 @@ from aifa_pyrit.config import normalize_azure_openai_endpoint
 logger = structlog.get_logger(__name__)
 
 
+class AzureOpenAIRequestError(RuntimeError):
+    pass
+
+
 class CustomAzureOpenAITarget(PromptTarget):
     @staticmethod
     def _resolve_proxy_url() -> str | None:
@@ -149,11 +153,7 @@ class CustomAzureOpenAITarget(PromptTarget):
                     break
             
             if not last_message:
-                error_response = Message.from_prompt(
-                    prompt="No user message found in conversation",
-                    role="assistant"
-                )
-                return [error_response]
+                raise AzureOpenAIRequestError("No user message found in conversation")
             
             # Extract prompt text from message
             prompt = str(last_message.get_value())
@@ -207,16 +207,14 @@ class CustomAzureOpenAITarget(PromptTarget):
                         error=error_text,
                         formatted_message=error_msg,
                     )
-                    error_response = Message.from_prompt(
-                        prompt=error_msg,
-                        role="assistant"
-                    )
-                    return [error_response]
+                    raise AzureOpenAIRequestError(error_msg)
 
                 result = response.json()
 
                 # Extract response content
                 response_content = result["choices"][0]["message"]["content"]
+                if response_content is None:
+                    raise AzureOpenAIRequestError("Azure OpenAI returned an empty response")
 
                 logger.info(
                     "azure_openai_request_success",
@@ -231,17 +229,15 @@ class CustomAzureOpenAITarget(PromptTarget):
 
                 return [response_message]
                     
+        except AzureOpenAIRequestError:
+            raise
         except Exception as e:
             error_msg = f"Error querying Azure OpenAI: {str(e)}"
             logger.error(
                 "azure_openai_request_exception",
                 error=str(e),
             )
-            error_response = Message.from_prompt(
-                prompt=error_msg,
-                role="assistant"
-            )
-            return [error_response]
+            raise AzureOpenAIRequestError(error_msg) from e
 
     @property
     def prompt_target_name(self) -> str:

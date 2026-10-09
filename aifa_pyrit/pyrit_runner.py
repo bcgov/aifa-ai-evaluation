@@ -15,7 +15,15 @@ from io import StringIO
 import structlog
 from aifa_pyrit.config import ensure_azure_openai_v1_endpoint, normalize_azure_openai_endpoint, settings
 from aifa_pyrit.custom_backend_target import CustomBackendTarget
-from aifa_pyrit.crescendo_step_capture import CrescendoMemoryTracer
+from aifa_pyrit.crescendo_step_capture import (
+    CrescendoMemoryTracer,
+    message_original_text,
+    message_role,
+    message_text,
+    reveal_hidden_text,
+)
+from aifa_pyrit.converters import build_converter_config, normalize_converter_names
+from aifa_pyrit.converters import needs_llm as converters_need_llm
 from aifa_pyrit.custom_backend_target import BACKEND_META_MARKER
 from aifa_pyrit.storage import get_report_store
 
@@ -64,6 +72,7 @@ class PyRITRunner:
         threat_models: Optional[List[str]] = None,
         max_iterations: int = 5,
         verbose: bool = False,
+        converters: Optional[List[str]] = None,
     ):
         """
         Initialize PyRIT runner.
@@ -72,10 +81,12 @@ class PyRITRunner:
             threat_models: List of threat models (jailbreak, prompt_injection, data_exfiltration)
             max_iterations: Max iterations per attack
             verbose: Enable verbose output
+            converters: Optional list of converter names (e.g. base64, rot13)
         """
         self.threat_models = threat_models or ["jailbreak", "prompt_injection", "data_exfiltration"]
         self.max_iterations = max_iterations
         self.verbose = verbose
+        self.converter_names = normalize_converter_names(converters)
         self.results: Dict[str, Any] = {}
         
         # Initialize seed datasets path
@@ -125,19 +136,26 @@ class PyRITRunner:
     def _extract_turn_pairs(messages: List[Any], outcome: str) -> List[Dict[str, Any]]:
         turns: List[Dict[str, Any]] = []
         user_message = None
+        original_message = None
 
         for msg in messages:
-            role = getattr(msg, "api_role", getattr(msg, "role", ""))
-            content = getattr(msg, "converted_value", "") or getattr(msg, "original_value", "")
+            role = message_role(msg)
+            content = message_text(msg)
 
             if role == "user":
                 user_message = content
+                original_message = message_original_text(msg)
             elif role == "assistant" and user_message:
                 response_text, backend_meta = PyRITRunner._split_response_and_backend_meta(str(content))
                 turns.append(
                     {
-                        "prompt": str(user_message)[:500],
-                        "response": response_text[:500],
+                        "original_prompt": str(original_message),
+                        "prompt": str(user_message),
+                        "prompt_readable": reveal_hidden_text(str(user_message)),
+                        "response": response_text,
+                        "transport_error": response_text.startswith(INFRA_ERROR_PREFIX) or any(
+                            pattern in response_text for pattern in TRANSPORT_ERROR_PATTERNS
+                        ),
                         "outcome": str(outcome),
                         **backend_meta,
                     }
@@ -333,6 +351,11 @@ class PyRITRunner:
             api_version=adversarial_api_version,
         )
 
+    def _converter_kwargs(self) -> Dict[str, Any]:
+        converter_target = self._create_adversarial_target() if converters_need_llm(self.converter_names) else None
+        config = build_converter_config(self.converter_names, converter_target=converter_target)
+        return {"attack_converter_config": config} if config is not None else {}
+
     def _capture_escalation_chains(self, results: Any) -> List[Dict[str, Any]]:
         escalation_chains: List[Dict[str, Any]] = []
         try:
@@ -466,11 +489,11 @@ class PyRITRunner:
         )
 
         if memory:
-            turns = self._try_extract_adversarial_turns(memory, adversarial_conv_ids, outcome)
+            turns = self._try_extract_objective_turns(memory, conversation_id, executed_turns, outcome)
             if turns:
                 return turns
 
-            turns = self._try_extract_objective_turns(memory, conversation_id, executed_turns, outcome)
+            turns = self._try_extract_adversarial_turns(memory, adversarial_conv_ids, outcome)
             if turns:
                 return turns
 
@@ -512,7 +535,7 @@ class PyRITRunner:
         executed_turns: int,
         outcome: str,
     ) -> List[Dict[str, Any]]:
-        if not conversation_id or executed_turns <= 1:
+        if not conversation_id or executed_turns < 1:
             return []
 
         try:
@@ -708,6 +731,7 @@ class PyRITRunner:
             attack = PromptSendingAttack(
                 objective_target=objective_target,
                 attack_scoring_config=attack_config,
+                **self._converter_kwargs(),
             )
             
             # Execute attack
@@ -722,7 +746,7 @@ class PyRITRunner:
             payload = {
                 "query": query,
                 "attack_type": "PromptSendingAttack",
-                "converters": ["TenseConverter(past)", "TenseConverter(future)"],
+                "converters": list(self.converter_names),
                 "results": self._format_pyrit_results(results),
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
@@ -841,6 +865,7 @@ class PyRITRunner:
             attack = PromptSendingAttack(
                 objective_target=objective_target,
                 attack_scoring_config=attack_config,
+                **self._converter_kwargs(),
             )
             
             # Execute attack with all seed objectives
@@ -858,7 +883,7 @@ class PyRITRunner:
                 "seed_source": "AIRT Datasets",
                 "seed_datasets": seed_datasets,
                 "total_seeds_used": len(all_seeds),
-                "converters": ["TenseConverter(past)", "TenseConverter(future)"],
+                "converters": list(self.converter_names),
                 "results": self._format_pyrit_results(results),
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
@@ -910,6 +935,7 @@ class PyRITRunner:
                 attack_adversarial_config=attack_config,
                 attack_scoring_config=scoring_config,
                 max_turns=self.max_iterations,
+                **self._converter_kwargs(),
             )
             
             # Execute attack
@@ -926,6 +952,7 @@ class PyRITRunner:
             payload = {
                 "query": query,
                 "attack_type": "CrescendoAttack",
+                "converters": list(self.converter_names),
                 "threat_model": "jailbreak",
                 "results": self._format_pyrit_results(results),
                 "escalation_steps": escalation_chains,
@@ -992,6 +1019,7 @@ class PyRITRunner:
                 attack_adversarial_config=attack_config,
                 attack_scoring_config=scoring_config,
                 max_turns=max_turns,
+                **self._converter_kwargs(),
             )
             
             # Execute attack
@@ -1008,6 +1036,7 @@ class PyRITRunner:
             payload = {
                 "query": query,
                 "attack_type": "RedTeamingAttack",
+                "converters": list(self.converter_names),
                 "max_turns": max_turns,
                 "results": self._format_pyrit_results(results),
                 "escalation_steps": escalation_chains,
@@ -1225,6 +1254,9 @@ class PyRITRunner:
             else:  # Default to PromptSending (ignore threat_models, use user's explicit choice)
                 result = await self.run_attack(query)
             
+            result["case_name"] = case_name
+            result["expected_behavior"] = test_case.get("expected_behavior")
+            result["converters"] = list(self.converter_names)
             results.append(result)
             
             # Delay between tests
@@ -1234,6 +1266,7 @@ class PyRITRunner:
         self.results = {
             "scan_timestamp": datetime.now(timezone.utc).isoformat(),
             "attack_type": attack_type,
+            "converters": list(self.converter_names),
             "total_cases": len(test_cases),
             "results": results,
         }

@@ -7,6 +7,33 @@ from io import StringIO
 import structlog
 
 
+def message_text(msg: Any) -> str:
+    """Return text from a PyRIT Message (via its pieces) or a bare MessagePiece."""
+    pieces = getattr(msg, "message_pieces", None)
+    piece = pieces[0] if pieces else msg
+    return str(getattr(piece, "converted_value", "") or getattr(piece, "original_value", "") or "")
+
+
+def message_original_text(msg: Any) -> str:
+    """Return the pre-converter text from a PyRIT Message or bare MessagePiece."""
+    pieces = getattr(msg, "message_pieces", None)
+    piece = pieces[0] if pieces else msg
+    return str(getattr(piece, "original_value", "") or getattr(piece, "converted_value", "") or "")
+
+
+def reveal_hidden_text(text: str) -> str:
+    """Make invisible Unicode tag characters (ASCII smuggler output) readable."""
+    hidden = "".join(chr(ord(c) - 0xE0000) for c in text if 0xE0000 <= ord(c) <= 0xE007F)
+    return f"[hidden tag text] {hidden}" if hidden else text
+
+
+def message_role(msg: Any) -> str:
+    """Return the role of a PyRIT Message or MessagePiece."""
+    pieces = getattr(msg, "message_pieces", None)
+    piece = pieces[0] if pieces else msg
+    return str(getattr(msg, "api_role", None) or getattr(piece, "api_role", None) or getattr(piece, "role", "") or "")
+
+
 class CrescendoStepCapture:
     """Capture intermediate escalation steps from Crescendo attacks."""
     
@@ -122,8 +149,8 @@ class CrescendoMemoryTracer:
             user_prompts = []
             
             for msg in messages:
-                role = getattr(msg, 'api_role', getattr(msg, 'role', ''))
-                content = getattr(msg, 'converted_value', '') or getattr(msg, 'original_value', '')
+                role = message_role(msg)
+                content = message_text(msg)
                 
                 if role == 'user':
                     user_prompts.append(content)
@@ -131,8 +158,8 @@ class CrescendoMemoryTracer:
                     # Create escalation entry for this user/assistant pair
                     escalations.append({
                         "escalation_step": len(escalations) + 1,
-                        "prompt": str(user_prompts[-1])[:500],
-                        "response": str(content)[:500],
+                        "prompt": str(user_prompts[-1])[:2000],
+                        "response": str(content)[:2000],
                     })
             
             return escalations

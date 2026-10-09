@@ -350,6 +350,27 @@
 
             <div id="scan-config">
               <div class="field">
+                <label for="testSource">Test source</label>
+                <select id="testSource">
+                  <option value="saved">Saved test cases</option>
+                  <option value="custom">Custom query</option>
+                </select>
+              </div>
+
+              <div id="saved-case-config" class="field">
+                <label for="caseFilter">Case names filter</label>
+                <input id="caseFilter" placeholder="optional: case1,case2" />
+                <div class="muted">Missing cases or unknown names stop the run; no fee question is substituted.</div>
+              </div>
+
+              <div id="custom-query-config" class="field" style="display:none;">
+                <label for="customQuery">Custom query</label>
+                <textarea id="customQuery" rows="4" maxlength="20000" placeholder="Enter the prompt to send to the target assistant."></textarea>
+                <label for="expectedBehavior" style="margin-top: 12px;">Expected behavior (review note)</label>
+                <textarea id="expectedBehavior" rows="3" maxlength="4000" placeholder="Describe what the assistant should and should not do. This is not an automatic scorer."></textarea>
+              </div>
+
+              <div class="field">
                 <label for="attackType">Attack type</label>
                 <select id="attackType">
                   <option>PromptSending</option>
@@ -360,14 +381,18 @@
                 </select>
               </div>
 
-              <div class="field">
-                <label for="threatModels">Threat models</label>
-                <input id="threatModels" placeholder="jailbreak,prompt_injection,data_exfiltration" value="jailbreak,prompt_injection,data_exfiltration" />
+              <div class="field" id="converter-config">
+                <label>Converters (optional)</label>
+                <div id="converterOptions" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;"></div>
+                <div class="muted" style="margin-top:8px;">
+                  Converters apply in the order shown. Encoded or hidden prompts are stored readably in reports.
+                  Translation (*) needs Azure OpenAI network access and will stop the run with an error if the service is unreachable.
+                </div>
               </div>
 
               <div class="field">
-                <label for="caseFilter">Case names filter</label>
-                <input id="caseFilter" placeholder="optional: case1,case2" />
+                <label for="threatModels">Threat models</label>
+                <input id="threatModels" placeholder="jailbreak,prompt_injection,data_exfiltration" value="jailbreak,prompt_injection,data_exfiltration" />
               </div>
 
               <div class="field">
@@ -456,9 +481,10 @@
                   <div class="detail-grid">
                     <div class="mini-stat"><span class="label">Attack</span><strong id="detailAttack">—</strong></div>
                     <div class="mini-stat"><span class="label">Turns</span><strong id="detailTurns">0</strong></div>
-                    <div class="mini-stat"><span class="label">Success</span><strong id="detailSuccess">0</strong></div>
+                    <div class="mini-stat"><span class="label">Completed</span><strong id="detailSuccess">0</strong></div>
                     <div class="mini-stat"><span class="label">Errors</span><strong id="detailErrors">0</strong></div>
                   </div>
+                  <div class="muted"><span id="detailUnscored">0 unscored turns</span> · <span id="detailVerdict">security verdict: not assessed</span></div>
                   <div class="muted" id="detailTimestamp">No report selected</div>
 
                   <div class="chart-grid" style="grid-template-columns:1fr; margin-top: 12px;">
@@ -527,9 +553,43 @@
       const attackChartEl = document.getElementById('attackChart');
       const attackDrilldownEl = document.getElementById('attackDrilldown');
       const categoryScoresEl = document.getElementById('categoryScores');
+      const testSourceEl = document.getElementById('testSource');
+      const savedCaseConfigEl = document.getElementById('saved-case-config');
+      const customQueryConfigEl = document.getElementById('custom-query-config');
+      const converterOptionsEl = document.getElementById('converterOptions');
+      const detailUnscoredEl = document.getElementById('detailUnscored');
+      const detailVerdictEl = document.getElementById('detailVerdict');
 
-      function setOutput(text) {
-        outputEl.innerHTML = `<pre>${typeof text === 'string' ? text : JSON.stringify(text, null, 2)}</pre>`;
+      function escapeText(value) {
+        const element = document.createElement('span');
+        element.textContent = String(value ?? '');
+        return element.innerHTML.replace(/"/g, '"').replace(/'/g, '&#39;');
+      }
+
+      function setOutput(message) {
+        const pre = document.createElement('pre');
+        pre.textContent = typeof message === 'string' ? message : JSON.stringify(message, null, 2);
+        outputEl.replaceChildren(pre);
+      }
+
+      async function loadConverters() {
+        if (!converterOptionsEl) return;
+        try {
+          const names = await fetch('/api/converters').then(r => r.json());
+          converterOptionsEl.innerHTML = (Array.isArray(names) ? names : []).map(name => `
+            <label style="display:flex;align-items:center;gap:8px;margin:0;font-size:0.9rem;color:var(--text);">
+              <input type="checkbox" name="converterOption" value="${escapeText(name)}" style="width:auto;" />
+              <span>${escapeText(name.startsWith('translation') ? `${name} *` : name)}</span>
+            </label>`).join('') || '<div class="muted">No converters available.</div>';
+        } catch (err) {
+          converterOptionsEl.innerHTML = '<div class="muted">Converters unavailable.</div>';
+        }
+      }
+
+      function toggleTestSource() {
+        const custom = testSourceEl.value === 'custom';
+        savedCaseConfigEl.style.display = custom ? 'none' : 'block';
+        customQueryConfigEl.style.display = custom ? 'block' : 'none';
       }
 
       function toggleMode() {
@@ -551,16 +611,22 @@
           const percent = Math.max((count / highest) * 100, count > 0 ? 8 : 0);
           return `
             <div class="bar-row">
-              <div class="bar-meta"><span>${String(item.name || 'unknown')}</span><strong>${count}</strong></div>
+              <div class="bar-meta"><span>${escapeText(item.name || 'unknown')}</span><strong>${count}</strong></div>
               <div class="bar-track"><div class="bar-fill" style="width:${percent}%"></div></div>
             </div>`;
         }).join('');
       }
 
-      function renderScoreBadges(items) {
+      function renderScoreBadges(summary) {
         if (!categoryScoresEl) return;
-        if (!items || !items.length) { categoryScoresEl.innerHTML = '<div class="muted">No category scores available.</div>'; return; }
-        categoryScoresEl.innerHTML = items.map(item => `<div class="score-badge"><strong>${item.name}</strong><span>${item.count || 0}</span></div>`).join('');
+        const completed = Number(summary?.completed_turns || 0);
+        const unscored = Number(summary?.unscored_turns || 0);
+        const verdict = String(summary?.security_verdict || 'not_assessed');
+        categoryScoresEl.innerHTML = `
+          <div class="score-badge"><strong>${completed}</strong><span>completed turns</span></div>
+          <div class="score-badge"><strong>${unscored}</strong><span>unscored turns (no scorer verdict)</span></div>
+          <div class="score-badge"><strong>${escapeText(verdict)}</strong><span>security verdict</span></div>
+          <div class="score-badge"><span>Completed runs are not security passes; review responses manually.</span></div>`;
       }
 
       function renderDrilldown(items) {
@@ -568,24 +634,40 @@
         if (!items || !items.length) { attackDrilldownEl.innerHTML = '<li class="muted">No attack drill-down available.</li>'; return; }
         attackDrilldownEl.innerHTML = items.slice(0, 17).map((it, idx) => `
           <li class="drilldown-item ${idx===0?'open':''}">
-            <button class="drilldown-toggle" type="button"><div><strong>${it.attack_type||it.name||'unknown'}</strong> · ${it.turn_count||0} turns</div><div class="muted">${(it.query||'').slice(0,120)}</div></button>
-            <div class="drilldown-details"><div class="muted">${(it.response_preview||'').slice(0,220)}</div></div>
+            <button class="drilldown-toggle" type="button"><div><strong>${escapeText(it.attack_type||it.name||'unknown')}</strong> · ${it.turn_count||0} turns</div><div class="muted">${escapeText((it.query||'').slice(0,120))}</div></button>
+            <div class="drilldown-details"><div class="muted">${escapeText((it.response_preview||'').slice(0,220))}</div></div>
           </li>`).join('');
         attackDrilldownEl.querySelectorAll('.drilldown-toggle').forEach(b => b.addEventListener('click', e => b.closest('.drilldown-item').classList.toggle('open')));
       }
 
       function renderResultRows(report) {
         if (!detailResultContentEl) return;
-        const rows = Array.isArray(report?.results) ? report.results : [];
+        const rows = Array.isArray(report?.results) ? report.results : [report];
         if (!rows.length) { detailResultContentEl.innerHTML = '<div class="muted">No result rows available.</div>'; return; }
-        detailResultContentEl.innerHTML = rows.map((item, i) => `
-          <div class="drilldown-item open"><button class="drilldown-toggle"><div><strong>${item.attack_type||'unknown'}</strong></div><div class="muted">${(item.query||item.prompt||'').slice(0,120)}</div></button><div class="drilldown-details"><div class="muted">${(item.response||'').slice(0,220)}</div></div></div>`).join('');
+        detailResultContentEl.innerHTML = rows.map(item => {
+          const turns = item.results?.turns || item.turns || [];
+          return `
+            <div class="drilldown-item open">
+              <strong>${escapeText(item.case_name || item.attack_type || report.attack_type || 'Result')}</strong>
+              <div>Converters: ${escapeText((item.converters || report.converters || []).join(' → ') || 'None (baseline)')}</div>
+              <div>Expected behavior: ${escapeText(item.expected_behavior || report.expected_behavior || 'Not specified')}</div>
+              ${item.error ? `<pre>${escapeText(item.error)}</pre>` : ''}
+              ${turns.map(turn => `
+                <div class="drilldown-details" style="display:block;">
+                  <strong>Turn ${Number(turn.turn || 1)} — ${escapeText(turn.outcome || 'Unscored')}</strong>
+                  <div>Original prompt</div><pre>${escapeText(turn.original_prompt ?? item.query ?? '')}</pre>
+                  <div>Converted prompt (hidden characters shown readably)</div><pre>${escapeText(turn.prompt_readable ?? turn.prompt ?? '')}</pre>
+                  <div>Full response</div><pre>${escapeText(turn.response || '')}</pre>
+                </div>
+              `).join('')}
+            </div>`;
+        }).join('');
       }
 
       function renderInsightPanels(insights) {
         renderBarChart(outcomeChartEl, insights?.outcome_distribution || []);
         renderBarChart(attackChartEl, insights?.attack_breakdown || []);
-        renderScoreBadges((insights?.attack_breakdown || []).map(a=>({name:a.name,count:a.count})));
+        renderScoreBadges(insights?.summary || {});
         renderDrilldown(insights?.case_drilldown || []);
       }
 
@@ -610,7 +692,7 @@
           reportListEl.innerHTML = filtered.slice(0,8).map(r=>{
             const status = String(r.summary.status||'unknown');
             const css = status==='ok'?'success':status==='unreadable'?'warning':'danger';
-            return `<div class="report-item"><div class="report-item-header"><div><div><strong>${r.name}</strong></div><div class="muted">${new Date(r.updated_at).toLocaleString()}</div></div><div class="status ${css}">${status}</div></div><div class="muted" style="margin-top:8px;">${Number(r.summary.total_turns||0)} turns · ${Number(r.summary.total_cases||0)} cases</div><div class="report-actions"><button data-name="${r.name}" data-action="view">View report</button><button class="ghost-button" data-name="${r.name}" data-action="export">Export JSON</button></div></div>`;
+            return `<div class="report-item"><div class="report-item-header"><div><div><strong>${escapeText(r.name)}</strong></div><div class="muted">${escapeText(new Date(r.updated_at).toLocaleString())}</div></div><div class="status ${css}">${escapeText(status)}</div></div><div class="muted" style="margin-top:8px;">${Number(r.summary.total_turns||0)} turns · ${Number(r.summary.total_cases||0)} cases</div><div class="report-actions"><button data-name="${escapeText(r.name)}" data-action="view">View report</button><button class="ghost-button" data-name="${escapeText(r.name)}" data-action="export">Export JSON</button></div></div>`;
           }).join('');
 
           reportListEl.querySelectorAll('button[data-name]').forEach(btn=>btn.addEventListener('click', async (e)=>{
@@ -622,11 +704,13 @@
             const [report, insights] = await Promise.all([fetch(`/api/reports/${name}`).then(r=>r.json()), fetch(`/api/reports/${name}/insights`).then(r=>r.json())]);
             detailAttackEl.textContent = insights.report_metadata.attack_type || 'unknown';
             detailTurnsEl.textContent = String(insights.summary.turn_count||0);
-            detailSuccessEl.textContent = String(insights.summary.successful_turns||0);
+            detailSuccessEl.textContent = String(insights.summary.completed_turns||insights.summary.successful_turns||0);
             detailErrorsEl.textContent = String(insights.summary.error_count||0);
+            detailUnscoredEl.textContent = `${Number(insights.summary.unscored_turns||0)} unscored turns`;
+            detailVerdictEl.textContent = `security verdict: ${String(insights.summary.security_verdict||'not_assessed')}`;
             detailTimestampEl.textContent = insights.report_metadata.timestamp||'Unknown timestamp';
             renderResultRows(report); renderInsightPanels(insights);
-            detailTimelineEl.innerHTML = (insights.execution_timeline||insights.timeline||[]).map(entry=>`<li><div><strong>Step ${entry.step}</strong> · ${entry.attack_type||'unknown'} · ${entry.outcome||'unknown'}</div><div class="muted">${(entry.query||entry.prompt||'').slice(0,120)}</div></li>`).join('') || '<li><div class="muted">No turn-by-turn details available.</div></li>';
+            detailTimelineEl.innerHTML = (insights.execution_timeline||insights.timeline||[]).map(entry=>`<li><div><strong>Step ${Number(entry.step)}</strong> · ${escapeText(entry.attack_type||'unknown')} · ${escapeText(entry.outcome||'unknown')}</div><div class="muted">${escapeText((entry.query||entry.prompt||'').slice(0,120))}</div></li>`).join('') || '<li><div class="muted">No turn-by-turn details available.</div></li>';
             reportDetailEl.style.display = 'block'; setOutput(report);
           }));
 
@@ -640,7 +724,19 @@
             const token = (promptfooTokenEl.value||'').trim(); const headers = token?{'x-run-token':token}:{ };
             const resp = await fetch('/api/run-promptfoo',{method:'POST', headers}); const body = await resp.json().catch(()=>({})); if (!resp.ok) throw new Error(body.detail||JSON.stringify(body)); systemStatusEl.textContent='Promptfoo finished'; await loadReports(); setOutput(body); return;
           }
-          let endpoint='/api/run-scan'; let payload={ attack_type: document.getElementById('attackType').value, use_file:true, threat_models: document.getElementById('threatModels').value, cases: document.getElementById('caseFilter').value||null, max_iterations: Number(document.getElementById('maxIterations').value||5) };
+          let endpoint='/api/run-scan';
+          const selectedConverters = Array.from(document.querySelectorAll('input[name="converterOption"]:checked')).map(cb => cb.value);
+          const usingSaved = testSourceEl.value === 'saved';
+          let payload={
+            attack_type: document.getElementById('attackType').value,
+            use_file: usingSaved,
+            query: usingSaved ? null : (document.getElementById('customQuery').value || null),
+            expected_behavior: usingSaved ? null : (document.getElementById('expectedBehavior').value || null),
+            threat_models: document.getElementById('threatModels').value,
+            cases: usingSaved ? (document.getElementById('caseFilter').value || null) : null,
+            converters: selectedConverters.length > 0 ? selectedConverters : null,
+            max_iterations: Number(document.getElementById('maxIterations').value||5)
+          };
           if (mode==='seed') { endpoint='/api/run-seed-attack'; payload={ datasets: document.getElementById('seedDatasets').value||null, limit_seeds: document.getElementById('limitSeeds').value?Number(document.getElementById('limitSeeds').value):null, verbose:true }; }
           const response = await fetch(endpoint,{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
           const result = await response.json(); if (!response.ok) throw new Error(result.detail||JSON.stringify(result)); setOutput({status:result.status, report: result.report_name||null, summary: result.summary||{}}); await loadReports(); systemStatusEl.textContent='Ready';
@@ -651,11 +747,12 @@
       document.getElementById('runButton').addEventListener('click', runScan);
       document.getElementById('refreshButton').addEventListener('click', loadReports);
       modeEl.addEventListener('change', toggleMode);
+      testSourceEl.addEventListener('change', toggleTestSource);
       reportSearchEl.addEventListener('input', () => loadReports());
       reportStatusFilterEl.addEventListener('change', () => loadReports());
 
       // Init
-      (function init(){ toggleMode(); loadReports(); systemStatusEl.textContent='Ready'; setOutput('Ready to run a scan.'); })();
+      (function init(){ toggleMode(); toggleTestSource(); loadConverters(); loadReports(); systemStatusEl.textContent='Ready'; setOutput('Ready to run a scan.'); })();
     </script>
   </body>
 </html>

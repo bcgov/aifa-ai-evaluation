@@ -170,3 +170,6 @@ dmypy.json
 .ipynb_checkpoints/
 uv.lock
 docs/*
+# Generated scan reports (local only)
+results/*
+!results/.gitkeep
