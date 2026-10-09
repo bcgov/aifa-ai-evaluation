@@ -42,7 +42,10 @@ class RunScanRequest(BaseModel):
     attack_type: AttackType = "PromptSending"
     use_file: bool = True
     cases: str | None = None
+    query: str | None = Field(default=None, max_length=20000)
+    expected_behavior: str | None = Field(default=None, max_length=4000)
     threat_models: str | None = None
+    converters: list[str] | None = None
     max_iterations: int = Field(default_factory=lambda: settings.red_team_max_iterations)
 
 
@@ -71,12 +74,14 @@ def _save_report(report: dict[str, Any], filename: str | None = None) -> Path:
 def _load_cases(case_names: str | None = None) -> list[dict[str, Any]]:
     all_cases = RedTeamOrchestrator.load_test_cases()
     if not all_cases:
-        return [{"query": "What is the application fee for a water licence?"}]
+        raise HTTPException(status_code=400, detail="No test cases loaded. Check the test-case source or choose Custom query.")
 
     if case_names:
         allowed = {name.strip() for name in case_names.split(",") if name.strip()}
-        selected = [case for case in all_cases if case.get("name") in allowed]
-        return selected or all_cases
+        missing = allowed - {case.get("name") for case in all_cases}
+        if not allowed or missing:
+            raise HTTPException(status_code=400, detail=f"Unknown or empty case filter: {', '.join(sorted(missing))}")
+        return [case for case in all_cases if case.get("name") in allowed]
 
     return all_cases
 
@@ -113,16 +118,22 @@ def _summarize_report(report: dict[str, Any]) -> dict[str, Any]:
         total_turns = 0
         case_count = 0
 
-    error_count = 0
+    case_errors = sum(bool(item.get("error")) for item in results if isinstance(item, dict)) if isinstance(results, list) else 0
+    error_count = int(bool(report.get("error"))) + case_errors
     successful_turns = 0
+    completed_turns = 0
+    unscored_turns = 0
     outcome_counts: dict[str, int] = {}
     for item in turns:
         outcome = str(item.get("outcome") or item.get("status") or "unknown")
         outcome_counts[outcome] = outcome_counts.get(outcome, 0) + 1
-        if "error" in outcome.lower() or item.get("transport_error") or item.get("error"):
+        verdict = outcome.rsplit(".", 1)[-1].lower()
+        if "error" in verdict or item.get("transport_error") or item.get("error"):
             error_count += 1
-        elif outcome and "unknown" not in outcome.lower():
-            successful_turns += 1
+        else:
+            completed_turns += 1
+            successful_turns += int(verdict == "success")
+            unscored_turns += int(verdict not in {"success", "failure"})
 
     return {
         "attack_type": report.get("attack_type"),
@@ -130,10 +141,13 @@ def _summarize_report(report: dict[str, Any]) -> dict[str, Any]:
         "total_turns": total_turns,
         "turn_count": len(turns),
         "successful_turns": successful_turns,
+        "completed_turns": completed_turns,
+        "unscored_turns": unscored_turns,
+        "security_verdict": "review_required" if completed_turns > unscored_turns else "not_assessed",
         "error_count": error_count,
         "total_cases": case_count,
         "outcome_counts": outcome_counts,
-        "status": "ok" if "error" not in report else "error",
+        "status": "error" if error_count else "ok",
     }
 
 
@@ -312,15 +326,33 @@ async def get_report_insights(report_name: str) -> dict[str, Any]:
     return _report_insights(data)
 
 
+@app.get("/api/converters")
+async def list_converters() -> list[str]:
+    from aifa_pyrit.converters import available_converters
+    return available_converters()
+
+
 @app.post("/api/run-scan")
 async def run_scan(request: RunScanRequest) -> dict[str, Any]:
     models = [m.strip() for m in (request.threat_models or settings.red_team_threat_models).split(",") if m.strip()]
-    runner = PyRITRunner(threat_models=models, max_iterations=request.max_iterations, verbose=True)
+    try:
+        runner = PyRITRunner(
+            threat_models=models,
+            max_iterations=request.max_iterations,
+            verbose=True,
+            converters=request.converters,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     if request.use_file:
+        if request.query:
+            raise HTTPException(status_code=400, detail="Choose Custom query to run the supplied query.")
         test_cases = _load_cases(request.cases)
     else:
-        test_cases = [{"query": "What is the application fee for a water licence?"}]
+        if not request.query or not request.query.strip():
+            raise HTTPException(status_code=400, detail="Enter a custom query. No default question will be substituted.")
+        test_cases = [{"name": "custom_query", "query": request.query, "expected_behavior": request.expected_behavior}]
 
     if not test_cases:
         raise HTTPException(status_code=400, detail="No test cases available to run.")
@@ -329,25 +361,24 @@ async def run_scan(request: RunScanRequest) -> dict[str, Any]:
         lambda: asyncio.run(runner.scan_test_cases(test_cases, attack_type=request.attack_type))
     )
 
-    if results and any("error" in result for result in results):
-        status_code = 400
-    else:
-        status_code = 200
-
     report = {
         "report_type": "PyRIT",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "attack_type": request.attack_type,
+        "converters": list(runner.converter_names),
         "threat_models": models,
+        "test_source": "saved_cases" if request.use_file else "custom_query",
+        "expected_behavior": request.expected_behavior,
         **runner.results,
     }
     report_path = _save_report(report, filename=f"scan_{request.attack_type.lower()}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.json")
 
+    summary = _summarize_report(report)
     return {
-        "status": "success" if status_code == 200 else "error",
+        "status": "error" if summary["status"] == "error" else "success",
         "report_name": report_path.name,
         "report_path": str(report_path),
-        "summary": _summarize_report(report),
+        "summary": summary,
         "results": results,
     }
 
