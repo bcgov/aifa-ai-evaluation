@@ -86,8 +86,8 @@ jobs:
                 package_name="aifa-ai-evaluation-pyrit"
                 ;;
               frontend)
-                service_context="./frontend-common"
-                service_file="./frontend-common/Dockerfile"
+                service_context="./frontend"
+                service_file="./frontend/Dockerfile"
                 package_name="aifa-ai-evaluation-frontend"
                 ;;
               promptfoo)
