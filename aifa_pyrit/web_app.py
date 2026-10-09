@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import httpx
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
@@ -390,7 +391,47 @@ async def run_promptfoo(request: Request) -> dict[str, Any]:
 
     # Run the promptfoo orchestration script and collect the produced report
     if not PROMPTFOO_SCRIPT.exists():
-        raise HTTPException(status_code=404, detail="Promptfoo runner not found")
+        # If the runner script is not present (for example Promptfoo runs
+        # in a separate container), try calling the Promptfoo container's
+        # HTTP `/run` endpoint. The container listens on `PORT` 8001 by
+        # convention; allow overriding via `PROMPTFOO_CONTAINER_RUN_URL`.
+        run_url = os.getenv("PROMPTFOO_CONTAINER_RUN_URL", "http://127.0.0.1:8001/run")
+        headers = {}
+        if PROMPTFOO_RUN_TOKEN:
+            headers["x-run-token"] = PROMPTFOO_RUN_TOKEN
+        try:
+            resp = httpx.post(run_url, timeout=900.0, headers=headers)
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Promptfoo runner not found and container run failed: {exc}") from exc
+
+        if resp.status_code != 200:
+            raise HTTPException(status_code=resp.status_code, detail=f"Promptfoo container run failed: {resp.text[:500]}")
+
+        try:
+            payload = resp.json()
+        except Exception:
+            raise HTTPException(status_code=500, detail="Promptfoo container returned non-JSON response")
+
+        # If the container returned the report inline, save it locally so
+        # the rest of the API can read it the same way as the local runner.
+        report = None
+        if isinstance(payload, dict):
+            report = payload.get("report") or payload.get("data")
+            if payload.get("status") == "success_with_warnings" and payload.get("raw"):
+                # save raw text
+                PROMPTFOO_RESULT.parent.mkdir(exist_ok=True, parents=True)
+                PROMPTFOO_RESULT.write_text(str(payload.get("raw")), encoding="utf-8")
+                return {"status": "success_with_warnings", "report_name": PROMPTFOO_RESULT.name, "summary": {"status": "unreadable"}}
+
+        if report is not None:
+            try:
+                PROMPTFOO_RESULT.parent.mkdir(exist_ok=True, parents=True)
+                PROMPTFOO_RESULT.write_text(json.dumps(report, indent=2), encoding="utf-8")
+            except Exception:
+                pass
+            return {"status": "success", "report_name": PROMPTFOO_RESULT.name, "summary": _summarize_report(report)}
+
+        raise HTTPException(status_code=500, detail="Promptfoo did not produce a report via container run")
 
     # Ensure results-promptfoo dir exists
     PROMPTFOO_RESULT.parent.mkdir(exist_ok=True, parents=True)
