@@ -3,18 +3,21 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 import httpx
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from aifa_pyrit.config import settings
+from aifa_pyrit.csv_export import reports_to_csv
 from aifa_pyrit.orchestrator import RedTeamOrchestrator
 from aifa_pyrit.pyrit_runner import PyRITRunner
+from aifa_pyrit.run_manager import RunManager
 from aifa_pyrit.storage import get_report_store
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -53,6 +56,33 @@ class RunSeedAttackRequest(BaseModel):
     datasets: str | None = None
     limit_seeds: int | None = None
     verbose: bool = False
+
+
+class StartRunRequest(BaseModel):
+    mode: Literal["pyrit-scan"] = "pyrit-scan"
+    tenant_id: str
+    attack_type: AttackType = "PromptSending"
+    repeats: int = Field(default=1, ge=1, le=20)
+    converters: list[str] = Field(default_factory=list, max_length=6)
+    dataset_id: str | None = None
+    only_failed: bool = False
+    questions: list[str] | None = Field(default=None, max_length=50)
+    name: str | None = Field(default=None, max_length=200)
+
+
+class ExportRequest(BaseModel):
+    reports: list[str] = Field(default_factory=list, max_length=1000)
+    all: bool = False
+
+
+DEFAULT_DATASET_ID = "saved-test-cases"
+REPORT_NAME_PATTERN = re.compile(r"^[\w.-]+\.json$")
+EXPORTABLE_PREFIXES = ("run_", "scan_")
+TENANTS = [{"id": "aifa-water-licence", "name": "AI Forms Assist — Water Licence Application"}]
+
+
+def _tenants() -> list[dict[str, Any]]:
+    return [{**t, "approved": bool(settings.backend_api_url)} for t in TENANTS]
 
 
 def _save_report(report: dict[str, Any], filename: str | None = None) -> Path:
@@ -230,6 +260,15 @@ app = FastAPI(
     description="Browser-based runner for PyRIT red-team evaluations and JSON report viewing.",
     version="0.1.0",
 )
+RUNS = RunManager(
+    runner_factory=lambda **kwargs: PyRITRunner(
+        threat_models=[m.strip() for m in settings.red_team_threat_models.split(",") if m.strip()],
+        max_iterations=settings.red_team_max_iterations,
+        verbose=True,
+        **kwargs,
+    ),
+    save_report=lambda report, filename: _save_report(report, filename=filename),
+)
 
 
 @app.get("/api/health")
@@ -330,6 +369,117 @@ async def get_report_insights(report_name: str) -> dict[str, Any]:
 async def list_converters() -> list[str]:
     from aifa_pyrit.converters import available_converters
     return available_converters()
+
+
+@app.get("/api/tenants")
+async def list_tenants() -> list[dict[str, Any]]:
+    return _tenants()
+
+
+@app.get("/api/datasets")
+async def list_datasets() -> list[dict[str, Any]]:
+    cases = RedTeamOrchestrator.load_test_cases()
+    return [{"id": DEFAULT_DATASET_ID, "name": "Saved test cases", "case_count": len(cases)}] if cases else []
+
+
+def _previous_failed_cases(dataset_id: str | None) -> list[str]:
+    failed = RUNS.previous_failures(dataset_id)
+    if failed is None:
+        for path in sorted(RESULTS_DIR.glob("run_*.json"), reverse=True):
+            try:
+                report = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if report.get("dataset_id") == dataset_id:
+                failed = sorted({r["case_name"] for r in report.get("results", []) if r.get("status") in {"fail", "error"}})
+                break
+    if failed is None:
+        raise HTTPException(status_code=400, detail="No earlier run of this dataset found, so there are no failed cases to re-run.")
+    if not failed:
+        raise HTTPException(status_code=400, detail="Nothing failed in the last run of this dataset.")
+    return failed
+
+
+@app.post("/api/runs")
+async def start_run(request: StartRunRequest) -> dict[str, Any]:
+    tenant = next((t for t in _tenants() if t["id"] == request.tenant_id), None)
+    if tenant is None or not tenant["approved"]:
+        raise HTTPException(status_code=400, detail="This system is not approved for testing.")
+
+    if request.questions is not None:
+        questions = [q.strip() for q in request.questions if q.strip()]
+        if not questions or any(len(q) > 20000 for q in questions):
+            raise HTTPException(status_code=400, detail="Enter at least one question (each under 20,000 characters).")
+        test_cases = [{"name": f"custom_{i}", "query": q} for i, q in enumerate(questions, 1)]
+        source, dataset_id = "custom_query", None
+    else:
+        if request.dataset_id != DEFAULT_DATASET_ID:
+            raise HTTPException(status_code=400, detail="Unknown dataset.")
+        failed = _previous_failed_cases(request.dataset_id) if request.only_failed else None
+        test_cases = _load_cases(",".join(failed) if failed else None)
+        source, dataset_id = "saved_cases", request.dataset_id
+
+    name = request.name or f"{tenant['name']} · {request.attack_type}"
+    try:
+        run = RUNS.start(
+            name=name, tenant_id=tenant["id"], dataset_id=dataset_id, attack_type=request.attack_type,
+            repeats=request.repeats, converters=request.converters, test_cases=test_cases, test_source=source,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {"id": run.id}
+
+
+@app.get("/api/runs")
+async def list_runs() -> list[dict[str, Any]]:
+    return RUNS.list()
+
+
+def _run_or_404(snapshot: dict[str, Any] | None) -> dict[str, Any]:
+    if snapshot is None:
+        raise HTTPException(status_code=404, detail="Run not found. Runs are kept in memory until the server restarts; saved reports remain on the Export page.")
+    return snapshot
+
+
+@app.get("/api/runs/{run_id}")
+async def get_run(run_id: str) -> dict[str, Any]:
+    return _run_or_404(RUNS.snapshot(run_id))
+
+
+@app.get("/api/runs/{run_id}/cases/{case_id}")
+async def get_run_case(run_id: str, case_id: str) -> dict[str, Any]:
+    return _run_or_404(RUNS.case_detail(run_id, case_id))
+
+
+@app.post("/api/runs/{run_id}/pause")
+async def pause_run(run_id: str) -> dict[str, Any]:
+    return _run_or_404(RUNS.toggle_pause(run_id))
+
+
+@app.post("/api/runs/{run_id}/stop")
+async def stop_run(run_id: str) -> dict[str, Any]:
+    return _run_or_404(RUNS.stop(run_id))
+
+
+@app.post("/api/export/csv")
+async def export_csv(request: ExportRequest) -> Response:
+    if request.all:
+        names = [r["name"] for r in await list_reports() if str(r.get("name", "")).startswith(EXPORTABLE_PREFIXES)]
+    else:
+        names = list(dict.fromkeys(request.reports))
+    if not names:
+        raise HTTPException(status_code=400, detail="Choose at least one report to export.")
+    if any(not REPORT_NAME_PATTERN.match(n) for n in names):
+        raise HTTPException(status_code=400, detail="Invalid report name.")
+    reports = [(n, await get_report(n)) for n in names]
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    return Response(
+        content="\ufeff" + reports_to_csv(reports),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="red_team_export_{stamp}.csv"'},
+    )
 
 
 @app.post("/api/run-scan")

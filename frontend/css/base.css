@@ -1,0 +1,58 @@
+:root{
+  --bg:#faf8f2; --panel:#fff; --panel-2:#f1ecde; --line:#e6dfcc; --line-soft:#efe9da;
+  --ink:#1c2231; --body:#454c5f; --mute:#6b7387; --faint:#a5acbc;
+  --accent:#3857d1; --accent-soft:#e8ecfb; --navy:#1f3050;
+  --ok:#1f8f6e; --ok-soft:#e2f2ea; --warn:#b4800f; --warn-soft:#fbf1d9; --danger:#c0392b; --danger-soft:#fbe7e1;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--body);font:14px/1.45 Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+h1,h2{font-family:Georgia,serif;color:var(--ink);letter-spacing:-.01em;margin:0}
+h1{font-size:23px}
+[hidden]{display:none !important}
+a{color:var(--accent);text-decoration:none}
+
+/* layout */
+.shell{display:flex;min-height:100vh}
+.sidebar{width:240px;flex:0 0 240px;background:var(--panel-2);border-right:1px solid var(--line);padding:20px 14px;display:flex;flex-direction:column;gap:4px}
+.brand{display:flex;align-items:center;gap:10px;padding:4px 10px 18px;font-weight:800;color:var(--ink);font-size:15px}
+.logo{width:28px;height:28px;border-radius:8px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px}
+.nav-sec{font-size:11px;font-weight:700;color:var(--faint);text-transform:uppercase;letter-spacing:.06em;padding:12px 10px 6px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;font-weight:600;font-size:13px;color:var(--mute)}
+.nav-item:hover{background:var(--panel);color:var(--ink)}
+.nav-item.active{background:var(--accent-soft);color:var(--accent)}
+.main{flex:1;min-width:0;padding:clamp(12px,1.8vw,24px)}
+.wrap{max-width:920px}
+.wrap-wide{max-width:1200px}
+.view{display:flex;flex-direction:column;gap:14px}
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px 20px;flex-wrap:wrap}
+.sub{margin:2px 0 0;color:var(--mute);font-size:13px}
+@media (max-width:1100px){
+  .sidebar{width:68px;flex-basis:68px;padding:20px 8px}
+  .nav-text,.nav-sec{display:none}
+  .brand{justify-content:center}
+  .nav-item{justify-content:center}
+  .nav-item::before{content:attr(data-short);font-weight:800}
+}
+
+/* cards + form controls */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:0 1px 2px rgba(28,34,49,.04)}
+.label{display:block;font-size:10.5px;font-weight:700;color:var(--mute);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+.drop{appearance:none;width:100%;background:var(--panel);border:1.5px solid var(--line);color:var(--ink);border-radius:10px;font:600 13.5px inherit;font-family:inherit;padding:9px 34px 9px 12px;cursor:pointer;
+  background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23777f93' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center}
+.drop:focus,.text-in:focus{outline:none;border-color:var(--accent)}
+.text-in{width:100%;background:var(--panel);border:1.5px solid var(--line);color:var(--ink);border-radius:10px;padding:8px 12px;font:13px/1.5 inherit;font-family:inherit;resize:vertical}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+.note{font-size:12px;color:var(--mute);margin:8px 0 0}
+.nomargin{margin:0}
+.strong{font-size:13px;font-weight:700;color:var(--ink)}
+.mt{margin-top:10px}
+.row-between{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.row-gap{display:flex;gap:8px}
+.grow{flex:1;min-width:0}
+.tag{display:inline-flex;padding:2px 8px;border-radius:999px;font-size:10.5px;font-weight:700}
+.tag.ok{background:var(--ok-soft);color:var(--ok)}
+.tag.bad{background:var(--danger-soft);color:var(--danger)}
+.btn-secondary,.btn-danger{padding:9px 16px;border-radius:9px;font:700 13px inherit;font-family:inherit;cursor:pointer}
+.btn-secondary{background:var(--panel);color:var(--ink);border:1px solid var(--line)}
+.btn-danger{background:var(--danger-soft);color:var(--danger);border:1px solid #f0c4ba}
+button:disabled{opacity:.5;cursor:not-allowed}

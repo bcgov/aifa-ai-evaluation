@@ -1,0 +1,43 @@
+.status-chip{display:inline-block;vertical-align:middle;margin-left:8px;padding:3px 10px;border-radius:999px;font:700 11px Inter,sans-serif;background:var(--panel-2);color:var(--mute)}
+.status-chip.running{background:var(--accent-soft);color:var(--accent)}
+.status-chip.done{background:var(--ok-soft);color:var(--ok)}
+.status-chip.stopped,.status-chip.failed{background:var(--danger-soft);color:var(--danger)}
+.status-chip.paused{background:var(--warn-soft);color:var(--warn)}
+
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:14px}
+.stat{padding:14px 16px}
+.stat-label{font-size:12px;font-weight:600;color:var(--mute)}
+.stat-num{font-size:24px;font-weight:800;color:var(--ink);margin:2px 0 8px}
+.track{height:6px;border-radius:999px;background:var(--panel-2);overflow:hidden}
+.track span{display:block;height:100%;width:0;background:var(--accent);border-radius:999px;transition:width .3s}
+.track span.ok{background:var(--ok)} .track span.bad{background:var(--danger)} .track span.warn{background:var(--warn)}
+
+.live-grid{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}
+.cases{flex:999 1 520px;min-width:0;overflow:hidden}
+.transcript{flex:1 1 380px;min-width:300px;padding:18px 20px}
+.transcript h2{font-size:16px;margin-bottom:10px}
+.case-row{display:grid;grid-template-columns:1.7fr 1fr .7fr 1fr .9fr;gap:8px;padding:11px 14px;align-items:center;font-size:12.5px;border-bottom:1px solid var(--line-soft);width:100%;text-align:left;background:none;border-left:none;border-right:none;border-top:none;font-family:inherit;color:var(--body)}
+button.case-row{cursor:pointer}
+button.case-row:hover{background:#fcfaf5}
+button.case-row.sel{background:var(--accent-soft)}
+.case-head{font-size:11px;font-weight:700;color:var(--mute);text-transform:uppercase;letter-spacing:.04em}
+.case-name{color:var(--ink);font-weight:600;overflow-wrap:anywhere}
+.badge{display:inline-flex;justify-self:start;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:700;background:var(--panel-2);color:var(--mute)}
+.badge.running{background:var(--accent-soft);color:var(--accent)}
+.badge.pass{background:var(--ok-soft);color:var(--ok)}
+.badge.fail{background:var(--danger-soft);color:var(--danger)}
+.badge.refused{background:var(--warn-soft);color:var(--warn)}
+.badge.review{background:var(--warn-soft);color:var(--warn)}
+.badge.error{background:var(--danger-soft);color:var(--danger)}
+.badge.queued{background:var(--panel-2);color:var(--mute)}
+.mini-track{height:5px;border-radius:999px;background:var(--panel-2);overflow:hidden;min-width:56px}
+.mini-track span{display:block;height:100%;width:0;background:var(--accent);border-radius:999px}
+.empty{margin:0;padding:18px;color:var(--mute);font-size:13px}
+
+.turn{margin-bottom:12px}
+.turn-role{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);margin-bottom:3px}
+.turn.attacker .turn-role{color:var(--danger)}
+.turn.target .turn-role{color:var(--accent)}
+.turn.judge .turn-role{color:var(--ok)}
+.turn-text{padding:10px 12px;border-radius:10px;background:#fcfaf5;border:1px solid var(--line-soft);font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}
+.foot{margin:14px 0 0;font-size:11.5px;color:var(--mute)}

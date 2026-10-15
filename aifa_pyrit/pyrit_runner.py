@@ -1212,6 +1212,29 @@ class PyRITRunner:
         logger.info("detailed_results_saved", output_path=output_path)
         return output_path
 
+    async def run_single_case(
+        self,
+        test_case: Dict[str, Any],
+        attack_type: str = "PromptSending",
+        default_name: str = "case",
+    ) -> Dict[str, Any]:
+        """Run one test case with the chosen attack type and tag the result with case metadata."""
+        query = test_case.get("query", "")
+        # NOTE: attack_type parameter explicitly set by user overrides threat_models routing
+        if attack_type == "Crescendo":
+            result = await self.run_jailbreak_attack(query)
+        elif attack_type == "RedTeaming":
+            result = await self.run_red_team_attack(query, max_turns=self.max_iterations)
+        elif attack_type == "MultiTurn":
+            result = await self.run_multi_turn_attack(query, max_turns=self.max_iterations)
+        else:  # Default to PromptSending (ignore threat_models, use user's explicit choice)
+            result = await self.run_attack(query)
+
+        result["case_name"] = test_case.get("name", default_name)
+        result["expected_behavior"] = test_case.get("expected_behavior")
+        result["converters"] = list(self.converter_names)
+        return result
+
     async def scan_test_cases(
         self,
         test_cases: List[Dict[str, Any]],
@@ -1231,7 +1254,6 @@ class PyRITRunner:
         
         results = []
         for i, test_case in enumerate(test_cases, 1):
-            query = test_case.get("query", "")
             case_name = test_case.get("name", f"case_{i}")
             
             logger.info(
@@ -1242,22 +1264,7 @@ class PyRITRunner:
                 attack_type=attack_type
             )
             
-            # Run appropriate attack based on type
-            # NOTE: attack_type parameter explicitly set by user overrides threat_models routing
-            if attack_type == "Crescendo":
-                result = await self.run_jailbreak_attack(query)
-            elif attack_type == "MultiTurn" or attack_type == "RedTeaming":
-                if attack_type == "RedTeaming":
-                    result = await self.run_red_team_attack(query, max_turns=self.max_iterations)
-                else:
-                    result = await self.run_multi_turn_attack(query, max_turns=self.max_iterations)
-            else:  # Default to PromptSending (ignore threat_models, use user's explicit choice)
-                result = await self.run_attack(query)
-            
-            result["case_name"] = case_name
-            result["expected_behavior"] = test_case.get("expected_behavior")
-            result["converters"] = list(self.converter_names)
-            results.append(result)
+            results.append(await self.run_single_case(test_case, attack_type, default_name=case_name))
             
             # Delay between tests
             if i < len(test_cases):
