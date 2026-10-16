@@ -29,7 +29,7 @@ def test_eval_argv_is_validated_and_never_shell_interpolated(client):
     assert "--repeat=2" in argv
     assert any(a.startswith("--output=") and a.endswith(".json") for a in argv)
     assert config == eval_config == "promptfoo-config.yaml"
-    assert output.parent == svc.RESULTS_DIR
+    assert output.parent == svc.RESULTS_DIR.resolve()
 
 
 @pytest.mark.parametrize("options", [
@@ -96,7 +96,29 @@ def test_result_parsing_and_csv(client):
     assert client.get("/api/promptfoo/results/r.json?status=fail").json()["row_count"] == 1
     csv_text = client.get("/api/promptfoo/results/r.json/csv").text
     assert "'=cmd" in csv_text
-    assert client.get("/api/promptfoo/results/..%2Fx.json").status_code == 404
+    assert client.get("/api/promptfoo/results/..%2Fx.json").status_code in {400, 404}
+
+
+@pytest.mark.parametrize("name", ["../x.json", "..\\x.json", "a/b.json", "/etc/passwd", "..", ".hidden.json", "x..json"])
+def test_safe_join_rejects_traversal(tmp_path, name):
+    with pytest.raises(svc.HTTPException) as exc:
+        svc.safe_join(tmp_path, name)
+    assert exc.value.status_code == 400
+
+
+def test_safe_join_rejects_symlink_escape(tmp_path):
+    outside = tmp_path / "outside.json"
+    outside.write_text("{}")
+    base = tmp_path / "base"
+    base.mkdir()
+    (base / "link.json").symlink_to(outside)
+    with pytest.raises(svc.HTTPException):
+        svc.safe_join(base, "link.json")
+
+
+def test_result_endpoints_reject_traversal(client):
+    assert client.get("/api/promptfoo/configs/..%5Cpromptfoo-config.yaml").status_code == 400
+    assert client.post("/api/promptfoo/jobs", json={"command": "eval", "options": {"config": "../promptfoo-config.yaml"}}).status_code == 400
 
 
 def test_job_runs_and_streams_logs(client, tmp_path, monkeypatch):

@@ -143,11 +143,23 @@ def _ensure_dirs() -> None:
         path.mkdir(parents=True, exist_ok=True)
 
 
+def safe_join(base: Path, name: str) -> Path:
+    """Join a user-supplied file name onto base; HTTP 400 on anything that could escape base."""
+    if not isinstance(name, str):
+        raise HTTPException(status_code=400, detail="Invalid file name.")
+    cleaned = os.path.basename(name.replace("\\", "/"))
+    if cleaned != name or cleaned in {"", ".", ".."} or ".." in cleaned or not SAFE_NAME.fullmatch(cleaned):
+        raise HTTPException(status_code=400, detail="Invalid file name.")
+    base_dir = os.path.realpath(base)
+    full_path = os.path.realpath(os.path.join(base_dir, cleaned))
+    if not full_path.startswith(base_dir + os.sep):
+        raise HTTPException(status_code=400, detail="Path traversal attempt detected.")
+    return Path(full_path)
+
+
 def _file_in(directory: Path, name: str, suffixes: tuple[str, ...]) -> Path | None:
-    if not SAFE_NAME.match(name or "") or not name.endswith(suffixes):
-        return None
-    path = directory / name
-    return path if path.is_file() and path.parent == directory else None
+    path = safe_join(directory, name)
+    return path if path.suffix in suffixes and path.is_file() else None
 
 
 def resolve_config(name: str) -> Path:
@@ -376,17 +388,18 @@ def build_steps(command: Command, options: dict[str, Any]) -> tuple[list[list[st
         raise HTTPException(status_code=400, detail=f"Unknown options: {', '.join(sorted(unknown))}")
 
     config_name = options.get("config") or None
-    stem = _slug(Path(str(config_name or options.get("eval_id") or command.id)).stem)
+    config_path = resolve_config(str(config_name)) if config_name else None
+    stem = _slug(config_path.stem) if config_path else command.id
     output: Path | None = None
     if command.output == "json":
-        output = RESULTS_DIR / f"{command.id}_{stem}_{_stamp()}.json"
+        output = safe_join(RESULTS_DIR, f"{command.id}_{stem}_{_stamp()}.json")
     elif command.output == "yaml":
-        output = CONFIG_WORKSPACE / f"{command.id.replace('redteam-', 'probes-')}_{stem}_{_stamp()}.yaml"
+        output = safe_join(CONFIG_WORKSPACE, f"{command.id.replace('redteam-', 'probes-')}_{stem}_{_stamp()}.yaml")
 
     base = promptfoo_cmd()
     if command.id == "redteam-run":
         # Two explicit steps so the eval always lands in a JSON result file.
-        probes = CONFIG_WORKSPACE / f"probes_{stem}_{_stamp()}.yaml"
+        probes = safe_join(CONFIG_WORKSPACE, f"probes_{stem}_{_stamp()}.yaml")
         by_name = {o.name: o for o in command.options}
         shared = by_name["max_concurrency"].argv(options.get("max_concurrency")) + by_name["delay"].argv(options.get("delay"))
         generate = [*base, "redteam", "generate", "--no-progress-bar", *by_name["config"].argv(config_name),
@@ -491,7 +504,7 @@ class JobManager:
                 if job.output and job.output.exists() and job.output.suffix == ".json":
                     meta = {"job_id": job.id, "command": job.command, "config": job.config,
                             "eval_config": job.eval_config, "created_at": job.finished_at}
-                    (META_DIR / f"{job.output.name}.json").write_text(json.dumps(meta), encoding="utf-8")
+                    safe_join(META_DIR, f"{job.output.name}.json").write_text(json.dumps(meta), encoding="utf-8")
 
     async def _run_steps(self, job: Job) -> None:
         _ensure_dirs()
@@ -615,8 +628,8 @@ def _load_result(path: Path) -> dict[str, Any]:
 
 def _meta(name: str) -> dict[str, Any]:
     try:
-        return json.loads((META_DIR / f"{name}.json").read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+        return json.loads(safe_join(META_DIR, f"{name}.json").read_text(encoding="utf-8"))
+    except (HTTPException, OSError, json.JSONDecodeError):
         return {}
 
 
@@ -761,7 +774,7 @@ async def get_config(name: str) -> Response:
 async def create_attack(req: AttackRequest) -> dict[str, Any]:
     _ensure_dirs()
     config = build_attack_config(req)
-    path = CONFIG_WORKSPACE / f"attack_{_slug(req.name)}_{_stamp()}.yaml"
+    path = safe_join(CONFIG_WORKSPACE, f"attack_{_slug(req.name)}_{_stamp()}.yaml")
     # JSON is valid YAML, so no YAML dependency is needed.
     path.write_text(json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8")
     response: dict[str, Any] = {"config": path.name}
@@ -828,11 +841,12 @@ async def list_results() -> list[dict[str, Any]]:
 
 @router.get("/results/{name}")
 async def get_result(name: str, status: Literal["all", "pass", "fail", "error"] = "all") -> dict[str, Any]:
-    data = _load_result(resolve_result(name))
+    path = resolve_result(name)
+    data = _load_result(path)
     rows = result_rows(data)
     shown = rows if status == "all" else [r for r in rows if r["status"] == status]
     return {
-        "name": name, "meta": _meta(name), "summary": summarize_result(data, rows),
+        "name": path.name, "meta": _meta(path.name), "summary": summarize_result(data, rows),
         "by_plugin": _group(rows, "plugin"), "by_strategy": _group(rows, "strategy"),
         "rows": shown[:MAX_ROWS], "row_count": len(shown),
     }
@@ -840,7 +854,8 @@ async def get_result(name: str, status: Literal["all", "pass", "fail", "error"] 
 
 @router.get("/results/{name}/download")
 async def download_result(name: str) -> FileResponse:
-    return FileResponse(resolve_result(name), media_type="application/json", filename=name)
+    path = resolve_result(name)
+    return FileResponse(path, media_type="application/json", filename=path.name)
 
 
 @router.get("/results/{name}/csv")
