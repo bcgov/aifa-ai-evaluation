@@ -12,3 +12,7 @@ __pycache__
 *.log
 *.sqlite3
 results/*.json
+results-promptfoo/*
+**/.env
+**/.venv
+**/node_modules

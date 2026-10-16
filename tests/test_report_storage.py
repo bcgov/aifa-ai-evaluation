@@ -28,3 +28,19 @@ def test_get_report_store_defaults_to_local_when_storage_is_not_configured(monke
     store = get_report_store()
     assert isinstance(store, LocalReportStore)
     assert store.base_dir.name == "results"
+
+
+def test_pyrit_container_names_are_separate_from_promptfoo(monkeypatch):
+    from aifa_pyrit.storage import pyrit_data_container, pyrit_results_container
+    from promptfoo.src.storage import DEFAULT_DATA_CONTAINER, DEFAULT_RESULTS_CONTAINER
+
+    for var in ("PYRIT_RESULTS_CONTAINER_NAME", "PYRIT_DATA_CONTAINER_NAME",
+                "AZURE_STORAGE_CONTAINER_NAME", "AZURE_TESTCASES_CONTAINER_NAME"):
+        monkeypatch.delenv(var, raising=False)
+    names = {pyrit_results_container(), pyrit_data_container(), DEFAULT_DATA_CONTAINER, DEFAULT_RESULTS_CONTAINER}
+    assert names == {"pyrit-results", "pyrit-data", "promptfoo-data", "promptfoo-results"}
+
+    monkeypatch.setenv("AZURE_STORAGE_CONTAINER_NAME", "aifa-reports")
+    assert pyrit_results_container() == "aifa-reports"
+    monkeypatch.setenv("PYRIT_RESULTS_CONTAINER_NAME", "pyrit-results-dev")
+    assert pyrit_results_container() == "pyrit-results-dev"

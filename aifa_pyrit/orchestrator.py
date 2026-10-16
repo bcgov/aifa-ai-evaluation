@@ -76,10 +76,10 @@ class RedTeamOrchestrator:
         """
         # Prefer loading test cases from a dedicated Azure container when configured.
         import os
-        from aifa_pyrit.storage import AzureBlobReportStore
+        from aifa_pyrit.storage import AzureBlobReportStore, pyrit_data_container
 
         container_file_name = "red_team_test_cases.json"
-        test_container = os.getenv("AZURE_TESTCASES_CONTAINER_NAME") or os.getenv("AZURE_STORAGE_CONTAINER_NAME") or "aifa-data"
+        test_container = pyrit_data_container()
         conn = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
         account = os.getenv("AZURE_STORAGE_ACCOUNT_NAME")
 

@@ -91,7 +91,7 @@ jobs:
                 package_name="aifa-ai-evaluation-frontend"
                 ;;
               promptfoo)
-                service_context="./promptfoo"
+                service_context="."
                 service_file="./promptfoo/Dockerfile"
                 package_name="aifa-ai-evaluation-promptfoo"
                 ;;

@@ -1,7 +1,7 @@
 // All backend calls live here. No data in this file.
 const API_BASE = '/api';
 
-async function send(path, options = {}) {
+export async function send(path, options = {}) {
   const res = await fetch(API_BASE + path, {
     headers: { 'Content-Type': 'application/json' },
     credentials: 'same-origin',
@@ -15,12 +15,12 @@ async function send(path, options = {}) {
   return res;
 }
 
-async function request(path, options) {
+export async function request(path, options) {
   const res = await send(path, options);
   return res.status === 204 ? null : res.json();
 }
 
-const post = (path, body) => request(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) });
+export const post = (path, body) => request(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) });
 
 const CONVERTER_LABELS = {
   base64: 'Base64 · instant',
@@ -49,6 +49,7 @@ export const stopRun  = (id) => post('/runs/' + encodeURIComponent(id) + '/stop'
 
 // Saved reports + export
 export const listReports = () => request('/reports');
+export const getHealth = () => request('/health');
 
 // payload: { reports: [names] } or { all: true }. Downloads a single CSV file.
 export async function exportCsv(payload) {

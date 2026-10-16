@@ -8,24 +8,41 @@
   <link rel="stylesheet" href="css/new-run.css">
   <link rel="stylesheet" href="css/live-run.css">
   <link rel="stylesheet" href="css/export.css">
+  <link rel="stylesheet" href="css/promptfoo.css">
 </head>
 <body>
 <div class="shell">
 
   <aside class="sidebar">
     <div class="brand"><span class="logo">R</span><span class="nav-text">RTaaS</span></div>
-    <div class="nav-sec">Setup</div>
+    <div class="nav-sec">PyRIT</div>
     <a href="#/new" class="nav-item" data-view="new" data-short="N">
       <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
       <span class="nav-text">New Run</span></a>
     <a href="#/live" class="nav-item" data-view="live" data-short="L">
       <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
       <span class="nav-text">Live Run</span></a>
-    <div class="nav-sec">Results</div>
     <a href="#/export" class="nav-item" data-view="export" data-short="E">
       <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
       <span class="nav-text">Export</span></a>
-    <a href="classic.html" class="nav-item nav-foot" data-short="C">
+    <div class="nav-sec">Promptfoo</div>
+    <a href="#/pf-attack" class="nav-item" data-view="pf-attack" data-short="A">
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/></svg>
+      <span class="nav-text">Attack builder</span></a>
+    <a href="#/pf-commands" class="nav-item" data-view="pf-commands" data-short="T">
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7l5 5-5 5M12 17h7"/></svg>
+      <span class="nav-text">Run tests</span></a>
+    <a href="#/pf-jobs" class="nav-item" data-view="pf-jobs" data-short="J">
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+      <span class="nav-text">Jobs</span></a>
+    <a href="#/pf-results" class="nav-item" data-view="pf-results" data-short="R">
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>
+      <span class="nav-text">Results</span></a>
+    <div class="engines nav-foot" aria-label="Service status">
+      <span class="engine"><i id="eng-pyrit" class="dot"></i><span class="nav-text">PyRIT</span></span>
+      <span class="engine"><i id="eng-promptfoo" class="dot"></i><span class="nav-text">Promptfoo</span></span>
+    </div>
+    <a href="classic.html" class="nav-item" data-short="C">
       <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9h16"/></svg>
       <span class="nav-text">Classic view</span></a>
   </aside>
@@ -169,6 +186,184 @@
         </div>
         <div id="exp-list"><p class="empty">Loading saved reports…</p></div>
       </section>
+    </section>
+
+    <!-- ============ PROMPTFOO: ATTACK BUILDER ============ -->
+    <section id="view-pf-attack" class="view wrap-wide" hidden>
+      <header class="top">
+        <div>
+          <h1>Promptfoo attack</h1>
+          <p class="sub">Build a red-team scan: promptfoo generates adversarial probes from plugins, disguises them with strategies, and grades every answer.</p>
+        </div>
+        <span id="pfa-engine" class="tag"></span>
+      </header>
+
+      <div class="g2">
+        <section class="card c">
+          <div class="c-head"><span class="step-num">1</span><h2>Target</h2><span id="pfa-target-tag" class="tag"></span></div>
+          <div class="strong mono" id="pfa-target">–</div>
+          <p class="note">Backend: <span id="pfa-target-host" class="mono">–</span></p>
+          <div id="pfa-models" class="mt"></div>
+        </section>
+
+        <section class="card c">
+          <div class="c-head"><span class="step-num">2</span><h2>Purpose</h2></div>
+          <label class="label" for="pfa-name">Scan name</label>
+          <input id="pfa-name" class="text-in" type="text" maxlength="80">
+          <label class="label mt" for="pfa-purpose">What the system should and should not do</label>
+          <textarea id="pfa-purpose" class="text-in" rows="5" maxlength="4000"></textarea>
+          <label class="label mt" for="pfa-language">Probe language (optional)</label>
+          <input id="pfa-language" class="text-in" type="text" maxlength="40" placeholder="English">
+        </section>
+
+        <section class="card c span2">
+          <div class="c-head"><span class="step-num">3</span><h2>Plugins — what to probe</h2><span id="pfa-plugin-count" class="tag cat"></span></div>
+          <div class="row-gap">
+            <button type="button" id="pfa-preset-rec" class="btn-secondary">Recommended</button>
+            <button type="button" id="pfa-preset-owasp" class="btn-secondary">OWASP LLM Top 10</button>
+            <button type="button" id="pfa-preset-clear" class="btn-secondary">Clear</button>
+          </div>
+          <div id="pfa-plugins" class="pf-groups mt"></div>
+        </section>
+
+        <section class="card c span2">
+          <div class="c-head"><span class="step-num">4</span><h2>Strategies — how to disguise probes</h2><span id="pfa-strategy-count" class="tag cat"></span></div>
+          <div id="pfa-strategies" class="pf-groups"></div>
+        </section>
+
+        <section class="card c span2">
+          <div class="c-head"><span class="step-num">5</span><h2>Volume</h2><span id="pfa-estimate" class="tag cat"></span></div>
+          <div class="pf-volume">
+            <div class="row-between">
+              <div><div class="strong">Probes per plugin</div><div class="note nomargin">More probes, better coverage</div></div>
+              <div class="stepper">
+                <button type="button" id="pfa-num-dec" class="step-btn" aria-label="Fewer probes">−</button>
+                <span id="pfa-num" class="mono">3</span>
+                <button type="button" id="pfa-num-inc" class="step-btn" aria-label="More probes">+</button>
+              </div>
+            </div>
+            <div class="row-between">
+              <div><div class="strong">Concurrency</div><div class="note nomargin">Parallel calls to the target</div></div>
+              <div class="stepper">
+                <button type="button" id="pfa-conc-dec" class="step-btn" aria-label="Less concurrency">−</button>
+                <span id="pfa-conc" class="mono">2</span>
+                <button type="button" id="pfa-conc-inc" class="step-btn" aria-label="More concurrency">+</button>
+              </div>
+            </div>
+            <div class="row-between">
+              <div><div class="strong">Delay (ms)</div><div class="note nomargin">Between calls, to avoid rate limits</div></div>
+              <input id="pfa-delay" class="text-in pf-num" type="number" min="0" max="60000" value="0" aria-label="Delay in milliseconds">
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="runrow">
+        <span id="pfa-issue" class="issue" role="status"></span>
+        <span id="pfa-msg" class="note" role="status"></span>
+        <button type="button" id="pfa-save" class="btn-secondary">Save config</button>
+        <button type="button" id="pfa-generate" class="btn-secondary">Generate probes only</button>
+        <div class="runwrap"><button type="button" id="pfa-run" class="run-btn">Run attack</button></div>
+      </div>
+    </section>
+
+    <!-- ============ PROMPTFOO: RUN TESTS ============ -->
+    <section id="view-pf-commands" class="view wrap-wide" hidden>
+      <header class="top">
+        <div>
+          <h1>Run tests</h1>
+          <p class="sub">Run promptfoo evals and red-team configs. Results land in Results; output streams to Jobs.</p>
+        </div>
+      </header>
+      <div class="pf-split">
+        <nav id="pfc-list" class="card pf-cmd-list" aria-label="Commands"></nav>
+        <section class="card c">
+          <div class="c-head"><h2 id="pfc-title">–</h2></div>
+          <p id="pfc-summary" class="note nomargin"></p>
+          <div id="pfc-cli" class="mono pf-cmdline mt"></div>
+          <div id="pfc-fields" class="pf-fields mt"></div>
+          <pre id="pfc-config-view" class="pf-console pf-config" hidden></pre>
+          <div class="runrow mt">
+            <span id="pfc-issue" class="issue" role="status"></span>
+            <span id="pfc-msg" class="note" role="status"></span>
+            <div class="runwrap"><button type="button" id="pfc-run" class="run-btn">Run</button></div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <!-- ============ PROMPTFOO: JOBS ============ -->
+    <section id="view-pf-jobs" class="view wrap-wide" hidden>
+      <header class="top">
+        <div>
+          <h1>Promptfoo jobs <span id="pfj-status" class="status-chip" hidden></span></h1>
+          <p id="pfj-sub" class="sub"></p>
+        </div>
+        <div class="row-gap center">
+          <button type="button" id="pfj-result" class="add-btn" hidden>Open result</button>
+          <button type="button" id="pfj-cancel" class="btn-danger" disabled>Cancel job</button>
+        </div>
+      </header>
+      <div class="pf-split">
+        <section id="pfj-list" class="card pf-cmd-list"></section>
+        <section id="pfj-panel" class="card c" hidden>
+          <div id="pfj-cmds"></div>
+          <p id="pfj-meta" class="note"></p>
+          <pre id="pfj-console" class="pf-console mt" aria-live="polite"></pre>
+        </section>
+      </div>
+    </section>
+
+    <!-- ============ PROMPTFOO: RESULTS ============ -->
+    <section id="view-pf-results" class="view wrap-wide" hidden>
+      <header class="top">
+        <div>
+          <h1 id="pfr-title">Promptfoo results</h1>
+          <p id="pfr-sub" class="sub"></p>
+        </div>
+        <div class="row-gap center">
+          <a id="pfr-back" href="#/pf-results" class="btn-secondary" hidden>All results</a>
+          <a id="pfr-json" class="btn-secondary" download hidden>JSON</a>
+          <a id="pfr-csv" class="btn-secondary" download hidden>CSV</a>
+          <button type="button" id="pfr-rerun" class="add-btn" hidden>Re-run failures</button>
+        </div>
+      </header>
+
+      <section id="pfr-list-view" class="card">
+        <div class="exp-toolbar">
+          <input id="pfr-list-filter" class="text-in" type="search" placeholder="Filter by name or description" aria-label="Filter results">
+        </div>
+        <div class="pf-res-row exp-head"><span>Result</span><span>Saved</span><span>Source</span><span>Tests</span><span>Pass</span><span>Fail</span><span>Error</span><span>Pass rate</span></div>
+        <div id="pfr-list"></div>
+      </section>
+
+      <div id="pfr-detail" class="view" hidden>
+        <div class="stats">
+          <div class="card stat"><div class="stat-label">Tests</div><div class="stat-num" id="pfr-st-total">–</div></div>
+          <div class="card stat"><div class="stat-label" id="pfr-pass-label">Passed</div><div class="stat-num ok-text" id="pfr-st-pass">–</div></div>
+          <div class="card stat"><div class="stat-label" id="pfr-fail-label">Failed</div><div class="stat-num bad-num" id="pfr-st-fail">–</div></div>
+          <div class="card stat"><div class="stat-label">Errors</div><div class="stat-num" id="pfr-st-error">–</div></div>
+          <div class="card stat"><div class="stat-label">Pass rate</div><div class="stat-num" id="pfr-st-rate">–</div><div class="track"><span id="pfr-tr-rate" class="ok"></span></div></div>
+        </div>
+        <div id="pfr-breakdowns" class="g2">
+          <section class="card c"><div class="c-head"><h2>By plugin</h2><span class="tag cat">pass / fail / error</span></div><div id="pfr-plugins"></div></section>
+          <section class="card c"><div class="c-head"><h2>By strategy</h2><span class="tag cat">pass / fail / error</span></div><div id="pfr-strategies"></div></section>
+        </div>
+        <section class="card">
+          <div class="exp-toolbar">
+            <div id="pfr-filter" class="seg">
+              <button type="button" data-status="all" class="on">All</button>
+              <button type="button" data-status="fail">Fail</button>
+              <button type="button" data-status="pass">Pass</button>
+              <button type="button" data-status="error">Error</button>
+            </div>
+            <input id="pfr-search" class="text-in" type="search" placeholder="Search prompts, responses, reasons" aria-label="Search tests">
+            <span id="pfr-row-count" class="note nomargin"></span>
+          </div>
+          <div id="pfr-rows"></div>
+          <p class="foot pad">For red-team scans, FAIL means the attack worked against the target. PASS means it was defended.</p>
+        </section>
+      </div>
     </section>
 
   </main>

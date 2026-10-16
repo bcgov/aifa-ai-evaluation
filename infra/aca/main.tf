@@ -135,12 +135,28 @@ resource "azurerm_container_app" "main" {
 
       env {
         name  = "PYRIT_API_URL"
-        value = "/api/run-scan"
+        value = "/api"
       }
 
       env {
         name  = "PROMPTFOO_API_URL"
-        value = "/api/run-promptfoo"
+        value = "/api/promptfoo"
+      }
+
+      # Containers in one ACA share localhost; nginx is the only ingress.
+      env {
+        name  = "PYRIT_UPSTREAM"
+        value = "127.0.0.1:8000"
+      }
+
+      env {
+        name  = "PROMPTFOO_UPSTREAM"
+        value = "127.0.0.1:8001"
+      }
+
+      env {
+        name  = "PROMPTFOO_RUN_TOKEN"
+        value = var.promptfoo_run_token
       }
     }
 
@@ -216,16 +232,21 @@ resource "azurerm_container_app" "main" {
       }
 
       env {
-        name  = "AZURE_STORAGE_CONTAINER_NAME"
-        value = var.azure_storage_container_name
+        name  = "PYRIT_RESULTS_CONTAINER_NAME"
+        value = var.pyrit_results_container_name
+      }
+
+      env {
+        name  = "PYRIT_DATA_CONTAINER_NAME"
+        value = var.pyrit_data_container_name
       }
     }
 
     container {
       name   = "promptfoo"
       image  = local.promptfoo_image
-      cpu    = 0.5
-      memory = "1Gi"
+      cpu    = 1.0
+      memory = "2Gi"
 
       env {
         name  = "PORT"
@@ -237,14 +258,36 @@ resource "azurerm_container_app" "main" {
         value = var.app_env
       }
 
+      # The AIFA system under test (not the PyRIT container).
       env {
         name  = "BACKEND_API_URL"
-        value = "http://localhost:8000"
+        value = var.backend_api_url
+      }
+
+      env {
+        name  = "BACKEND_API_TIMEOUT"
+        value = tostring(var.backend_api_timeout)
       }
 
       env {
         name  = "PROMPTFOO_RUN_TOKEN"
         value = var.promptfoo_run_token
+      }
+
+      # Same storage account as PyRIT but separate containers; empty connection string keeps promptfoo local.
+      env {
+        name  = "AZURE_STORAGE_CONNECTION_STRING"
+        value = var.azure_storage_connection_string
+      }
+
+      env {
+        name  = "PROMPTFOO_RESULTS_CONTAINER_NAME"
+        value = var.promptfoo_results_container_name
+      }
+
+      env {
+        name  = "PROMPTFOO_DATA_CONTAINER_NAME"
+        value = var.promptfoo_data_container_name
       }
 
       env {

@@ -21,6 +21,18 @@ except Exception:  # pragma: no cover - optional dependency
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_RESULTS_CONTAINER = "pyrit-results"
+DEFAULT_DATA_CONTAINER = "pyrit-data"
+
+
+# Legacy AZURE_STORAGE_CONTAINER_NAME / AZURE_TESTCASES_CONTAINER_NAME are still honoured for existing deployments.
+def pyrit_results_container() -> str:
+    return os.getenv("PYRIT_RESULTS_CONTAINER_NAME") or os.getenv("AZURE_STORAGE_CONTAINER_NAME") or DEFAULT_RESULTS_CONTAINER
+
+
+def pyrit_data_container() -> str:
+    return os.getenv("PYRIT_DATA_CONTAINER_NAME") or os.getenv("AZURE_TESTCASES_CONTAINER_NAME") or DEFAULT_DATA_CONTAINER
+
 
 class ReportStore(ABC):
     @abstractmethod
@@ -84,7 +96,7 @@ class AzureBlobReportStore(ReportStore):
             raise RuntimeError("azure-storage-blob is not installed")
 
         self.connection_string = connection_string or os.getenv("AZURE_STORAGE_CONNECTION_STRING", "")
-        self.container_name = container_name or os.getenv("AZURE_STORAGE_CONTAINER_NAME", "aifa-reports")
+        self.container_name = container_name or pyrit_results_container()
         # Prefer connection string when provided. If absent, attempt Managed Identity
         self.use_managed_identity = False
         if not self.connection_string:
@@ -162,11 +174,10 @@ class AzureBlobReportStore(ReportStore):
 def get_report_store() -> ReportStore:
     conn = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
     account = os.getenv("AZURE_STORAGE_ACCOUNT_NAME")
-    container = os.getenv("AZURE_STORAGE_CONTAINER_NAME")
-    logger.debug("get_report_store: AZURE_STORAGE_CONNECTION_STRING present=%s, AZURE_STORAGE_ACCOUNT_NAME=%s, AZURE_STORAGE_CONTAINER_NAME=%s", bool(conn), account, container)
-    # Use Azure storage when either a connection string + container is provided
-    # or when account name + container are provided for Managed Identity.
-    if (conn and container) or (account and container):
+    container = pyrit_results_container()
+    logger.debug("get_report_store: AZURE_STORAGE_CONNECTION_STRING present=%s, AZURE_STORAGE_ACCOUNT_NAME=%s, container=%s", bool(conn), account, container)
+    # Use Azure storage when a connection string or a managed-identity account name is provided.
+    if conn or account:
         try:
             if conn:
                 store = AzureBlobReportStore(connection_string=conn, container_name=container)

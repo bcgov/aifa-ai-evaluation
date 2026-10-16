@@ -103,7 +103,10 @@ jobs:
       TF_VAR_adversarial_openai_endpoint: ${{ vars.ADVERSARIAL_OPENAI_ENDPOINT || secrets.ADVERSARIAL_OPENAI_ENDPOINT }}
       TF_VAR_adversarial_openai_deployment: ${{ vars.ADVERSARIAL_OPENAI_DEPLOYMENT || secrets.ADVERSARIAL_OPENAI_DEPLOYMENT }}
       TF_VAR_azure_storage_connection_string: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
-      TF_VAR_azure_storage_container_name: ${{ vars.AZURE_STORAGE_CONTAINER_NAME || 'aifa-reports' }}
+      TF_VAR_pyrit_results_container_name: ${{ vars.PYRIT_RESULTS_CONTAINER_NAME || 'pyrit-results' }}
+      TF_VAR_pyrit_data_container_name: ${{ vars.PYRIT_DATA_CONTAINER_NAME || 'pyrit-data' }}
+      TF_VAR_promptfoo_results_container_name: ${{ vars.PROMPTFOO_RESULTS_CONTAINER_NAME || 'promptfoo-results' }}
+      TF_VAR_promptfoo_data_container_name: ${{ vars.PROMPTFOO_DATA_CONTAINER_NAME || 'promptfoo-data' }}
       ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
@@ -250,7 +253,10 @@ jobs:
             -var="adversarial_openai_endpoint=${{ vars.ADVERSARIAL_OPENAI_ENDPOINT || secrets.ADVERSARIAL_OPENAI_ENDPOINT }}" \
             -var="adversarial_openai_deployment=${{ vars.ADVERSARIAL_OPENAI_DEPLOYMENT || secrets.ADVERSARIAL_OPENAI_DEPLOYMENT }}" \
             -var="azure_storage_connection_string=${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}" \
-            -var="azure_storage_container_name=${{ vars.AZURE_STORAGE_CONTAINER_NAME || 'aifa-reports' }}"
+            -var="pyrit_results_container_name=${{ vars.PYRIT_RESULTS_CONTAINER_NAME || 'pyrit-results' }}" \
+            -var="pyrit_data_container_name=${{ vars.PYRIT_DATA_CONTAINER_NAME || 'pyrit-data' }}" \
+            -var="promptfoo_results_container_name=${{ vars.PROMPTFOO_RESULTS_CONTAINER_NAME || 'promptfoo-results' }}" \
+            -var="promptfoo_data_container_name=${{ vars.PROMPTFOO_DATA_CONTAINER_NAME || 'promptfoo-data' }}"
 
       - name: Terraform apply
         if: inputs.command == 'apply'
@@ -286,4 +292,7 @@ jobs:
             -var="adversarial_openai_endpoint=${{ vars.ADVERSARIAL_OPENAI_ENDPOINT || secrets.ADVERSARIAL_OPENAI_ENDPOINT }}" \
             -var="adversarial_openai_deployment=${{ vars.ADVERSARIAL_OPENAI_DEPLOYMENT || secrets.ADVERSARIAL_OPENAI_DEPLOYMENT }}" \
             -var="azure_storage_connection_string=${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}" \
-            -var="azure_storage_container_name=${{ vars.AZURE_STORAGE_CONTAINER_NAME || 'aifa-reports' }}"
+            -var="pyrit_results_container_name=${{ vars.PYRIT_RESULTS_CONTAINER_NAME || 'pyrit-results' }}" \
+            -var="pyrit_data_container_name=${{ vars.PYRIT_DATA_CONTAINER_NAME || 'pyrit-data' }}" \
+            -var="promptfoo_results_container_name=${{ vars.PROMPTFOO_RESULTS_CONTAINER_NAME || 'promptfoo-results' }}" \
+            -var="promptfoo_data_container_name=${{ vars.PROMPTFOO_DATA_CONTAINER_NAME || 'promptfoo-data' }}"

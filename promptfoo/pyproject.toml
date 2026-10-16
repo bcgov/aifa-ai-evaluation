@@ -12,6 +12,8 @@ dependencies = [
     "fastapi>=0.110.0",
     "uvicorn>=0.30.0",
     "websockets>=12.0",
+    "azure-storage-blob>=12.17.0",
+    "azure-identity>=1.14.0",
 ]
 
 [project.scripts]
