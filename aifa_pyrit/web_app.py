@@ -76,6 +76,8 @@ class ExportRequest(BaseModel):
 
 
 DEFAULT_DATASET_ID = "saved-test-cases"
+DEFAULT_DATASET_FILENAME = "red_team_test_cases.json"
+DATA_DIR = BASE_DIR / "data"
 REPORT_NAME_PATTERN = re.compile(r"^[\w.-]+\.json$")
 EXPORTABLE_PREFIXES = ("run_", "scan_")
 TENANTS = [{"id": "aifa-water-licence", "name": "AI Forms Assist — Water Licence Application"}]
@@ -101,19 +103,62 @@ def _save_report(report: dict[str, Any], filename: str | None = None) -> Path:
     return path
 
 
-def _load_cases(case_names: str | None = None) -> list[dict[str, Any]]:
-    all_cases = RedTeamOrchestrator.load_test_cases()
+def _discover_local_datasets() -> dict[str, dict[str, Any]]:
+    discovered: dict[str, dict[str, Any]] = {}
+    default_cases = RedTeamOrchestrator.load_test_cases()
+    if default_cases:
+        discovered[DEFAULT_DATASET_ID] = {
+            "id": DEFAULT_DATASET_ID,
+            "name": "Saved test cases",
+            "cases": default_cases,
+        }
+    if not DATA_DIR.exists():
+        return discovered
+    for path in sorted(DATA_DIR.glob("*.json")):
+        if path.name == DEFAULT_DATASET_FILENAME:
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(data, dict):
+            continue
+        cases = [c for c in data.get("test_cases", []) if isinstance(c, dict)]
+        if not cases:
+            continue
+        dataset_id = path.stem.replace("_", "-")
+        label = str(data.get("name") or path.stem.removesuffix("_test_cases").replace("_", " ").capitalize())
+        discovered[dataset_id] = {"id": dataset_id, "name": label, "cases": cases}
+    return discovered
+
+
+def _load_dataset_cases(dataset_id: str, only_names: list[str] | None = None) -> list[dict[str, Any]]:
+    if dataset_id == DEFAULT_DATASET_ID:
+        all_cases = RedTeamOrchestrator.load_test_cases()
+    else:
+        entry = _discover_local_datasets().get(dataset_id)
+        if entry is None:
+            raise HTTPException(status_code=400, detail="Unknown dataset.")
+        all_cases = entry["cases"]
+
     if not all_cases:
         raise HTTPException(status_code=400, detail="No test cases loaded. Check the test-case source or choose Custom query.")
 
-    if case_names:
-        allowed = {name.strip() for name in case_names.split(",") if name.strip()}
+    if only_names:
+        allowed = {name for name in only_names if name}
         missing = allowed - {case.get("name") for case in all_cases}
         if not allowed or missing:
             raise HTTPException(status_code=400, detail=f"Unknown or empty case filter: {', '.join(sorted(missing))}")
         return [case for case in all_cases if case.get("name") in allowed]
 
     return all_cases
+
+
+def _load_cases(case_names: str | None = None) -> list[dict[str, Any]]:
+    names: list[str] | None = None
+    if case_names:
+        names = [name.strip() for name in case_names.split(",") if name.strip()]
+    return _load_dataset_cases(DEFAULT_DATASET_ID, names)
 
 
 def _normalized_turns(value: Any) -> list[dict[str, Any]]:
@@ -378,8 +423,10 @@ async def list_tenants() -> list[dict[str, Any]]:
 
 @app.get("/api/datasets")
 async def list_datasets() -> list[dict[str, Any]]:
-    cases = RedTeamOrchestrator.load_test_cases()
-    return [{"id": DEFAULT_DATASET_ID, "name": "Saved test cases", "case_count": len(cases)}] if cases else []
+    return [
+        {"id": ds["id"], "name": ds["name"], "case_count": len(ds["cases"])}
+        for ds in _discover_local_datasets().values()
+    ]
 
 
 def _previous_failed_cases(dataset_id: str | None) -> list[str]:
@@ -413,11 +460,10 @@ async def start_run(request: StartRunRequest) -> dict[str, Any]:
         test_cases = [{"name": f"custom_{i}", "query": q} for i, q in enumerate(questions, 1)]
         source, dataset_id = "custom_query", None
     else:
-        if request.dataset_id != DEFAULT_DATASET_ID:
-            raise HTTPException(status_code=400, detail="Unknown dataset.")
-        failed = _previous_failed_cases(request.dataset_id) if request.only_failed else None
-        test_cases = _load_cases(",".join(failed) if failed else None)
-        source, dataset_id = "saved_cases", request.dataset_id
+        dataset_id = request.dataset_id or DEFAULT_DATASET_ID
+        failed = _previous_failed_cases(dataset_id) if request.only_failed else None
+        test_cases = _load_dataset_cases(dataset_id, failed or None)
+        source = "saved_cases"
 
     name = request.name or f"{tenant['name']} · {request.attack_type}"
     try:
