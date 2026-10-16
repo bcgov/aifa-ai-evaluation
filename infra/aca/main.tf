@@ -135,12 +135,28 @@ resource "azurerm_container_app" "main" {
 
       env {
         name  = "PYRIT_API_URL"
-        value = "/api/run-scan"
+        value = "/api"
       }
 
       env {
         name  = "PROMPTFOO_API_URL"
-        value = "/api/run-promptfoo"
+        value = "/api/promptfoo"
+      }
+
+      # Containers in one ACA share localhost; nginx is the only ingress.
+      env {
+        name  = "PYRIT_UPSTREAM"
+        value = "127.0.0.1:8000"
+      }
+
+      env {
+        name  = "PROMPTFOO_UPSTREAM"
+        value = "127.0.0.1:8001"
+      }
+
+      env {
+        name  = "PROMPTFOO_RUN_TOKEN"
+        value = var.promptfoo_run_token
       }
     }
 
@@ -224,8 +240,8 @@ resource "azurerm_container_app" "main" {
     container {
       name   = "promptfoo"
       image  = local.promptfoo_image
-      cpu    = 0.5
-      memory = "1Gi"
+      cpu    = 1.0
+      memory = "2Gi"
 
       env {
         name  = "PORT"
@@ -237,9 +253,15 @@ resource "azurerm_container_app" "main" {
         value = var.app_env
       }
 
+      # The AIFA system under test (not the PyRIT container).
       env {
         name  = "BACKEND_API_URL"
-        value = "http://localhost:8000"
+        value = var.backend_api_url
+      }
+
+      env {
+        name  = "BACKEND_API_TIMEOUT"
+        value = tostring(var.backend_api_timeout)
       }
 
       env {

@@ -1,5 +1,7 @@
 version: '3.8'
 
+# Mirrors the Azure Container App: only the frontend publishes a port; it proxies
+# /api/promptfoo/* to the promptfoo container and /api/* to the PyRIT container.
 services:
   backend:
     build:
@@ -7,35 +9,48 @@ services:
       dockerfile: aifa_pyrit/Dockerfile
     image: aifa-backend:local
     container_name: aifa-backend
-    ports:
-      - "8011:8011"
+    env_file:
+      - path: ./aifa_pyrit/.env
+        required: false
     environment:
+      - PORT=8000
       - PROMPTFOO_RUN_TOKEN=${PROMPTFOO_RUN_TOKEN:-}
+    ports:
+      - "8011:8000" # optional direct access for CLI/debugging
     volumes:
       - ./results:/app/results
-      - ./results-promptfoo:/app/results-promptfoo
       - ./data:/app/data
+    restart: unless-stopped
+
+  promptfoo:
+    build:
+      context: .
+      dockerfile: promptfoo/Dockerfile
+    image: aifa-promptfoo:local
+    container_name: aifa-promptfoo
+    env_file:
+      - path: ./promptfoo/.env
+        required: false
+      - path: ./aifa_pyrit/.env
+        required: false
+    environment:
+      - PORT=8001
+      - PROMPTFOO_RUN_TOKEN=${PROMPTFOO_RUN_TOKEN:-}
+    volumes:
+      - ./results-promptfoo:/app/results-promptfoo
     restart: unless-stopped
 
   frontend:
     build: ./frontend
     image: aifa-frontend:local
     container_name: aifa-frontend
+    environment:
+      - PYRIT_UPSTREAM=backend:8000
+      - PROMPTFOO_UPSTREAM=promptfoo:8001
+      - PROMPTFOO_RUN_TOKEN=${PROMPTFOO_RUN_TOKEN:-}
     ports:
       - "8080:80"
     depends_on:
       - backend
+      - promptfoo
     restart: unless-stopped
-
-  promptfoo:
-    build: ./promptfoo
-    image: aifa-promptfoo-runner:local
-    container_name: aifa-promptfoo
-    command: ["./run_promptfoo_eval.sh"]
-    volumes:
-      - ./results-promptfoo:/app/results-promptfoo
-      - ./promptfoo:/app/promptfoo
-      - ./aifa_pyrit:/app/aifa_pyrit
-    depends_on:
-      - backend
-    restart: "no"

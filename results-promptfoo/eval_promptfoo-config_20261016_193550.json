@@ -1,0 +1,300 @@
+{
+  "evalId": "eval-vsU-2026-10-16T19:35:52",
+  "results": {
+    "version": 3,
+    "timestamp": "2026-10-16T19:35:52.338Z",
+    "prompts": [
+      {
+        "id": "8868fc514e5f7bd1a350480c5a825cd0f5b47b6c0c8da0ca62be71158f638c23",
+        "raw": "{{query}}",
+        "label": "{{query}}",
+        "provider": "http://localhost:8001/invoke",
+        "metrics": {
+          "score": 0,
+          "testPassCount": 0,
+          "testFailCount": 0,
+          "testErrorCount": 1,
+          "assertPassCount": 0,
+          "assertFailCount": 0,
+          "totalLatencyMs": 0,
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "total": 0,
+            "numRequests": 0,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "assertions": {
+              "total": 0,
+              "prompt": 0,
+              "completion": 0,
+              "cached": 0,
+              "numRequests": 0,
+              "completionDetails": {
+                "reasoning": 0,
+                "acceptedPrediction": 0,
+                "rejectedPrediction": 0,
+                "cacheReadInputTokens": 0,
+                "cacheCreationInputTokens": 0
+              }
+            }
+          },
+          "namedScores": {},
+          "namedScoresCount": {},
+          "namedScoreWeights": {},
+          "cost": 0
+        }
+      }
+    ],
+    "results": [
+      {
+        "cost": 0,
+        "error": "Error: Request failed after 4 retries: InvalidArgumentError: Invalid URL protocol: the URL must start with `http:` or `https:`. (Code: UND_ERR_INVALID_ARG)\n    at fetchWithRetries (file:///usr/local/lib/node_modules/promptfoo/dist/src/fetch-BJA1GDaQ.js:1532:8)\n    at async fetchAndReadBody (file:///usr/local/lib/node_modules/promptfoo/dist/src/cache-Kfuz9AWM.js:439:16)\n    at async prepareFetchResponse (file:///usr/local/lib/node_modules/promptfoo/dist/src/cache-Kfuz9AWM.js:477:17)\n    at async file:///usr/local/lib/node_modules/promptfoo/dist/src/cache-Kfuz9AWM.js:582:29\n    at async fetchWithCache (file:///usr/local/lib/node_modules/promptfoo/dist/src/cache-Kfuz9AWM.js:590:42)\n    at async HttpProvider.callApiInternal (file:///usr/local/lib/node_modules/promptfoo/dist/src/providers-DuAb6VmT.js:13661:79)\n    at async ProviderRateLimitState.executeWithRetry (file:///usr/local/lib/node_modules/promptfoo/dist/src/shared-DhN2RpTK.js:653:20)\n    at async RateLimitRegistry.execute (file:///usr/local/lib/node_modules/promptfoo/dist/src/shared-DhN2RpTK.js:882:19)\n    at async callActiveProvider (file:///usr/local/lib/node_modules/promptfoo/dist/src/evaluator-Cjf-gFDb.js:7946:39)\n    at async callProviderForRunEval (file:///usr/local/lib/node_modules/promptfoo/dist/src/evaluator-Cjf-gFDb.js:7850:19)",
+        "gradingResult": null,
+        "id": "5f0ab25a-8422-46ab-92dc-d976762c1ec9",
+        "latencyMs": 0,
+        "namedScores": {},
+        "prompt": {
+          "raw": "What is BCeID?",
+          "label": "{{query}}",
+          "config": {}
+        },
+        "promptId": "8868fc514e5f7bd1a350480c5a825cd0f5b47b6c0c8da0ca62be71158f638c23",
+        "promptIdx": 0,
+        "provider": {
+          "id": "http://localhost:8001/invoke",
+          "label": ""
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "vars": {
+            "context": "BCeID (BC Electronic Identity) is a secure online authentication service provided by the Government of British Columbia. It lets individuals, businesses, and organizations access many participating BC government online services using a single username and password (single sign-on).\n\nKey points:\n- Used to verify your identity for BC government online services.\n- Provides a convenient, secure login instead of separate accounts for each service.\n- Managed by the Identity Services program in Service BC.\n- More details: https://www.bceid.ca/aboutbceid/\n",
+            "query": "What is BCeID?"
+          },
+          "assert": [
+            {
+              "type": "llm-rubric",
+              "value": "The response must not fabricate specific dollar fees, water rates, legal citations, or eligibility rules that are not part of BC water licensing policy. If it is unsure it should say so or point to an authoritative BC source instead of inventing details.\n"
+            },
+            {
+              "type": "icontains",
+              "value": "secure online authentication service"
+            },
+            {
+              "type": "icontains",
+              "value": "Government of British Columbia"
+            },
+            {
+              "type": "llm-rubric",
+              "value": "The response explains that BCeID stands for BC Electronic Identity, enables single sign-on for BC government services, and removes the need for separate accounts."
+            }
+          ],
+          "options": {},
+          "metadata": {}
+        },
+        "testIdx": 0,
+        "tokenUsage": {
+          "prompt": 0,
+          "completion": 0,
+          "cached": 0,
+          "total": 0,
+          "numRequests": 0,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "assertions": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            }
+          }
+        },
+        "vars": {
+          "context": "BCeID (BC Electronic Identity) is a secure online authentication service provided by the Government of British Columbia. It lets individuals, businesses, and organizations access many participating BC government online services using a single username and password (single sign-on).\n\nKey points:\n- Used to verify your identity for BC government online services.\n- Provides a convenient, secure login instead of separate accounts for each service.\n- Managed by the Identity Services program in Service BC.\n- More details: https://www.bceid.ca/aboutbceid/\n",
+          "query": "What is BCeID?"
+        },
+        "metadata": {
+          "errorContext": {
+            "providerId": "http://localhost:8001/invoke",
+            "providerLabel": ""
+          }
+        },
+        "failureReason": 2
+      }
+    ],
+    "stats": {
+      "successes": 0,
+      "failures": 0,
+      "errors": 1,
+      "tokenUsage": {
+        "prompt": 0,
+        "completion": 0,
+        "cached": 0,
+        "total": 0,
+        "numRequests": 0,
+        "completionDetails": {
+          "reasoning": 0,
+          "acceptedPrediction": 0,
+          "rejectedPrediction": 0,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0
+        },
+        "assertions": {
+          "total": 0,
+          "prompt": 0,
+          "completion": 0,
+          "cached": 0,
+          "numRequests": 0,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          }
+        }
+      },
+      "durationMs": 86433,
+      "evaluationDurationMs": 86433
+    }
+  },
+  "config": {
+    "tags": {},
+    "description": "nr-ai-form water permit assistant — robust Promptfoo evaluation",
+    "prompts": [
+      "{{query}}"
+    ],
+    "providers": [
+      {
+        "id": "http",
+        "config": {
+          "url": "http://localhost:8001/invoke",
+          "method": "POST",
+          "headers": {
+            "content-type": "application/json"
+          },
+          "body": {
+            "query": "{{query}}",
+            "step_number": "{{step_number}}"
+          },
+          "transformResponse": "json.response_message || json.response || json.message || text"
+        }
+      }
+    ],
+    "tests": [
+      {
+        "vars": {
+          "context": "BCeID (BC Electronic Identity) is a secure online authentication service provided by the Government of British Columbia. It lets individuals, businesses, and organizations access many participating BC government online services using a single username and password (single sign-on).\n\nKey points:\n- Used to verify your identity for BC government online services.\n- Provides a convenient, secure login instead of separate accounts for each service.\n- Managed by the Identity Services program in Service BC.\n- More details: https://www.bceid.ca/aboutbceid/\n",
+          "query": "What is BCeID?"
+        },
+        "assert": [
+          {
+            "type": "icontains",
+            "value": "secure online authentication service"
+          },
+          {
+            "type": "icontains",
+            "value": "Government of British Columbia"
+          },
+          {
+            "type": "llm-rubric",
+            "value": "The response explains that BCeID stands for BC Electronic Identity, enables single sign-on for BC government services, and removes the need for separate accounts."
+          }
+        ]
+      },
+      {
+        "vars": {
+          "context": "When the form asks, “Do you have a substantial interest in the land, mine, or an undertaking in British Columbia where the water will be used?”, it is checking whether you are eligible to apply for a water licence even if you are not the registered owner.\n\nYou have a “substantial interest” if you have a significant legal or financial stake in the place or activity where the water will be used. For example, this may apply if you:\n- Are a long‑term tenant or have a formal agreement giving you control or use of the land or mine\n- Are a partner, shareholder, or investor in a business or project (“undertaking”) that will use the water at that location\n- Have another legally recognized right or major investment that ties you to that land, mine, or project\n\nIf your situation is complex or informal (for example, based on a private arrangement), you may need legal advice or to contact the appropriate provincial office to confirm whether it counts as a “substantial interest” for this application.\n",
+          "query": "Do I need to be the registered owner of land to apply for a water licence?"
+        },
+        "assert": [
+          {
+            "type": "icontains",
+            "value": "eligible to apply"
+          },
+          {
+            "type": "llm-rubric",
+            "value": "The response confirms that you do not need to be the registered owner, provided you have a 'substantial interest' (significant legal or financial stake)."
+          }
+        ]
+      }
+    ],
+    "env": {},
+    "outputPath": [
+      "/app/results-promptfoo/eval_promptfoo-config_20261016_193550.json"
+    ],
+    "extensions": [],
+    "metadata": {},
+    "evaluateOptions": {},
+    "defaultTest": {
+      "assert": [
+        {
+          "type": "llm-rubric",
+          "value": "The response must not fabricate specific dollar fees, water rates, legal citations, or eligibility rules that are not part of BC water licensing policy. If it is unsure it should say so or point to an authoritative BC source instead of inventing details.\n"
+        }
+      ],
+      "gradingProvider": {
+        "provider": "http",
+        "config": {
+          "url": "http://127.0.0.1:8002/grade",
+          "method": "POST",
+          "headers": {
+            "content-type": "application/json"
+          },
+          "body": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "{{query}}"
+              }
+            ]
+          },
+          "transformResponse": "json || text"
+        }
+      },
+      "vars": {},
+      "options": {},
+      "metadata": {}
+    },
+    "basePath": "/app/promptfoo"
+  },
+  "shareableUrl": null,
+  "metadata": {
+    "promptfooVersion": "0.124.1",
+    "nodeVersion": "v22.23.3",
+    "platform": "linux",
+    "arch": "arm64",
+    "exportedAt": "2026-10-16T19:37:18.871Z",
+    "evaluationCreatedAt": "2026-10-16T19:35:52.338Z"
+  },
+  "vars": [
+    "context",
+    "query"
+  ],
+  "runtimeOptions": {
+    "eventSource": "cli",
+    "showProgressBar": false,
+    "repeat": 1,
+    "maxConcurrency": 4,
+    "cache": true
+  }
+}
