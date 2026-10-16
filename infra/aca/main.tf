@@ -232,8 +232,13 @@ resource "azurerm_container_app" "main" {
       }
 
       env {
-        name  = "AZURE_STORAGE_CONTAINER_NAME"
-        value = var.azure_storage_container_name
+        name  = "PYRIT_RESULTS_CONTAINER_NAME"
+        value = var.pyrit_results_container_name
+      }
+
+      env {
+        name  = "PYRIT_DATA_CONTAINER_NAME"
+        value = var.pyrit_data_container_name
       }
     }
 
@@ -267,6 +272,22 @@ resource "azurerm_container_app" "main" {
       env {
         name  = "PROMPTFOO_RUN_TOKEN"
         value = var.promptfoo_run_token
+      }
+
+      # Same storage account as PyRIT but separate containers; empty connection string keeps promptfoo local.
+      env {
+        name  = "AZURE_STORAGE_CONNECTION_STRING"
+        value = var.azure_storage_connection_string
+      }
+
+      env {
+        name  = "PROMPTFOO_RESULTS_CONTAINER_NAME"
+        value = var.promptfoo_results_container_name
+      }
+
+      env {
+        name  = "PROMPTFOO_DATA_CONTAINER_NAME"
+        value = var.promptfoo_data_container_name
       }
 
       env {

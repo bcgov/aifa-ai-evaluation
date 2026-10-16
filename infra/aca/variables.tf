@@ -183,10 +183,38 @@ variable "azure_storage_connection_string" {
   sensitive   = true
 }
 
-variable "azure_storage_container_name" {
-  description = "Optional blob container name for Azure reports storage."
+variable "pyrit_results_container_name" {
+  description = "Blob container for PyRIT reports."
   type        = string
-  default     = "aifa-reports"
+  default     = "pyrit-results"
+}
+
+variable "pyrit_data_container_name" {
+  description = "Blob container for PyRIT test cases (red_team_test_cases.json)."
+  type        = string
+  default     = "pyrit-data"
+}
+
+variable "promptfoo_results_container_name" {
+  description = "Blob container for promptfoo results and generated configs."
+  type        = string
+  default     = "promptfoo-results"
+}
+
+variable "promptfoo_data_container_name" {
+  description = "Blob container for promptfoo test data (promptfoo_tests_cases.yaml)."
+  type        = string
+  default     = "promptfoo-data"
+}
+
+check "storage_containers_are_distinct" {
+  assert {
+    condition = length(distinct([
+      var.pyrit_results_container_name, var.pyrit_data_container_name,
+      var.promptfoo_results_container_name, var.promptfoo_data_container_name,
+    ])) == 4
+    error_message = "PyRIT and promptfoo data/results containers must all have different names."
+  }
 }
 
 variable "common_tags" {

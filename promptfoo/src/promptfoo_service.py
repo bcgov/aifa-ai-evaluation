@@ -29,15 +29,20 @@ from pydantic import BaseModel, Field
 try:
     from promptfoo.src.config import settings
     from promptfoo.src.promptfoo_adapter import app
+    from promptfoo.src.storage import PromptfooStorage, safe_join
 except ModuleNotFoundError:  # pragma: no cover - fallback for local subproject execution
     from src.config import settings
     from src.promptfoo_adapter import app
+    from src.storage import PromptfooStorage, safe_join
 
 PROMPTFOO_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = PROMPTFOO_DIR.parent
+# Fixed location: promptfoo-config.yaml references file://../data_promptfoo/...
+DATA_DIR = REPO_ROOT / "data_promptfoo"
 RESULTS_DIR = Path(os.getenv("PROMPTFOO_RESULTS_DIR", str(REPO_ROOT / "results-promptfoo")))
 CONFIG_WORKSPACE = RESULTS_DIR / "configs"
 META_DIR = RESULTS_DIR / ".meta"
+STORAGE = PromptfooStorage(DATA_DIR, RESULTS_DIR)
 BUNDLED_CONFIGS = ("promptfoo-config.yaml",)
 TARGET_LABEL = "aifa-water-licence"
 TARGET_URL = os.getenv("PROMPTFOO_TARGET_URL", f"http://127.0.0.1:{os.getenv('PORT', '8001')}/invoke")
@@ -141,20 +146,6 @@ def _slug(value: str, fallback: str = "run") -> str:
 def _ensure_dirs() -> None:
     for path in (RESULTS_DIR, CONFIG_WORKSPACE, META_DIR):
         path.mkdir(parents=True, exist_ok=True)
-
-
-def safe_join(base: Path, name: str) -> Path:
-    """Join a user-supplied file name onto base; HTTP 400 on anything that could escape base."""
-    if not isinstance(name, str):
-        raise HTTPException(status_code=400, detail="Invalid file name.")
-    cleaned = os.path.basename(name.replace("\\", "/"))
-    if cleaned != name or cleaned in {"", ".", ".."} or ".." in cleaned or not SAFE_NAME.fullmatch(cleaned):
-        raise HTTPException(status_code=400, detail="Invalid file name.")
-    base_dir = os.path.realpath(base)
-    full_path = os.path.realpath(os.path.join(base_dir, cleaned))
-    if not full_path.startswith(base_dir + os.sep):
-        raise HTTPException(status_code=400, detail="Path traversal attempt detected.")
-    return Path(full_path)
 
 
 def _file_in(directory: Path, name: str, suffixes: tuple[str, ...]) -> Path | None:
@@ -501,13 +492,21 @@ class JobManager:
             finally:
                 job.proc = None
                 job.finished_at = _now()
+                upload = [p for p in (_file_in(CONFIG_WORKSPACE, n, (".yaml", ".yml"))
+                                      for n in {job.config, job.eval_config} if n) if p]
+                if job.output and job.output.exists():
+                    upload.append(job.output)
                 if job.output and job.output.exists() and job.output.suffix == ".json":
                     meta = {"job_id": job.id, "command": job.command, "config": job.config,
                             "eval_config": job.eval_config, "created_at": job.finished_at}
-                    safe_join(META_DIR, f"{job.output.name}.json").write_text(json.dumps(meta), encoding="utf-8")
+                    meta_path = safe_join(META_DIR, f"{job.output.name}.json")
+                    meta_path.write_text(json.dumps(meta), encoding="utf-8")
+                    upload.append(meta_path)
+                await asyncio.to_thread(STORAGE.push, upload)
 
     async def _run_steps(self, job: Job) -> None:
         _ensure_dirs()
+        await asyncio.to_thread(STORAGE.pull_data)
         env = promptfoo_env()
         for index, (argv, shown) in enumerate(zip(job.steps, job.display())):
             job.step = index
@@ -739,6 +738,7 @@ async def info() -> dict[str, Any]:
         "running_jobs": sum(j.status == "running" for j in JOBS.jobs.values()),
         "queued_jobs": sum(j.status == "queued" for j in JOBS.jobs.values()),
         "max_parallel_jobs": MAX_PARALLEL_JOBS,
+        "storage": STORAGE.describe(),
     }
 
 
@@ -755,6 +755,7 @@ async def catalog() -> dict[str, Any]:
 @router.get("/configs")
 async def list_configs() -> list[dict[str, Any]]:
     _ensure_dirs()
+    await asyncio.to_thread(STORAGE.pull_results)
     items = [{"name": n, "source": "bundled", "kind": "eval", "updated_at": None}
              for n in BUNDLED_CONFIGS if (PROMPTFOO_DIR / n).is_file()]
     for path in sorted(CONFIG_WORKSPACE.glob("*.y*ml"), key=lambda p: p.stat().st_mtime, reverse=True):
@@ -777,6 +778,7 @@ async def create_attack(req: AttackRequest) -> dict[str, Any]:
     path = safe_join(CONFIG_WORKSPACE, f"attack_{_slug(req.name)}_{_stamp()}.yaml")
     # JSON is valid YAML, so no YAML dependency is needed.
     path.write_text(json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8")
+    await asyncio.to_thread(STORAGE.push, [path])
     response: dict[str, Any] = {"config": path.name}
     if req.action == "generate":
         response["job_id"] = _start("redteam-generate", {"config": path.name, "max_concurrency": req.max_concurrency,
@@ -823,6 +825,7 @@ async def cancel_job(job_id: str) -> dict[str, Any]:
 @router.get("/results")
 async def list_results() -> list[dict[str, Any]]:
     _ensure_dirs()
+    await asyncio.to_thread(STORAGE.pull_results)
     items = []
     for path in sorted(RESULTS_DIR.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)[:300]:
         mtime = path.stat().st_mtime
@@ -873,4 +876,11 @@ async def result_csv(name: str) -> Response:
                     headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
 
+async def _sync_on_startup() -> None:
+    _ensure_dirs()
+    await asyncio.to_thread(STORAGE.pull_data)
+    await asyncio.to_thread(STORAGE.pull_results, True)
+
+
+app.router.on_startup.append(_sync_on_startup)
 app.include_router(router)
