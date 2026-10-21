@@ -10,12 +10,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     # Judge model (llm-rubric grading), reached through the local grader proxy
-    AUDIT_LLM_api_key: str = Field(default="", validation_alias="AUDIT_LLM_API_KEY")
-    AUDIT_LLM_endpoint: str = Field(default="", validation_alias="AUDIT_LLM_ENDPOINT")
-    AUDIT_LLM_api_version: str = Field(default="2024-10-21", validation_alias="AUDIT_LLM_API_VERSION")
-    AUDIT_LLM_deployment: str = Field(
+    audit_llm_api_key: str = Field(default="", validation_alias="audit_llm_API_KEY")
+    audit_llm_endpoint: str = Field(default="", validation_alias="AUDIT_LLM_ENDPOINT")
+    audit_llm_api_version: str = Field(default="2024-10-21", validation_alias="AUDIT_LLM_API_VERSION")
+    audit_llm_deployment: str = Field(
         default="gpt-4",
-        validation_alias=AliasChoices("AUDIT_LLM_DEPLOYMENT", "AUDIT_LLM_chat_deployment_name"),
+        validation_alias=AliasChoices("AUDIT_LLM_DEPLOYMENT", "audit_llm_chat_deployment_name"),
     )
 
     # Attack-generation model (red-team commands)

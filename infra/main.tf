@@ -33,10 +33,10 @@ resource "azurerm_linux_web_app" "main" {
       "PYTHONPATH"                              = "/home/site/wwwroot"
       "BACKEND_API_URL"                          = var.backend_api_url
       "BACKEND_API_TIMEOUT"                      = tostring(var.backend_api_timeout)
-      "AUDIT_LLM_API_KEY"                     = var.AUDIT_LLM_api_key
-      "AUDIT_LLM_ENDPOINT"                   = var.AUDIT_LLM_endpoint
-      "AUDIT_LLM_API_VERSION"                 = var.AUDIT_LLM_api_version
-      "AUDIT_LLM_DEPLOYMENT"                  = var.AUDIT_LLM_deployment
+      "AUDIT_LLM_API_KEY"                     = var.audit_llm_api_key
+      "AUDIT_LLM_ENDPOINT"                   = var.audit_llm_endpoint
+      "AUDIT_LLM_API_VERSION"                 = var.audit_llm_api_version
+      "AUDIT_LLM_DEPLOYMENT"                  = var.audit_llm_deployment
       "ADVERSARIAL_OPENAI_API_KEY"               = var.adversarial_openai_api_key
       "ADVERSARIAL_OPENAI_ENDPOINT"             = var.adversarial_openai_endpoint
       "ADVERSARIAL_OPENAI_DEPLOYMENT"            = var.adversarial_openai_deployment

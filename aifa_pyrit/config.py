@@ -20,7 +20,7 @@ except Exception:
         pass
 
 
-def normalize_AUDIT_LLM_endpoint(endpoint: str) -> str:
+def normalize_audit_llm_endpoint(endpoint: str) -> str:
     """Normalize Azure OpenAI resource URLs to the base resource root.
 
     Azure resources are commonly configured as either:
@@ -42,9 +42,9 @@ def normalize_AUDIT_LLM_endpoint(endpoint: str) -> str:
     return value
 
 
-def ensure_AUDIT_LLM_v1_endpoint(endpoint: str) -> str:
+def ensure_audit_llm_v1_endpoint(endpoint: str) -> str:
     """Return an endpoint in the format expected by PyRIT's OpenAIChatTarget."""
-    normalized = normalize_AUDIT_LLM_endpoint(endpoint)
+    normalized = normalize_audit_llm_endpoint(endpoint)
     if not normalized:
         return normalized
     if normalized.lower().endswith("/openai/v1"):
@@ -56,9 +56,9 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables"""
 
     # Azure OpenAI Configuration
-    AUDIT_LLM_api_key: str = Field(default="", validation_alias="AUDIT_LLM_API_KEY")
-    AUDIT_LLM_endpoint: str = Field(default="", validation_alias="AUDIT_LLM_ENDPOINT")
-    AUDIT_LLMersion: str = Field(
+    audit_llm_api_key: str = Field(default="", validation_alias="AUDIT_LLM_API_KEY")
+    audit_llm_endpoint: str = Field(default="", validation_alias="AUDIT_LLM_ENDPOINT")
+    audit_llm_api_version: str = Field(
         default="2024-02-15-preview",
         validation_alias="AUDIT_LLM_API_VERSION",
     )
@@ -261,9 +261,9 @@ class Settings(BaseSettings):
 
     def validate_config(self) -> bool:
         """Validate required configuration"""
-        if not self.AUDIT_LLM_api_key:
+        if not self.audit_llm_api_key:
             raise ValueError("AUDIT_LLM_API_KEY is required")
-        if not self.AUDIT_LLM_endpoint:
+        if not self.audit_llm_endpoint:
             raise ValueError("AUDIT_LLM_ENDPOINT is required")
         if not self.backend_api_url:
             raise ValueError("BACKEND_API_URL is required")

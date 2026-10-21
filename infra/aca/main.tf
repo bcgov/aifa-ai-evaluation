@@ -193,17 +193,17 @@ resource "azurerm_container_app" "main" {
 
       env {
         name  = "AUDIT_LLM_ENDPOINT"
-        value = var.AUDIT_LLM_endpoint
+        value = var.audit_llm_endpoint
       }
 
       env {
         name  = "AUDIT_LLM_API_VERSION"
-        value = var.AUDIT_LLM_api_version
+        value = var.audit_llm_api_version
       }
 
       env {
         name  = "AUDIT_LLM_DEPLOYMENT"
-        value = var.AUDIT_LLM_deployment
+        value = var.audit_llm_deployment
       }
 
       env {
@@ -297,17 +297,17 @@ resource "azurerm_container_app" "main" {
 
       env {
         name  = "AUDIT_LLM_ENDPOINT"
-        value = var.AUDIT_LLM_endpoint
+        value = var.audit_llm_endpoint
       }
 
       env {
         name  = "AUDIT_LLM_API_VERSION"
-        value = var.AUDIT_LLM_api_version
+        value = var.audit_llm_api_version
       }
 
       env {
         name  = "AUDIT_LLM_DEPLOYMENT"
-        value = var.AUDIT_LLM_deployment
+        value = var.audit_llm_deployment
       }
 
       env {

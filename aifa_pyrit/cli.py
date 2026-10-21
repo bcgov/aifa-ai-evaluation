@@ -252,12 +252,12 @@ def check_proxy(timeout: int):
         for key, value in proxy_lines.items():
             click.echo(f"{key}={value}")
 
-        if not settings.AUDIT_LLMi_key or not settings.AUDIT_LLM_endpoint:
+        if not settings.audit_llmi_key or not settings.audit_llm_endpoint:
             raise ValueError("AUDIT_LLM_API_KEY and AUDIT_LLM_ENDPOINT must be configured first")
 
-        endpoint = settings.AUDIT_LLM_endpoint.rstrip("/")
-        deployment = settings.AUDIT_LLM_deployment or "gpt-5.1-chat"
-        api_version = settings.AUDIT_LLM_api_version or "2025-01-01-preview"
+        endpoint = settings.audit_llm_endpoint.rstrip("/")
+        deployment = settings.audit_llm_deployment or "gpt-5.1-chat"
+        api_version = settings.audit_llm_api_version or "2025-01-01-preview"
         url = f"{endpoint}/openai/deployments/{deployment}/chat/completions?api-version={api_version}"
 
         payload = {"messages": [{"role": "user", "content": "hello"}]}

@@ -244,10 +244,10 @@ def _azure_provider(endpoint: str, deployment: str, api_version: str, key_env: s
 
 
 def grader_provider() -> dict[str, Any] | None:
-    if not settings.AUDIT_LLM_api_key:
+    if not settings.audit_llm_api_key:
         return None
-    return _azure_provider(settings.AUDIT_LLM_endpoint, settings.AUDIT_LLM_deployment,
-                           settings.AUDIT_LLM_api_version, "AUDIT_LLM_API_KEY")
+    return _azure_provider(settings.audit_llm_endpoint, settings.audit_llm_deployment,
+                           settings.AUDIT_LLM_api_version, "audit_llm_API_KEY")
 
 
 def judge_provider() -> dict[str, Any] | None:
@@ -261,16 +261,16 @@ def promptfoo_env() -> dict[str, str]:
     # promptfoo auto-loads ./.env, which would re-add the SOCKS proxy; settings already come from our config.
     env["DOTENV_PATH"] = os.devnull
     env.pop("DOTENV_CONFIG_PATH", None)
-    if settings.AUDIT_LLM_api_key:
+    if settings.audit_llm_api_key:
         # Otherwise promptfoo's default grader prefers api.openai.com over Azure.
         env.pop("OPENAI_API_KEY", None)
         env.pop("OPENAI_BASE_URL", None)
     values = {
-        "AUDIT_LLM_API_KEY": settings.AUDIT_LLM_api_key,
-        "AZURE_API_KEY": settings.AUDIT_LLM_api_key,
-        "AZURE_API_BASE_URL": _azure_base_url(settings.AUDIT_LLM_endpoint),
-        "AUDIT_LLM_DEPLOYMENT_NAME": settings.AUDIT_LLM_deployment,
-        "AZURE_DEPLOYMENT_NAME": settings.AUDIT_LLM_deployment,
+        "AUDIT_LLM_API_KEY": settings.audit_llm_api_key,
+        "AZURE_API_KEY": settings.audit_llm_api_key,
+        "AZURE_API_BASE_URL": _azure_base_url(settings.audit_llm_endpoint),
+        "AUDIT_LLM_DEPLOYMENT_NAME": settings.audit_llm_deployment,
+        "AZURE_DEPLOYMENT_NAME": settings.audit_llm_deployment,
         "ADVERSARIAL_OPENAI_API_KEY": settings.adversarial_api_key,
         "PROMPTFOO_TARGET_URL": TARGET_URL,
         "PROMPTFOO_DISABLE_TELEMETRY": "1",
@@ -591,7 +591,7 @@ class JobManager:
                 if "generate" in argv:
                     job.log("[service] No attack probes were generated. The attack-generator model was likely unreachable "
                             "or refused, or every plugin needs remote generation (PROMPTFOO_DISABLE_REMOTE_GENERATION=true). "
-                            "Check the output above, the ADVERSARIAL_OPENAI_*/AUDIT_LLM_* settings, and network access to Azure OpenAI.")
+                            "Check the output above, the ADVERSARIAL_OPENAI_*/audit_llm_* settings, and network access to Azure OpenAI.")
                 job.status = "failed"
                 return
         job.status = "succeeded"
@@ -886,7 +886,7 @@ async def result_csv(name: str) -> Response:
 def _log_effective_config() -> None:
     host = re.sub(r"^\w+://", "", settings.backend_api_url or "").split("/")[0]
     logger.info("promptfoo target backend=%s grader_key=%s attack_key=%s", host or "<unset>",
-                bool(settings.AUDIT_LLM_api_key), bool(settings.adversarial_api_key))
+                bool(settings.audit_llm_api_key), bool(settings.adversarial_api_key))
     if host.startswith(("localhost", "127.0.0.1")):
         logger.warning("BACKEND_API_URL points at %s, which is not the AIFA app. Check promptfoo/.env "
                        "(or the container's BACKEND_API_URL); /invoke will fail with 'Connection refused'.", host)

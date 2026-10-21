@@ -245,10 +245,10 @@ jobs:
             -var="backend_api_url=${{ vars.BACKEND_API_URL || secrets.BACKEND_API_URL || 'http://localhost:8000' }}" \
             -var="backend_api_timeout=${{ vars.BACKEND_API_TIMEOUT || '30' }}" \
             -var="promptfoo_run_token=${{ secrets.PROMPTFOO_RUN_TOKEN }}" \
-            -var="AUDIT_LLM_api_key=${{ secrets.AUDIT_LLM_API_KEY }}" \
-            -var="AUDIT_LLM_endpoint=${{ vars.AUDIT_LLM_ENDPOINT || secrets.AUDIT_LLM_ENDPOINT }}" \
-            -var="AUDIT_LLM_api_version=${{ vars.AUDIT_LLM_API_VERSION || '2025-01-01-preview' }}" \
-            -var="AUDIT_LLM_deployment=${{ vars.AUDIT_LLM_DEPLOYMENT || secrets.AUDIT_LLM_DEPLOYMENT }}" \
+            -var="audit_llm_api_key=${{ secrets.AUDIT_LLM_API_KEY }}" \
+            -var="audit_llm_endpoint=${{ vars.AUDIT_LLM_ENDPOINT || secrets.AUDIT_LLM_ENDPOINT }}" \
+            -var="audit_llm_api_version=${{ vars.AUDIT_LLM_API_VERSION || '2025-01-01-preview' }}" \
+            -var="audit_llm_deployment=${{ vars.AUDIT_LLM_DEPLOYMENT || secrets.AUDIT_LLM_DEPLOYMENT }}" \
             -var="adversarial_openai_api_key=${{ secrets.ADVERSARIAL_OPENAI_API_KEY }}" \
             -var="adversarial_openai_endpoint=${{ vars.ADVERSARIAL_OPENAI_ENDPOINT || secrets.ADVERSARIAL_OPENAI_ENDPOINT }}" \
             -var="adversarial_openai_deployment=${{ vars.ADVERSARIAL_OPENAI_DEPLOYMENT || secrets.ADVERSARIAL_OPENAI_DEPLOYMENT }}" \
@@ -284,10 +284,10 @@ jobs:
             -var="backend_api_url=${{ vars.BACKEND_API_URL || secrets.BACKEND_API_URL || 'http://localhost:8000' }}" \
             -var="backend_api_timeout=${{ vars.BACKEND_API_TIMEOUT || '30' }}" \
             -var="promptfoo_run_token=${{ secrets.PROMPTFOO_RUN_TOKEN }}" \
-            -var="AUDIT_LLM_api_key=${{ secrets.AUDIT_LLM_API_KEY }}" \
-            -var="AUDIT_LLM_endpoint=${{ vars.AUDIT_LLM_ENDPOINT || secrets.AUDIT_LLM_ENDPOINT }}" \
-            -var="AUDIT_LLM_api_version=${{ vars.AUDIT_LLM_API_VERSION || '2025-01-01-preview' }}" \
-            -var="AUDIT_LLM_deployment=${{ vars.AUDIT_LLM_DEPLOYMENT || secrets.AUDIT_LLM_DEPLOYMENT }}" \
+            -var="audit_llm_api_key=${{ secrets.AUDIT_LLM_API_KEY }}" \
+            -var="audit_llm_endpoint=${{ vars.AUDIT_LLM_ENDPOINT || secrets.audit_llm_ENDPOINT }}" \
+            -var="audit_llm_api_version=${{ vars.AUDIT_LLM_API_VERSION || '2025-01-01-preview' }}" \
+            -var="audit_llm_deployment=${{ vars.AUDIT_LLM_DEPLOYMENT || secrets.AUDIT_LLM_DEPLOYMENT }}" \
             -var="adversarial_openai_api_key=${{ secrets.ADVERSARIAL_OPENAI_API_KEY }}" \
             -var="adversarial_openai_endpoint=${{ vars.ADVERSARIAL_OPENAI_ENDPOINT || secrets.ADVERSARIAL_OPENAI_ENDPOINT }}" \
             -var="adversarial_openai_deployment=${{ vars.ADVERSARIAL_OPENAI_DEPLOYMENT || secrets.ADVERSARIAL_OPENAI_DEPLOYMENT }}" \

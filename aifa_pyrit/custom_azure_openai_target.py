@@ -22,7 +22,7 @@ from pyrit.prompt_target.common.target_capabilities import TargetCapabilities
 from pyrit.models import Message
 import structlog
 
-from aifa_pyrit.config import normalize_AUDIT_LLMdpoint
+from aifa_pyrit.config import normalize_audit_llmdpoint
 
 logger = structlog.get_logger(__name__)
 
@@ -124,14 +124,14 @@ class CustomAzureOpenAITarget(PromptTarget):
         """
         self._ensure_memory_initialized()
         super().__init__()
-        self.endpoint = normalize_AUDIT_LLM_endpoint(endpoint)
+        self.endpoint = normalize_audit_llm_endpoint(endpoint)
         self.api_key = api_key
         self.deployment = deployment
         self.api_version = api_version
         self.timeout = timeout
         
         logger.info(
-            "custom_AUDIT_LLM_target_initialized",
+            "custom_audit_llm_target_initialized",
             endpoint=self.endpoint,
             deployment=deployment,
             api_version=api_version,
@@ -186,7 +186,7 @@ class CustomAzureOpenAITarget(PromptTarget):
             }
             
             logger.info(
-                "sending_AUDIT_LLM_request",
+                "sending_audit_llm_request",
                 url=url,
                 num_messages=len(messages),
             )
@@ -208,7 +208,7 @@ class CustomAzureOpenAITarget(PromptTarget):
                     error_text = response.text
                     error_msg = self._format_azure_error_message(response.status_code, error_text)
                     logger.error(
-                        "AUDIT_LLM_request_failed",
+                        "audit_llm_request_failed",
                         status=response.status_code,
                         error=error_text,
                         formatted_message=error_msg,
@@ -223,7 +223,7 @@ class CustomAzureOpenAITarget(PromptTarget):
                     raise AzureOpenAIRequestError("Azure OpenAI returned an empty response")
 
                 logger.info(
-                    "AUDIT_LLM_request_success",
+                    "audit_llm_request_success",
                     response_length=len(response_content),
                 )
 
@@ -240,7 +240,7 @@ class CustomAzureOpenAITarget(PromptTarget):
         except Exception as e:
             error_msg = f"Error querying Azure OpenAI: {str(e)}"
             logger.error(
-                "AUDIT_LLM_request_exception",
+                "audit_llm_request_exception",
                 error=str(e),
             )
             raise AzureOpenAIRequestError(error_msg) from e
