@@ -20,7 +20,7 @@ except Exception:
         pass
 
 
-def normalize_azure_openai_endpoint(endpoint: str) -> str:
+def normalize_AUDIT_LLM_endpoint(endpoint: str) -> str:
     """Normalize Azure OpenAI resource URLs to the base resource root.
 
     Azure resources are commonly configured as either:
@@ -42,9 +42,9 @@ def normalize_azure_openai_endpoint(endpoint: str) -> str:
     return value
 
 
-def ensure_azure_openai_v1_endpoint(endpoint: str) -> str:
+def ensure_AUDIT_LLM_v1_endpoint(endpoint: str) -> str:
     """Return an endpoint in the format expected by PyRIT's OpenAIChatTarget."""
-    normalized = normalize_azure_openai_endpoint(endpoint)
+    normalized = normalize_AUDIT_LLM_endpoint(endpoint)
     if not normalized:
         return normalized
     if normalized.lower().endswith("/openai/v1"):
@@ -56,19 +56,19 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables"""
 
     # Azure OpenAI Configuration
-    azure_openai_api_key: str = Field(default="", validation_alias="AZURE_OPENAI_API_KEY")
-    azure_openai_endpoint: str = Field(default="", validation_alias="AZURE_OPENAI_ENDPOINT")
-    azure_openai_api_version: str = Field(
+    AUDIT_LLM_api_key: str = Field(default="", validation_alias="AUDIT_LLM_API_KEY")
+    AUDIT_LLM_endpoint: str = Field(default="", validation_alias="AUDIT_LLM_ENDPOINT")
+    AUDIT_LLMersion: str = Field(
         default="2024-02-15-preview",
-        validation_alias="AZURE_OPENAI_API_VERSION",
+        validation_alias="AUDIT_LLM_API_VERSION",
     )
     # Accept both env names:
-    # - AZURE_OPENAI_DEPLOYMENT (our .env.example)
-    # - azure_openai_chat_deployment_name (common in Azure AI SDK samples)
-    azure_openai_deployment: str = Field(
+    # - AUDIT_LLM_DEPLOYMENT (our .env.example)
+    # - AUDIT_LLM_chat_deployment_name (common in Azure AI SDK samples)
+    AUDIT_LLM_deployment: str = Field(
         default="gpt-4",
         validation_alias=AliasChoices(
-            "AZURE_OPENAI_DEPLOYMENT", "azure_openai_chat_deployment_name"
+            "AUDIT_LLM_DEPLOYMENT", "AUDIT_LLM_chat_deployment_name"
         ),
     )
 
@@ -79,7 +79,7 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices(
             "ADVERSARIAL_ENDPOINT",
             "ADVERSARIAL_OPENAI_ENDPOINT",
-            "AZURE_OPENAI_ADVERSARIAL_ENDPOINT",
+            "AUDIT_LLM_ADVERSARIAL_ENDPOINT",
         ),
     )
     adversarial_api_key: str = Field(
@@ -87,7 +87,7 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices(
             "ADVERSARIAL_API_KEY",
             "ADVERSARIAL_OPENAI_API_KEY",
-            "AZURE_OPENAI_ADVERSARIAL_API_KEY",
+            "AUDIT_LLM_ADVERSARIAL_API_KEY",
         ),
     )
     adversarial_deployment: str = Field(
@@ -95,7 +95,7 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices(
             "ADVERSARIAL_DEPLOYMENT",
             "ADVERSARIAL_OPENAI_DEPLOYMENT",
-            "AZURE_OPENAI_ADVERSARIAL_DEPLOYMENT",
+            "AUDIT_LLM_ADVERSARIAL_DEPLOYMENT",
         ),
     )
     adversarial_api_version: str = Field(
@@ -103,7 +103,7 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices(
             "ADVERSARIAL_API_VERSION",
             "ADVERSARIAL_OPENAI_API_VERSION",
-            "AZURE_OPENAI_ADVERSARIAL_API_VERSION",
+            "AUDIT_LLM_ADVERSARIAL_API_VERSION",
         ),
     )
 
@@ -261,10 +261,10 @@ class Settings(BaseSettings):
 
     def validate_config(self) -> bool:
         """Validate required configuration"""
-        if not self.azure_openai_api_key:
-            raise ValueError("AZURE_OPENAI_API_KEY is required")
-        if not self.azure_openai_endpoint:
-            raise ValueError("AZURE_OPENAI_ENDPOINT is required")
+        if not self.AUDIT_LLM_api_key:
+            raise ValueError("AUDIT_LLM_API_KEY is required")
+        if not self.AUDIT_LLM_endpoint:
+            raise ValueError("AUDIT_LLM_ENDPOINT is required")
         if not self.backend_api_url:
             raise ValueError("BACKEND_API_URL is required")
         return True

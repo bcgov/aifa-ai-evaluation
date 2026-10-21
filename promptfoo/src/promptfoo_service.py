@@ -12,6 +12,7 @@ import csv
 import hmac
 import io
 import json
+import logging
 import os
 import re
 import shlex
@@ -24,6 +25,7 @@ from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import FileResponse, Response
+import yaml
 from pydantic import BaseModel, Field
 
 try:
@@ -36,6 +38,7 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for local subproject 
     from src.storage import PromptfooStorage, safe_join
 
 PROMPTFOO_DIR = Path(__file__).resolve().parents[1]
+logger = logging.getLogger("uvicorn.error")
 REPO_ROOT = PROMPTFOO_DIR.parent
 # Fixed location: promptfoo-config.yaml references file://../data_promptfoo/...
 DATA_DIR = REPO_ROOT / "data_promptfoo"
@@ -163,6 +166,45 @@ def resolve_config(name: str) -> Path:
     return path
 
 
+def load_dataset_cases(name: str) -> list[dict[str, Any]]:
+    """Test cases of a promptfoo-format file in data_promptfoo/, kept exactly as written (assertions included)."""
+    path = _file_in(DATA_DIR, name, (".yaml", ".yml", ".json"))
+    if path is None:
+        raise HTTPException(status_code=404, detail=f"Unknown test file: {name}")
+    if path.stat().st_size > 1_000_000:
+        raise HTTPException(status_code=400, detail="Test file is larger than 1 MB.")
+    try:
+        loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except yaml.YAMLError as exc:
+        raise HTTPException(status_code=400, detail=f"Could not read {name}: {exc}") from exc
+    items = loaded.get("tests") if isinstance(loaded, dict) else loaded
+    cases = [c for c in (items if isinstance(items, list) else []) if isinstance(c, dict) and isinstance(c.get("vars"), dict)]
+    if not cases:
+        raise HTTPException(status_code=400, detail=f"{name} has no promptfoo test cases (expected a list with 'vars').")
+    return cases
+
+
+def case_label(case: dict[str, Any]) -> str:
+    variables = case["vars"]
+    label = case.get("description") or variables.get("query") or variables.get("prompt") or "(untitled test)"
+    return str(label).strip()[:300]
+
+
+def write_dataset_config(dataset: str, indices: list[int]) -> Path:
+    """Bundled eval config with only the chosen cases of `dataset` inlined as its tests."""
+    cases = load_dataset_cases(dataset)
+    chosen = sorted(set(indices))
+    bad = [i for i in chosen if not 0 <= i < len(cases)]
+    if bad:
+        raise HTTPException(status_code=400, detail=f"Unknown test case: {', '.join(map(str, bad))}")
+    config = yaml.safe_load((PROMPTFOO_DIR / BUNDLED_CONFIGS[0]).read_text(encoding="utf-8"))
+    config["tests"] = [cases[i] for i in chosen]
+    path = safe_join(CONFIG_WORKSPACE, f"subset_{_slug(Path(dataset).stem)}_{_stamp()}.yaml")
+    # JSON is valid YAML, so the config is written without a YAML dump.
+    path.write_text(json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8")
+    return path
+
+
 def resolve_result(name: str) -> Path:
     path = _file_in(RESULTS_DIR, name, (".json",))
     if path is None:
@@ -185,42 +227,52 @@ def promptfoo_cmd() -> list[str]:
     return [found] if found else ["npx", "--yes", "promptfoo@latest"]
 
 
+def _azure_base_url(endpoint: str) -> str:
+    """Full base URL incl. any gateway path prefix (e.g. https://host/tenant-name)."""
+    value = (endpoint or "").strip().rstrip("/")
+    if value and not re.match(r"^https?://", value):
+        value = "https://" + value
+    return value
+
+
 def _azure_provider(endpoint: str, deployment: str, api_version: str, key_env: str) -> dict[str, Any] | None:
-    host = re.sub(r"^https?://", "", (endpoint or "").strip()).split("/")[0]
-    if not host or not deployment:
+    base = _azure_base_url(endpoint)
+    if not base or not deployment:
         return None
     # Keys stay in env (apiKeyEnvar) so generated configs never contain secrets.
-    return {"id": f"azure:chat:{deployment}", "config": {"apiHost": host, "apiVersion": api_version, "apiKeyEnvar": key_env}}
+    return {"id": f"azure:chat:{deployment}", "config": {"apiBaseUrl": base, "apiVersion": api_version, "apiKeyEnvar": key_env}}
 
 
 def grader_provider() -> dict[str, Any] | None:
-    if not settings.azure_openai_api_key:
+    if not settings.AUDIT_LLM_api_key:
         return None
-    return _azure_provider(settings.azure_openai_endpoint, settings.azure_openai_deployment,
-                           settings.azure_openai_api_version, "AZURE_OPENAI_API_KEY")
+    return _azure_provider(settings.AUDIT_LLM_endpoint, settings.AUDIT_LLM_deployment,
+                           settings.AUDIT_LLM_api_version, "AUDIT_LLM_API_KEY")
 
 
-def attack_provider() -> dict[str, Any] | None:
-    if settings.adversarial_api_key and settings.adversarial_endpoint:
-        return _azure_provider(settings.adversarial_endpoint, settings.adversarial_deployment,
-                               settings.adversarial_api_version, "ADVERSARIAL_OPENAI_API_KEY")
+def judge_provider() -> dict[str, Any] | None:
+    """Model that grades llm-rubric assertions."""
     return grader_provider()
 
 
 def promptfoo_env() -> dict[str, str]:
     # Node's fetch cannot use SOCKS proxies, and the target adapter is on localhost.
     env = {k: v for k, v in os.environ.items() if k.lower() not in {"all_proxy", "https_proxy", "http_proxy"}}
-    if settings.azure_openai_api_key:
+    # promptfoo auto-loads ./.env, which would re-add the SOCKS proxy; settings already come from our config.
+    env["DOTENV_PATH"] = os.devnull
+    env.pop("DOTENV_CONFIG_PATH", None)
+    if settings.AUDIT_LLM_api_key:
         # Otherwise promptfoo's default grader prefers api.openai.com over Azure.
         env.pop("OPENAI_API_KEY", None)
         env.pop("OPENAI_BASE_URL", None)
     values = {
-        "AZURE_OPENAI_API_KEY": settings.azure_openai_api_key,
-        "AZURE_API_KEY": settings.azure_openai_api_key,
-        "AZURE_API_HOST": re.sub(r"^https?://", "", settings.azure_openai_endpoint or "").split("/")[0],
-        "AZURE_OPENAI_DEPLOYMENT_NAME": settings.azure_openai_deployment,
-        "AZURE_DEPLOYMENT_NAME": settings.azure_openai_deployment,
+        "AUDIT_LLM_API_KEY": settings.AUDIT_LLM_api_key,
+        "AZURE_API_KEY": settings.AUDIT_LLM_api_key,
+        "AZURE_API_BASE_URL": _azure_base_url(settings.AUDIT_LLM_endpoint),
+        "AUDIT_LLM_DEPLOYMENT_NAME": settings.AUDIT_LLM_deployment,
+        "AZURE_DEPLOYMENT_NAME": settings.AUDIT_LLM_deployment,
         "ADVERSARIAL_OPENAI_API_KEY": settings.adversarial_api_key,
+        "PROMPTFOO_TARGET_URL": TARGET_URL,
         "PROMPTFOO_DISABLE_TELEMETRY": "1",
         "PROMPTFOO_DISABLE_UPDATE": "1",
         "FORCE_COLOR": "0",
@@ -393,7 +445,7 @@ def build_steps(command: Command, options: dict[str, Any]) -> tuple[list[list[st
         probes = safe_join(CONFIG_WORKSPACE, f"probes_{stem}_{_stamp()}.yaml")
         by_name = {o.name: o for o in command.options}
         shared = by_name["max_concurrency"].argv(options.get("max_concurrency")) + by_name["delay"].argv(options.get("delay"))
-        generate = [*base, "redteam", "generate", "--no-progress-bar", *by_name["config"].argv(config_name),
+        generate = [*base, "redteam", "generate", "--no-progress-bar", "--verbose", *by_name["config"].argv(config_name),
                     f"--output={probes}", *by_name["num_tests"].argv(options.get("num_tests")),
                     *by_name["force"].argv(options.get("force", True)), *shared]
         evaluate = [*base, "eval", "--no-table", "--no-progress-bar", "--no-share",
@@ -532,6 +584,16 @@ class JobManager:
             if proc.returncode not in OK_EXIT_CODES:
                 job.status = "failed"
                 return
+            missing = next((a.split("=", 1)[1] for a in argv if a.startswith("--output=")
+                            and not Path(a.split("=", 1)[1]).exists()), None)
+            if missing:
+                job.log(f"[service] step {index + 1} exited {proc.returncode} but did not write {Path(missing).name}.")
+                if "generate" in argv:
+                    job.log("[service] No attack probes were generated. The attack-generator model was likely unreachable "
+                            "or refused, or every plugin needs remote generation (PROMPTFOO_DISABLE_REMOTE_GENERATION=true). "
+                            "Check the output above, the ADVERSARIAL_OPENAI_*/AUDIT_LLM_* settings, and network access to Azure OpenAI.")
+                job.status = "failed"
+                return
         job.status = "succeeded"
 
     @staticmethod
@@ -568,7 +630,9 @@ def result_rows(data: dict[str, Any]) -> list[dict[str, Any]]:
         variables = item.get("vars") or test.get("vars") or {}
         grading = item.get("gradingResult") or {}
         response = item.get("response") or {}
-        if item.get("error") or item.get("failureReason") == 2:
+        # failureReason: 0 none, 1 assertion failed, 2 error. `error` also carries the grader's text for failures.
+        failure = item.get("failureReason")
+        if failure == 2 or (failure is None and item.get("error") and not item.get("success")):
             status = "error"
         else:
             status = "pass" if item.get("success") else "fail"
@@ -648,56 +712,6 @@ class JobRequest(BaseModel):
     options: dict[str, Any] = Field(default_factory=dict)
 
 
-class AttackRequest(BaseModel):
-    name: str = Field(min_length=1, max_length=80)
-    purpose: str = Field(min_length=10, max_length=4000)
-    plugins: list[str] = Field(min_length=1, max_length=60)
-    strategies: list[str] = Field(default_factory=list, max_length=20)
-    num_tests: int = Field(default=3, ge=1, le=25)
-    language: str | None = Field(default=None, max_length=40)
-    max_concurrency: int = Field(default=2, ge=1, le=10)
-    delay: int = Field(default=0, ge=0, le=60_000)
-    action: Literal["save", "generate", "run"] = "run"
-
-
-def build_attack_config(req: AttackRequest) -> dict[str, Any]:
-    bad = [p for p in req.plugins if p not in PLUGIN_IDS] + [s for s in req.strategies if s not in STRATEGY_IDS]
-    if bad:
-        raise HTTPException(status_code=400, detail=f"Unknown plugins/strategies: {', '.join(bad)}")
-    if req.language and not re.fullmatch(r"[A-Za-z ()-]{2,40}", req.language):
-        raise HTTPException(status_code=400, detail="Invalid language.")
-    redteam: dict[str, Any] = {
-        "purpose": req.purpose.strip(),
-        "numTests": req.num_tests,
-        "plugins": [{"id": p} for p in dict.fromkeys(req.plugins)],
-        "strategies": [{"id": s} for s in dict.fromkeys(req.strategies)],
-    }
-    if req.language:
-        redteam["language"] = req.language
-    config: dict[str, Any] = {
-        "description": req.name.strip(),
-        # The only target is the local adapter, which forwards to the approved AIFA backend.
-        "targets": [{
-            "id": "http",
-            "label": TARGET_LABEL,
-            "config": {
-                "url": TARGET_URL,
-                "method": "POST",
-                "headers": {"content-type": "application/json"},
-                "body": {"query": "{{prompt}}"},
-                "transformResponse": "json.response_message",
-            },
-        }],
-        "prompts": ["{{prompt}}"],
-        "redteam": redteam,
-    }
-    if attacker := attack_provider():
-        redteam["provider"] = attacker
-    if grader := grader_provider():
-        config["defaultTest"] = {"options": {"provider": grader}}
-    return config
-
-
 def _start(command_id: str, options: dict[str, Any], label: str | None = None) -> Job:
     command = COMMANDS.get(command_id)
     if command is None:
@@ -731,9 +745,7 @@ async def info() -> dict[str, Any]:
         "status": "ok",
         "version": _VERSION["version"],
         "target": {"label": TARGET_LABEL, "backend_host": backend_host, "configured": bool(settings.backend_api_url)},
-        "grader_configured": grader_provider() is not None,
-        "attack_model": "adversarial" if settings.adversarial_api_key and settings.adversarial_endpoint
-                        else ("azure" if grader_provider() else "promptfoo default"),
+        "grader_configured": judge_provider() is not None,
         "remote_generation_disabled": os.getenv("PROMPTFOO_DISABLE_REMOTE_GENERATION", "").lower() in {"1", "true"},
         "running_jobs": sum(j.status == "running" for j in JOBS.jobs.values()),
         "queued_jobs": sum(j.status == "queued" for j in JOBS.jobs.values()),
@@ -742,58 +754,53 @@ async def info() -> dict[str, Any]:
     }
 
 
-@router.get("/commands")
-async def list_commands() -> dict[str, Any]:
-    return {"commands": [c.schema() for c in COMMANDS.values()]}
-
-
-@router.get("/catalog")
-async def catalog() -> dict[str, Any]:
-    return {"plugins": PLUGINS, "strategies": STRATEGIES}
-
-
-@router.get("/configs")
-async def list_configs() -> list[dict[str, Any]]:
-    _ensure_dirs()
-    await asyncio.to_thread(STORAGE.pull_results)
-    items = [{"name": n, "source": "bundled", "kind": "eval", "updated_at": None}
-             for n in BUNDLED_CONFIGS if (PROMPTFOO_DIR / n).is_file()]
-    for path in sorted(CONFIG_WORKSPACE.glob("*.y*ml"), key=lambda p: p.stat().st_mtime, reverse=True):
-        kind = "attack" if path.name.startswith("attack_") else "probes" if path.name.startswith("probes") else "generated"
-        items.append({"name": path.name, "source": "workspace", "kind": kind,
-                      "updated_at": datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc).isoformat()})
-    return items
-
-
-@router.get("/configs/{name}")
-async def get_config(name: str) -> Response:
-    path = resolve_config(name)
-    return Response(path.read_text(encoding="utf-8", errors="replace")[:200_000], media_type="text/plain; charset=utf-8")
-
-
-@router.post("/attacks")
-async def create_attack(req: AttackRequest) -> dict[str, Any]:
-    _ensure_dirs()
-    config = build_attack_config(req)
-    path = safe_join(CONFIG_WORKSPACE, f"attack_{_slug(req.name)}_{_stamp()}.yaml")
-    # JSON is valid YAML, so no YAML dependency is needed.
-    path.write_text(json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8")
-    await asyncio.to_thread(STORAGE.push, [path])
-    response: dict[str, Any] = {"config": path.name}
-    if req.action == "generate":
-        response["job_id"] = _start("redteam-generate", {"config": path.name, "max_concurrency": req.max_concurrency,
-                                                         "delay": req.delay or None, "force": True},
-                                    label=f"Generate · {req.name}").id
-    elif req.action == "run":
-        response["job_id"] = _start("redteam-run", {"config": path.name, "max_concurrency": req.max_concurrency,
-                                                    "delay": req.delay or None, "force": True},
-                                    label=f"Attack · {req.name}").id
-    return response
-
-
 @router.post("/jobs")
 async def create_job(req: JobRequest) -> dict[str, Any]:
     return _start(req.command, req.options).public()
+
+
+# ---------------------------------------------------------------- test files
+
+@router.get("/tests/files")
+async def list_test_files() -> list[dict[str, Any]]:
+    """Every YAML file in data_promptfoo/ (the PROMPTFOO_DATA_CONTAINER_NAME blob container when Azure is configured)."""
+    await asyncio.to_thread(STORAGE.pull_data)
+    items = []
+    for path in sorted(DATA_DIR.glob("*")) if DATA_DIR.is_dir() else []:
+        if not path.is_file() or path.suffix not in (".yaml", ".yml") or path.name.startswith("."):
+            continue
+        try:
+            count, error = len(load_dataset_cases(path.name)), None
+        except HTTPException as exc:
+            count, error = None, str(exc.detail)
+        items.append({"name": path.name, "cases": count, "error": error})
+    return items
+
+
+async def _ensure_local_dataset(name: str) -> None:
+    """Fetch the file from the Azure data container when this replica does not have it yet."""
+    if STORAGE.enabled and _file_in(DATA_DIR, name, (".yaml", ".yml", ".json")) is None:
+        await asyncio.to_thread(STORAGE.pull_data)
+
+
+@router.get("/tests/datasets/{name}/cases")
+async def list_dataset_cases(name: str) -> list[dict[str, Any]]:
+    await _ensure_local_dataset(name)
+    return [{"index": i, "label": case_label(c), "checks": len(c.get("assert") or [])}
+            for i, c in enumerate(load_dataset_cases(name))]
+
+
+class DatasetRunRequest(BaseModel):
+    dataset: str = Field(min_length=1, max_length=160)
+    cases: list[int] = Field(min_length=1, max_length=1000)
+
+
+@router.post("/tests/run")
+async def run_dataset_tests(req: DatasetRunRequest) -> dict[str, Any]:
+    _ensure_dirs()
+    await _ensure_local_dataset(req.dataset)
+    config = write_dataset_config(req.dataset, req.cases)
+    return _start("eval", {"config": config.name}, label=f"Tests · {req.dataset}").public()
 
 
 @router.get("/jobs")
@@ -876,7 +883,17 @@ async def result_csv(name: str) -> Response:
                     headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
 
+def _log_effective_config() -> None:
+    host = re.sub(r"^\w+://", "", settings.backend_api_url or "").split("/")[0]
+    logger.info("promptfoo target backend=%s grader_key=%s attack_key=%s", host or "<unset>",
+                bool(settings.AUDIT_LLM_api_key), bool(settings.adversarial_api_key))
+    if host.startswith(("localhost", "127.0.0.1")):
+        logger.warning("BACKEND_API_URL points at %s, which is not the AIFA app. Check promptfoo/.env "
+                       "(or the container's BACKEND_API_URL); /invoke will fail with 'Connection refused'.", host)
+
+
 async def _sync_on_startup() -> None:
+    _log_effective_config()
     _ensure_dirs()
     await asyncio.to_thread(STORAGE.pull_data)
     await asyncio.to_thread(STORAGE.pull_results, True)

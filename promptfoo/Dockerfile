@@ -13,7 +13,7 @@ RUN python3 -m venv /opt/venv \
  && /opt/venv/bin/pip install --no-cache-dir \
     "fastapi>=0.110.0" "uvicorn>=0.30.0" "httpx[socks]>=0.25.0" "websockets>=12.0" \
     "pydantic>=2.5.0" "pydantic-settings>=2.1.0" "python-dotenv>=1.1.1" \
-    "azure-storage-blob>=12.17.0" "azure-identity>=1.14.0"
+    "azure-storage-blob>=12.17.0" "azure-identity>=1.14.0" "pyyaml>=6.0"
 
 WORKDIR /app/promptfoo
 COPY promptfoo/package.json promptfoo/package-lock.json ./

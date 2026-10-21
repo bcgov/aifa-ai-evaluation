@@ -1,6 +1,5 @@
 {
   "dependencies": {
-    "body-parser": "^2.3.0",
     "express": "^5.2.1"
   }
 }

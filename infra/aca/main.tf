@@ -187,23 +187,23 @@ resource "azurerm_container_app" "main" {
       }
 
       env {
-        name  = "AZURE_OPENAI_API_KEY"
-        value = var.azure_openai_api_key
+        name  = "AUDIT_LLM_API_KEY"
+        value = var.AUDIT_LLM_api_key
       }
 
       env {
-        name  = "AZURE_OPENAI_ENDPOINT"
-        value = var.azure_openai_endpoint
+        name  = "AUDIT_LLM_ENDPOINT"
+        value = var.AUDIT_LLM_endpoint
       }
 
       env {
-        name  = "AZURE_OPENAI_API_VERSION"
-        value = var.azure_openai_api_version
+        name  = "AUDIT_LLM_API_VERSION"
+        value = var.AUDIT_LLM_api_version
       }
 
       env {
-        name  = "AZURE_OPENAI_DEPLOYMENT"
-        value = var.azure_openai_deployment
+        name  = "AUDIT_LLM_DEPLOYMENT"
+        value = var.AUDIT_LLM_deployment
       }
 
       env {
@@ -291,23 +291,23 @@ resource "azurerm_container_app" "main" {
       }
 
       env {
-        name  = "AZURE_OPENAI_API_KEY"
-        value = var.azure_openai_api_key
+        name  = "AUDIT_LLM_API_KEY"
+        value = var.AUDIT_LLM_api_key
       }
 
       env {
-        name  = "AZURE_OPENAI_ENDPOINT"
-        value = var.azure_openai_endpoint
+        name  = "AUDIT_LLM_ENDPOINT"
+        value = var.AUDIT_LLM_endpoint
       }
 
       env {
-        name  = "AZURE_OPENAI_API_VERSION"
-        value = var.azure_openai_api_version
+        name  = "AUDIT_LLM_API_VERSION"
+        value = var.AUDIT_LLM_api_version
       }
 
       env {
-        name  = "AZURE_OPENAI_DEPLOYMENT"
-        value = var.azure_openai_deployment
+        name  = "AUDIT_LLM_DEPLOYMENT"
+        value = var.AUDIT_LLM_deployment
       }
 
       env {

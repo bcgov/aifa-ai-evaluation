@@ -132,26 +132,26 @@ variable "backend_api_timeout" {
   default     = 30
 }
 
-variable "azure_openai_api_key" {
+variable "AUDIT_LLM_api_key" {
   description = "Azure OpenAI API key."
   type        = string
   default     = ""
   sensitive   = true
 }
 
-variable "azure_openai_endpoint" {
+variable "AUDIT_LLM_endpoint" {
   description = "Azure OpenAI resource root URL."
   type        = string
   default     = ""
 }
 
-variable "azure_openai_api_version" {
+variable "AUDIT_LLM_api_version" {
   description = "Azure OpenAI API version."
   type        = string
   default     = "2025-01-01-preview"
 }
 
-variable "azure_openai_deployment" {
+variable "AUDIT_LLM_deployment" {
   description = "Deployment name for the main Azure OpenAI model."
   type        = string
   default     = "gpt-4"

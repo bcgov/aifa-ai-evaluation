@@ -6,18 +6,11 @@ const PF = '/promptfoo';
 
 export const PF_BASE_URL = '/api' + PF;
 export const getInfo     = () => request(PF + '/info');
-export const getCommands = () => request(PF + '/commands');
-export const getCatalog  = () => request(PF + '/catalog');
-export const listConfigs = () => request(PF + '/configs');
-export const getConfigText = async (name) => {
-  const res = await fetch(PF_BASE_URL + '/configs/' + enc(name), { credentials: 'same-origin' });
-  if (!res.ok) throw new Error('Could not load config (' + res.status + ')');
-  return res.text();
-};
 
-export const createAttack = (payload) => post(PF + '/attacks', payload);           // -> { config, job_id? }
+export const listTestFiles = () => request(PF + '/tests/files');                   // every YAML file in data_promptfoo
+export const listDatasetCases = (name) => request(PF + '/tests/datasets/' + enc(name) + '/cases');
+export const runDatasetTests = (dataset, cases) => post(PF + '/tests/run', { dataset, cases }); // -> job
 export const startJob  = (command, options) => post(PF + '/jobs', { command, options });
-export const listJobs  = () => request(PF + '/jobs');
 export const getJob    = (id) => request(PF + '/jobs/' + enc(id));
 export const getJobLogs = (id, since) => request(PF + '/jobs/' + enc(id) + '/logs?since=' + since);
 export const cancelJob = (id) => post(PF + '/jobs/' + enc(id) + '/cancel');

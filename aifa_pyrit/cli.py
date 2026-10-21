@@ -252,16 +252,16 @@ def check_proxy(timeout: int):
         for key, value in proxy_lines.items():
             click.echo(f"{key}={value}")
 
-        if not settings.azure_openai_api_key or not settings.azure_openai_endpoint:
-            raise ValueError("AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT must be configured first")
+        if not settings.AUDIT_LLMi_key or not settings.AUDIT_LLM_endpoint:
+            raise ValueError("AUDIT_LLM_API_KEY and AUDIT_LLM_ENDPOINT must be configured first")
 
-        endpoint = settings.azure_openai_endpoint.rstrip("/")
-        deployment = settings.azure_openai_deployment or "gpt-5.1-chat"
-        api_version = settings.azure_openai_api_version or "2025-01-01-preview"
+        endpoint = settings.AUDIT_LLM_endpoint.rstrip("/")
+        deployment = settings.AUDIT_LLM_deployment or "gpt-5.1-chat"
+        api_version = settings.AUDIT_LLM_api_version or "2025-01-01-preview"
         url = f"{endpoint}/openai/deployments/{deployment}/chat/completions?api-version={api_version}"
 
         payload = {"messages": [{"role": "user", "content": "hello"}]}
-        headers = {"Content-Type": "application/json", "api-key": settings.azure_openai_api_key}
+        headers = {"Content-Type": "application/json", "api-key": settings.AUDIT_LLM_api_key}
 
         click.echo(f"Testing Azure OpenAI call: {url}")
         with httpx.Client(proxy=os.environ.get("HTTPS_PROXY") or os.environ.get("ALL_PROXY"), trust_env=True, timeout=timeout) as client:

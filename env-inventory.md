@@ -29,10 +29,10 @@ Set in the image (do not override): `NGINX_ENVSUBST_FILTER`, `NGINX_ENTRYPOINT_L
 | `BACKEND_CLIENT_ID` | no | built-in test GUID | | | `client_id` sent to AIFA |
 | `BACKEND_APPLICATION_ID` | no | `234554` | | | `application_id` sent to AIFA |
 | `BACKEND_STEP_NUMBER` | no | `step2-Eligibility` | | | Form step sent to AIFA |
-| `AZURE_OPENAI_API_KEY` | **yes**¹ | – | ✓ | ✓ | Scorer/judge model |
-| `AZURE_OPENAI_ENDPOINT` | **yes**¹ | – | | ✓ | Scorer/judge endpoint |
-| `AZURE_OPENAI_DEPLOYMENT` | **yes**¹ | `gpt-4` | | ✓ | Scorer/judge deployment |
-| `AZURE_OPENAI_API_VERSION` | no | `2024-02-15-preview` | | ✓ | |
+| `AUDIT_LLM_API_KEY` | **yes**¹ | – | ✓ | ✓ | Scorer/judge model |
+| `AUDIT_LLM_ENDPOINT` | **yes**¹ | – | | ✓ | Scorer/judge endpoint |
+| `AUDIT_LLM_DEPLOYMENT` | **yes**¹ | `gpt-4` | | ✓ | Scorer/judge deployment |
+| `AUDIT_LLM_API_VERSION` | no | `2024-02-15-preview` | | ✓ | |
 | `ADVERSARIAL_OPENAI_API_KEY` | for LLM attacks² | – | ✓ | ✓ | Attacker model |
 | `ADVERSARIAL_OPENAI_ENDPOINT` | for LLM attacks² | – | | ✓ | |
 | `ADVERSARIAL_OPENAI_DEPLOYMENT` | for LLM attacks² | `gpt-4` | | ✓ | |
@@ -71,10 +71,10 @@ Present in `config.py` but unused by the containerised flow: `AZURE_SEARCH_*`, `
 | `BACKEND_API_URL` | **yes** | `http://localhost:8000` | | ✓ | AIFA system under test (the adapter's `/invoke` forwards here) |
 | `BACKEND_API_TIMEOUT` | no | `30` | | ✓ | |
 | `BACKEND_CLIENT_ID` / `BACKEND_APPLICATION_ID` / `BACKEND_STEP_NUMBER` | no | as in pyrit | | | Values sent to AIFA |
-| `AZURE_OPENAI_API_KEY` | **yes**¹ | – | ✓ | ✓ | Grader (llm-rubric) model; mapped to promptfoo's `AZURE_API_KEY` |
-| `AZURE_OPENAI_ENDPOINT` | **yes**¹ | – | | ✓ | Grader host |
-| `AZURE_OPENAI_DEPLOYMENT` | **yes**¹ | `gpt-4` | | ✓ | Grader deployment |
-| `AZURE_OPENAI_API_VERSION` | no | `2024-02-15-preview` | | ✓ | |
+| `AUDIT_LLMI_KEY` | **yes**¹ | – | ✓ | ✓ | Grader (llm-rubric) model; mapped to promptfoo's `AZURE_API_KEY` |
+| `AUDIT_LLM_ENDPOINT` | **yes**¹ | – | | ✓ | Grader host |
+| `AUDIT_LLM_DEPLOYMENT` | **yes**¹ | `gpt-4` | | ✓ | Grader deployment |
+| `AUDIT_LLM_API_VERSION` | no | `2024-02-15-preview` | | ✓ | |
 | `ADVERSARIAL_OPENAI_API_KEY` | for red team² | – | ✓ | ✓ | Attack-probe generator; falls back to the grader model |
 | `ADVERSARIAL_OPENAI_ENDPOINT` | for red team² | – | | ✓ | |
 | `ADVERSARIAL_OPENAI_DEPLOYMENT` | for red team² | `gpt-4` | | ✓ | |
@@ -95,7 +95,7 @@ Set in the image (normally leave as is): `PROMPTFOO_RESULTS_DIR=/app/results-pro
 Advanced/testing only: `PROMPTFOO_TARGET_URL` (default `http://127.0.0.1:$PORT/invoke`), `PROMPTFOO_BIN` (override the CLI),
 `AZURE_GRADER_PROXY_PORT` (grader proxy, default `8002`).
 
-Derived automatically (do not set): `AZURE_API_KEY`, `AZURE_API_HOST`, `AZURE_OPENAI_DEPLOYMENT_NAME`, `AZURE_DEPLOYMENT_NAME`,
+Derived automatically (do not set): `AZURE_API_KEY`, `AZURE_API_HOST`, `AUDIT_LLM_DEPLOYMENT_NAME`, `AZURE_DEPLOYMENT_NAME`,
 `FORCE_COLOR`, `CI`. Proxy variables (`ALL_PROXY`, `HTTP(S)_PROXY`) are stripped inside this container, and `OPENAI_API_KEY`
 is only passed to the grader proxy.
 
