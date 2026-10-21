@@ -1,0 +1,9 @@
+#!/bin/sh
+# Sourced by the nginx entrypoint before templates are rendered.
+export PYRIT_UPSTREAM="${PYRIT_UPSTREAM:-127.0.0.1:8000}"
+export PROMPTFOO_UPSTREAM="${PROMPTFOO_UPSTREAM:-127.0.0.1:8001}"
+export PROMPTFOO_RUN_TOKEN="${PROMPTFOO_RUN_TOKEN:-}"
+export PYRIT_API_URL="${PYRIT_API_URL:-/api}"
+export PROMPTFOO_API_URL="${PROMPTFOO_API_URL:-/api/promptfoo}"
+envsubst '${PYRIT_API_URL} ${PROMPTFOO_API_URL}' \
+  < /usr/share/nginx/html/config.js.template > /usr/share/nginx/html/config.js

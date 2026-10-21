@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from io import StringIO
 
 import structlog
-from aifa_pyrit.config import ensure_azure_openai_v1_endpoint, normalize_azure_openai_endpoint, settings
+from aifa_pyrit.config import ensure_audit_llm_v1_endpoint, normalize_audit_llm_endpoint, settings
 from aifa_pyrit.custom_backend_target import CustomBackendTarget
 from aifa_pyrit.crescendo_step_capture import (
     CrescendoMemoryTracer,
@@ -31,8 +31,8 @@ logger = structlog.get_logger(__name__)
 
 LOCALHOST_BACKEND_URL = "http://localhost:8000"
 WLRS_PATH_MARKER = "/wlrs"
-ERR_AZURE_OPENAI_ENDPOINT_NOT_CONFIGURED = "AZURE_OPENAI_ENDPOINT not configured"
-ERR_AZURE_OPENAI_API_KEY_NOT_CONFIGURED = "AZURE_OPENAI_API_KEY not configured"
+ERR_AUDIT_LLM_ENDPOINT_NOT_CONFIGURED = "AUDIT_LLM_ENDPOINT not configured"
+ERR_AUDIT_LLM_API_KEY_NOT_CONFIGURED = "AUDIT_LLM_API_KEY not configured"
 INFRA_ERROR_PREFIX = "INFRA_ERROR::"
 TRANSPORT_ERROR_PATTERNS = [
     "Error communicating with Conversation Agent:",
@@ -295,9 +295,9 @@ class PyRITRunner:
 
     def _set_pyrit_env(self) -> None:
         self._ensure_runtime_proxy_env()
-        os.environ["OPENAI_CHAT_MODEL"] = settings.azure_openai_deployment
-        os.environ["AZURE_OPENAI_ENDPOINT"] = ensure_azure_openai_v1_endpoint(settings.azure_openai_endpoint)
-        os.environ["OPENAI_CHAT_KEY"] = settings.azure_openai_api_key
+        os.environ["OPENAI_CHAT_MODEL"] = settings.audit_llm_deployment
+        os.environ["AUDIT_LLM_ENDPOINT"] = ensure_audit_llm_v1_endpoint(settings.audit_llm_endpoint)
+        os.environ["OPENAI_CHAT_KEY"] = settings.audit_llm_api_key
 
     def _create_objective_target(self, backend_url: str, log_label: str) -> Any:
         if self._is_custom_backend(backend_url):
@@ -312,33 +312,33 @@ class PyRITRunner:
 
         from pyrit.prompt_target import OpenAIChatTarget
 
-        endpoint = settings.azure_openai_endpoint
+        endpoint = settings.audit_llm_endpoint
         if not endpoint:
-            raise ValueError(ERR_AZURE_OPENAI_ENDPOINT_NOT_CONFIGURED)
+            raise ValueError(ERR_AUDIT_LLM_ENDPOINT_NOT_CONFIGURED)
 
-        base_endpoint = ensure_azure_openai_v1_endpoint(endpoint)
+        base_endpoint = ensure_audit_llm_v1_endpoint(endpoint)
         logger.info("using_openai_target", endpoint=base_endpoint)
         return OpenAIChatTarget(
             endpoint=base_endpoint,
-            api_key=settings.azure_openai_api_key,
+            api_key=settings.audit_llm_api_key,
         )
 
     def _create_adversarial_target(self) -> Any:
-        adversarial_endpoint = settings.adversarial_endpoint or settings.azure_openai_endpoint
-        adversarial_endpoint = normalize_azure_openai_endpoint(adversarial_endpoint)
-        adversarial_api_key = settings.adversarial_api_key or settings.azure_openai_api_key
-        adversarial_deployment = settings.adversarial_deployment or settings.azure_openai_deployment
-        adversarial_api_version = settings.adversarial_api_version or settings.azure_openai_api_version
+        adversarial_endpoint = settings.adversarial_endpoint or settings.audit_llm_endpoint
+        adversarial_endpoint = normalize_audit_llm_endpoint(adversarial_endpoint)
+        adversarial_api_key = settings.adversarial_api_key or settings.audit_llm_api_key
+        adversarial_deployment = settings.adversarial_deployment or settings.audit_llm_deployment
+        adversarial_api_version = settings.adversarial_api_version or settings.audit_llm_api_version
 
         if not adversarial_endpoint:
-            raise ValueError("ADVERSARIAL_ENDPOINT or AZURE_OPENAI_ENDPOINT not configured")
+            raise ValueError("ADVERSARIAL_ENDPOINT or AUDIT_LLM_ENDPOINT not configured")
         if not adversarial_api_key:
-            raise ValueError("ADVERSARIAL_API_KEY or AZURE_OPENAI_API_KEY not configured")
+            raise ValueError("ADVERSARIAL_API_KEY or AUDIT_LLM_API_KEY not configured")
 
-        from .custom_azure_openai_target import CustomAzureOpenAITarget
+        from .custom_audit_llm_target import CustomAzureOpenAITarget
 
         logger.info(
-            "using_custom_azure_openai_target",
+            "using_custom_audit_llm_target",
             endpoint=adversarial_endpoint,
             deployment=adversarial_deployment,
             api_version=adversarial_api_version,
@@ -398,27 +398,27 @@ class PyRITRunner:
 
             model = (
                 os.getenv("OPENAI_CHAT_MODEL")
-                or os.getenv("AZURE_OPENAI_DEPLOYMENT")
-                or getattr(settings, "azure_openai_deployment", "")
+                or os.getenv("AUDIT_LLM_DEPLOYMENT")
+                or getattr(settings, "audit_llm_deployment", "")
                 or "gpt-4o-mini"
             ).strip()
             endpoint = (
-                os.getenv("AZURE_OPENAI_ENDPOINT")
+                os.getenv("AUDIT_LLM_ENDPOINT")
                 or os.getenv("ADVERSARIAL_OPENAI_ENDPOINT")
-                or getattr(settings, "azure_openai_endpoint", "")
+                or getattr(settings, "audit_llm_endpoint", "")
                 or ""
             ).strip()
             api_key = (
                 os.getenv("OPENAI_CHAT_KEY")
-                or os.getenv("AZURE_OPENAI_API_KEY")
-                or getattr(settings, "azure_openai_api_key", "")
+                or os.getenv("AUDIT_LLM_API_KEY")
+                or getattr(settings, "audit_llm_api_key", "")
                 or ""
             ).strip()
 
             if not endpoint or not api_key:
                 return None
 
-            normalized_endpoint = ensure_azure_openai_v1_endpoint(endpoint)
+            normalized_endpoint = ensure_audit_llm_v1_endpoint(endpoint)
 
             chat_target = OpenAIChatTarget(
                 endpoint=normalized_endpoint,
@@ -458,14 +458,14 @@ class PyRITRunner:
             )
             return objective_target, attack_config
 
-        endpoint = settings.azure_openai_endpoint
+        endpoint = settings.audit_llm_endpoint
         if not endpoint:
-            raise ValueError(ERR_AZURE_OPENAI_ENDPOINT_NOT_CONFIGURED)
+            raise ValueError(ERR_AUDIT_LLM_ENDPOINT_NOT_CONFIGURED)
 
         base_endpoint = self._extract_base_endpoint(endpoint)
-        api_key = settings.azure_openai_api_key
+        api_key = settings.audit_llm_api_key
         if not api_key:
-            raise ValueError(ERR_AZURE_OPENAI_API_KEY_NOT_CONFIGURED)
+            raise ValueError(ERR_AUDIT_LLM_API_KEY_NOT_CONFIGURED)
 
         logger.info("using_openai_target", endpoint=base_endpoint)
         objective_target = OpenAIChatTarget(
@@ -571,16 +571,16 @@ class PyRITRunner:
             from pyrit.setup.initializers import TargetInitializer
             
             # Set environment variables for PyRIT. PyRIT expects the /openai/v1 endpoint shape here.
-            normalized_endpoint = ensure_azure_openai_v1_endpoint(settings.azure_openai_endpoint)
+            normalized_endpoint = ensure_audit_llm_v1_endpoint(settings.audit_llm_endpoint)
             os.environ["OPENAI_CHAT_ENDPOINT"] = normalized_endpoint or "https://dummy.openai.azure.com/openai/v1"
-            os.environ["OPENAI_CHAT_MODEL"] = settings.azure_openai_deployment
-            os.environ["OPENAI_CHAT_KEY"] = settings.azure_openai_api_key or "dummy-key"
+            os.environ["OPENAI_CHAT_MODEL"] = settings.audit_llm_deployment
+            os.environ["OPENAI_CHAT_KEY"] = settings.audit_llm_api_key or "dummy-key"
             
             # Also set Azure-specific ones for targets that might use them
-            if settings.azure_openai_endpoint:
-                os.environ["AZURE_OPENAI_ENDPOINT"] = normalized_endpoint
-            if settings.azure_openai_api_key:
-                os.environ["AZURE_OPENAI_API_KEY"] = settings.azure_openai_api_key
+            if settings.audit_llm_endpoint:
+                os.environ["AUDIT_LLM_ENDPOINT"] = normalized_endpoint
+            if settings.audit_llm_api_key:
+                os.environ["AUDIT_LLM_API_KEY"] = settings.audit_llm_api_key
             
             logger.info("initializing_pyrit")
             try:
@@ -707,16 +707,16 @@ class PyRITRunner:
                 # Fall back to Azure OpenAI
                 from pyrit.prompt_target import OpenAIChatTarget
                 
-                endpoint = settings.azure_openai_endpoint
+                endpoint = settings.audit_llm_endpoint
                 if not endpoint:
-                    raise ValueError(ERR_AZURE_OPENAI_ENDPOINT_NOT_CONFIGURED)
+                    raise ValueError(ERR_AUDIT_LLM_ENDPOINT_NOT_CONFIGURED)
                 
                 # Extract base endpoint for OpenAI (remove any path components)
                 base_endpoint = self._extract_base_endpoint(endpoint)
                 
-                api_key = settings.azure_openai_api_key
+                api_key = settings.audit_llm_api_key
                 if not api_key:
-                    raise ValueError(ERR_AZURE_OPENAI_API_KEY_NOT_CONFIGURED)
+                    raise ValueError(ERR_AUDIT_LLM_API_KEY_NOT_CONFIGURED)
                 
                 logger.info("using_openai_target", endpoint=base_endpoint)
                 objective_target = OpenAIChatTarget(
@@ -841,16 +841,16 @@ class PyRITRunner:
                 # Fall back to Azure OpenAI as objective
                 from pyrit.prompt_target import OpenAIChatTarget
                 
-                endpoint = settings.azure_openai_endpoint
+                endpoint = settings.audit_llm_endpoint
                 if not endpoint:
-                    raise ValueError(ERR_AZURE_OPENAI_ENDPOINT_NOT_CONFIGURED)
+                    raise ValueError(ERR_AUDIT_LLM_ENDPOINT_NOT_CONFIGURED)
                 
                 # Extract base endpoint for OpenAI (remove any path components)
                 base_endpoint = self._extract_base_endpoint(endpoint)
                 
-                api_key = settings.azure_openai_api_key
+                api_key = settings.audit_llm_api_key
                 if not api_key:
-                    raise ValueError(ERR_AZURE_OPENAI_API_KEY_NOT_CONFIGURED)
+                    raise ValueError(ERR_AUDIT_LLM_API_KEY_NOT_CONFIGURED)
                 
                 logger.info("using_openai_target", endpoint=base_endpoint)
                 objective_target = OpenAIChatTarget(

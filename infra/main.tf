@@ -33,10 +33,10 @@ resource "azurerm_linux_web_app" "main" {
       "PYTHONPATH"                              = "/home/site/wwwroot"
       "BACKEND_API_URL"                          = var.backend_api_url
       "BACKEND_API_TIMEOUT"                      = tostring(var.backend_api_timeout)
-      "AZURE_OPENAI_API_KEY"                     = var.azure_openai_api_key
-      "AZURE_OPENAI_ENDPOINT"                   = var.azure_openai_endpoint
-      "AZURE_OPENAI_API_VERSION"                 = var.azure_openai_api_version
-      "AZURE_OPENAI_DEPLOYMENT"                  = var.azure_openai_deployment
+      "AUDIT_LLM_API_KEY"                     = var.audit_llm_api_key
+      "AUDIT_LLM_ENDPOINT"                   = var.audit_llm_endpoint
+      "AUDIT_LLM_API_VERSION"                 = var.audit_llm_api_version
+      "AUDIT_LLM_DEPLOYMENT"                  = var.audit_llm_deployment
       "ADVERSARIAL_OPENAI_API_KEY"               = var.adversarial_openai_api_key
       "ADVERSARIAL_OPENAI_ENDPOINT"             = var.adversarial_openai_endpoint
       "ADVERSARIAL_OPENAI_DEPLOYMENT"            = var.adversarial_openai_deployment

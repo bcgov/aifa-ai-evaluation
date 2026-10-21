@@ -1,10 +1,10 @@
 description: "nr-ai-form water permit assistant — robust Promptfoo evaluation"
 
-# System under test: the repo's local adapter, which forwards to the live Azure backend.
+# System under test: the local /invoke adapter, which forwards to the AIFA backend over WebSocket.
 providers:
   - id: http
     config:
-      url: http://localhost:8001/invoke
+      url: "{{ env.PROMPTFOO_TARGET_URL | default('http://127.0.0.1:8001/invoke') }}"
       method: POST
       headers:
         content-type: application/json
@@ -13,13 +13,10 @@ providers:
         step_number: "{{step_number}}"
       transformResponse: "json.response_message || json.response || json.message || text"
 
-  # (Removed separate named provider) — defaultTest now uses an inline
-  # grading provider that mirrors your curl request to Azure OpenAI.
-
 prompts:
   - "{{query}}"
 
-# Deterministic guard that runs on every case, plus the per-case llm-rubric assertions in golden_tests.yaml.
+# Runs on every case, in addition to each case's own assertions.
 defaultTest:
   assert:
     - type: llm-rubric
@@ -28,23 +25,18 @@ defaultTest:
         legal citations, or eligibility rules that are not part of BC water
         licensing policy. If it is unsure it should say so or point to an
         authoritative BC source instead of inventing details.
-  # Inline grading provider mirroring your curl command (Azure OpenAI REST).
-  # Use local grader proxy which forwards to Azure via curl+SOCKS5
-  gradingProvider:
-    provider: http
-    config:
-      url: http://127.0.0.1:8002/grade
-      method: POST
-      headers:
-        content-type: application/json
-      body:
-        messages:
-          - role: user
-            content: "{{query}}"
-      transformResponse: "json || text"
+  # Judge model: the local grader proxy (azure-grader-proxy.js) forwards to Azure OpenAI.
+  options:
+    provider:
+      id: http
+      config:
+        url: http://127.0.0.1:8002/grade
+        method: POST
+        headers:
+          content-type: application/json
+        body:
+          messages: "{{ prompt | dump }}"
+        transformResponse: "json.choices[0].message.content"
 
-# Golden test set kept under the shared repo data folder for evaluation runs.
+# Test cases live in the shared data folder (the web UI picks a subset of them).
 tests: file://../data_promptfoo/promptfoo_tests_cases.yaml
-
-# Output artifact for the run. Keep Promptfoo results in the repo-root results directory.
-outputPath: ../results/promptfoo-report.json

@@ -6,6 +6,7 @@ import os
 import tempfile
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlparse
 
 # We intentionally use httpx instead of aiohttp here because the repo's Azure-dev workflow
 # routes outbound OpenAI traffic through SOCKS5h via environment variables (for example,
@@ -21,7 +22,7 @@ from pyrit.prompt_target.common.target_capabilities import TargetCapabilities
 from pyrit.models import Message
 import structlog
 
-from aifa_pyrit.config import normalize_azure_openai_endpoint
+from aifa_pyrit.config import normalize_audit_llm_endpoint
 
 logger = structlog.get_logger(__name__)
 
@@ -32,13 +33,19 @@ class AzureOpenAIRequestError(RuntimeError):
 
 class CustomAzureOpenAITarget(PromptTarget):
     @staticmethod
-    def _resolve_proxy_url() -> str | None:
-        """Return the active proxy URL for outbound HTTPS traffic.
+    def _resolve_proxy_url(endpoint: str | None = None) -> str | None:
+        """Return a proxy URL only for restricted/private endpoints.
 
-        This supports the same env-driven switch used by the repo's local Azure dev flow:
-        - Azure dev via SOCKS5h tunnel: export HTTPS_PROXY=socks5h://127.0.0.1:8081
-        - Local direct access: unset HTTP_PROXY/HTTPS_PROXY/ALL_PROXY
+        Public Azure endpoints should be contacted directly; this repo only uses
+        a proxy when a user explicitly configures one for a private/internal host.
         """
+        candidate = (endpoint or "").strip()
+        if candidate:
+            host = urlparse(candidate).hostname or ""
+            hostname = host.lower()
+            if hostname and hostname not in {"localhost", "127.0.0.1", "0.0.0.0", "::1"}:
+                return None
+
         for key in ("HTTPS_PROXY", "https_proxy", "ALL_PROXY", "all_proxy", "HTTP_PROXY", "http_proxy"):
             value = os.getenv(key)
             if value:
@@ -117,14 +124,14 @@ class CustomAzureOpenAITarget(PromptTarget):
         """
         self._ensure_memory_initialized()
         super().__init__()
-        self.endpoint = normalize_azure_openai_endpoint(endpoint)
+        self.endpoint = normalize_audit_llm_endpoint(endpoint)
         self.api_key = api_key
         self.deployment = deployment
         self.api_version = api_version
         self.timeout = timeout
         
         logger.info(
-            "custom_azure_openai_target_initialized",
+            "custom_audit_llm_target_initialized",
             endpoint=self.endpoint,
             deployment=deployment,
             api_version=api_version,
@@ -179,15 +186,14 @@ class CustomAzureOpenAITarget(PromptTarget):
             }
             
             logger.info(
-                "sending_azure_openai_request",
+                "sending_audit_llm_request",
                 url=url,
                 num_messages=len(messages),
             )
             
-            # Make async request.
-            # httpx honors SOCKS5h proxy env vars without changing the Azure endpoint names,
-            # which keeps Azure-dev and local-dev swapping clean and portable.
-            proxy = self._resolve_proxy_url()
+            # Public Azure endpoints should bypass the proxy stack; we only consult
+            # proxy env vars when the target host is explicitly local/private.
+            proxy = self._resolve_proxy_url(url)
             async with httpx.AsyncClient(
                 proxy=proxy,
                 trust_env=True,
@@ -202,7 +208,7 @@ class CustomAzureOpenAITarget(PromptTarget):
                     error_text = response.text
                     error_msg = self._format_azure_error_message(response.status_code, error_text)
                     logger.error(
-                        "azure_openai_request_failed",
+                        "audit_llm_request_failed",
                         status=response.status_code,
                         error=error_text,
                         formatted_message=error_msg,
@@ -217,7 +223,7 @@ class CustomAzureOpenAITarget(PromptTarget):
                     raise AzureOpenAIRequestError("Azure OpenAI returned an empty response")
 
                 logger.info(
-                    "azure_openai_request_success",
+                    "audit_llm_request_success",
                     response_length=len(response_content),
                 )
 
@@ -234,7 +240,7 @@ class CustomAzureOpenAITarget(PromptTarget):
         except Exception as e:
             error_msg = f"Error querying Azure OpenAI: {str(e)}"
             logger.error(
-                "azure_openai_request_exception",
+                "audit_llm_request_exception",
                 error=str(e),
             )
             raise AzureOpenAIRequestError(error_msg) from e

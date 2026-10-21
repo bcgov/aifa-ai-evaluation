@@ -13,6 +13,8 @@ from typing import Any, Callable, Dict, Optional
 
 import httpx
 import websockets
+from websockets.exceptions import InvalidURI
+from websockets.uri import parse_uri
 
 try:
     from promptfoo.src.config import settings
@@ -141,6 +143,10 @@ class PromptfooHttpWrapper:
         return str(response)
 
     async def invoke(self, *, query: str, step_number: Optional[str] = None) -> Dict[str, Any]:
+        try:
+            parse_uri(self.websocket_url)
+        except InvalidURI as exc:
+            raise ValueError(f"BACKEND_API_URL is not a valid WebSocket URL (expected wss://host/ws): {exc}") from exc
         payload = self.build_payload(query=query, step_number=step_number)
         session_id = payload.get("session_id") or "promptfoo-session"
         payload["session_id"] = session_id
@@ -149,6 +155,7 @@ class PromptfooHttpWrapper:
             self.websocket_url,
             additional_headers={"Origin": self.origin},
             open_timeout=self.timeout,
+            proxy=None,
         ) as websocket:
             await websocket.send(json.dumps(payload))
             for _ in range(10):

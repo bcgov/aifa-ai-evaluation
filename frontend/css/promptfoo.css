@@ -1,0 +1,38 @@
+/* Promptfoo views + sidebar engine status */
+
+.engines{display:flex;flex-direction:column;gap:6px;padding:10px;border-top:1px solid var(--line);font-size:12px;font-weight:600;color:var(--mute)}
+.engine{display:flex;align-items:center;gap:8px}
+.dot{width:8px;height:8px;border-radius:999px;background:var(--faint);flex:none}
+.dot.ok{background:var(--ok)} .dot.bad{background:var(--danger)}
+@media (max-width:1100px){.engines{align-items:center}}
+
+a.btn-secondary,a.add-btn{display:inline-flex;align-items:center}
+.ok-text{color:var(--ok)} .bad-text{color:var(--danger)}
+.span2{grid-column:1/-1}
+
+.pf-check-text{display:flex;flex-direction:column;flex:1;min-width:0}
+.pf-console{background:#141a26;color:#d7dce6;border-radius:10px;padding:12px 14px;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;max-height:62vh;min-height:120px;overflow:auto;margin:0}
+.pf-run-console{min-height:380px;max-height:60vh}
+
+/* results */
+.pf-res-row{display:grid;grid-template-columns:2.6fr 1.3fr 1fr .5fr .5fr .5fr .5fr .7fr;gap:8px;padding:10px 16px;align-items:center;font-size:12.5px;border-bottom:1px solid var(--line-soft);color:var(--body)}
+a.pf-res-row:hover{background:#fcfaf5}
+.pf-break-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) auto;gap:10px;align-items:center;padding:5px 0;border-top:1px solid var(--line-soft);font-size:12px}
+.pf-break-name{overflow-wrap:anywhere;color:var(--ink)}
+.pf-bar{display:flex;height:8px;border-radius:999px;background:var(--panel-2);overflow:hidden}
+.pf-bar .ok{background:var(--ok)} .pf-bar .bad{background:var(--danger)} .pf-bar .warn{background:var(--warn)}
+.pf-row{border-bottom:1px solid var(--line-soft)}
+.pf-row summary{display:flex;align-items:center;gap:8px;padding:10px 16px;cursor:pointer;font-size:12.5px;list-style:none}
+.pf-row summary::-webkit-details-marker{display:none}
+.pf-row[open] summary{background:#fcfaf5}
+.pf-row-text{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
+.pf-row-body{padding:12px 16px 4px}
+#pfr-detail{gap:14px}
+#pfr-search{max-width:340px}
+
+/* run tests */
+.pf-case{display:flex;align-items:flex-start;gap:10px;padding:9px 10px;border-radius:10px;border:1px solid var(--line-soft);margin-bottom:6px;cursor:pointer}
+.pf-case:hover{background:#fcfaf5}
+.pf-case.on{background:var(--accent-soft);border-color:#cdd6f6}
+.pf-case input{margin-top:3px}
+.pf-case .pf-check-text{gap:3px}

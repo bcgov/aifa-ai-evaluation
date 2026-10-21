@@ -132,26 +132,26 @@ variable "backend_api_timeout" {
   default     = 30
 }
 
-variable "azure_openai_api_key" {
+variable "audit_llm_api_key" {
   description = "Azure OpenAI API key."
   type        = string
   default     = ""
   sensitive   = true
 }
 
-variable "azure_openai_endpoint" {
+variable "audit_llm_endpoint" {
   description = "Azure OpenAI resource root URL."
   type        = string
   default     = ""
 }
 
-variable "azure_openai_api_version" {
+variable "audit_llm_api_version" {
   description = "Azure OpenAI API version."
   type        = string
   default     = "2025-01-01-preview"
 }
 
-variable "azure_openai_deployment" {
+variable "audit_llm_deployment" {
   description = "Deployment name for the main Azure OpenAI model."
   type        = string
   default     = "gpt-4"
@@ -183,10 +183,38 @@ variable "azure_storage_connection_string" {
   sensitive   = true
 }
 
-variable "azure_storage_container_name" {
-  description = "Optional blob container name for Azure reports storage."
+variable "pyrit_results_container_name" {
+  description = "Blob container for PyRIT reports."
   type        = string
-  default     = "aifa-reports"
+  default     = "pyrit-results"
+}
+
+variable "pyrit_data_container_name" {
+  description = "Blob container for PyRIT test cases (red_team_test_cases.json)."
+  type        = string
+  default     = "pyrit-data"
+}
+
+variable "promptfoo_results_container_name" {
+  description = "Blob container for promptfoo results and generated configs."
+  type        = string
+  default     = "promptfoo-results"
+}
+
+variable "promptfoo_data_container_name" {
+  description = "Blob container for promptfoo test data (promptfoo_tests_cases.yaml)."
+  type        = string
+  default     = "promptfoo-data"
+}
+
+check "storage_containers_are_distinct" {
+  assert {
+    condition = length(distinct([
+      var.pyrit_results_container_name, var.pyrit_data_container_name,
+      var.promptfoo_results_container_name, var.promptfoo_data_container_name,
+    ])) == 4
+    error_message = "PyRIT and promptfoo data/results containers must all have different names."
+  }
 }
 
 variable "common_tags" {

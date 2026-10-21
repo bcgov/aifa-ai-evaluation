@@ -1,68 +1,50 @@
 #!/usr/bin/env node
-// Simple local proxy that forwards grading requests to Azure OpenAI via curl.
-// It uses the SOCKS5 proxy from env (ALL_PROXY/HTTPS_PROXY/HTTP_PROXY) and
-// the API key from OPENAI_API_KEY in evaluation/.env.
+// Local judge endpoint for promptfoo: forwards llm-rubric grading calls to Azure OpenAI.
+// Direct connection (no proxy). Config: AUDIT_LLM_ENDPOINT / _DEPLOYMENT / _API_VERSION and OPENAI_API_KEY.
 
 const express = require('express');
-const bodyParser = require('body-parser');
-const { spawn } = require('child_process');
 
 const app = express();
-app.use(bodyParser.json({ limit: '1mb' }));
+app.use(express.json({ limit: '1mb' }));
 
-const AZURE_URL = process.env.AZURE_OPENAI_ENDPOINT || 'https://css-ai-dev-openai-east.openai.azure.com';
-const DEPLOYMENT = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-5.1-chat';
-const API_VERSION = process.env.AZURE_OPENAI_API_VERSION || '2025-01-01-preview';
-const OPENAI_KEY = process.env.OPENAI_API_KEY || '';
-const PROXY = process.env.ALL_PROXY || process.env.HTTPS_PROXY || process.env.HTTP_PROXY || '';
+const AZURE_URL = (process.env.AUDIT_LLM_ENDPOINT || '').replace(/\/+$/, '').replace(/\/openai(?:\/v1)?$/i, '');
+const DEPLOYMENT = process.env.AUDIT_LLM_DEPLOYMENT || 'gpt-5.1';
+const API_VERSION = process.env.AUDIT_LLM_API_VERSION || '2024-10-21';
+const API_KEY = process.env.OPENAI_API_KEY || process.env.AUDIT_LLM_API_KEY || '';
+const TARGET = `${AZURE_URL}/openai/deployments/${DEPLOYMENT}/chat/completions?api-version=${API_VERSION}`;
 
-if (!OPENAI_KEY) {
-  console.warn('[azure-grader-proxy] WARNING: OPENAI_API_KEY is not set in env; set it in evaluation/.env or export it before running this proxy.');
+if (!AZURE_URL || !API_KEY) {
+  console.warn('[azure-grader-proxy] WARNING: AUDIT_LLM_ENDPOINT and OPENAI_API_KEY must be set.');
 }
 
+app.get('/health', (req, res) => {
+  res.json({ ok: true, target: AZURE_URL, deployment: DEPLOYMENT });
+});
+
 app.post('/grade', async (req, res) => {
+  // promptfoo may send messages as an array, a JSON string, or a plain-text rubric prompt.
+  const incoming = req.body || {};
+  let messages = incoming.messages;
+  for (let i = 0; i < 2 && typeof messages === 'string'; i++) {
+    try { messages = JSON.parse(messages); } catch (e) { break; }
+  }
+  if (typeof messages === 'string') messages = [{ role: 'user', content: messages }];
+
   try {
-    const targetUrl = `${AZURE_URL.replace(/\/$/, '')}/openai/deployments/${DEPLOYMENT}/chat/completions?api-version=${API_VERSION}`;
-
-    const body = JSON.stringify(req.body || {});
-
-    const curlArgs = ['-s', '-S', '--fail'];
-    if (PROXY && /^socks/i.test(PROXY)) {
-      // --socks5-hostname expects host:port
-      const m = PROXY.replace(/^socks5h?:\/\//i, '');
-      curlArgs.push('--socks5-hostname', m);
-    }
-    curlArgs.push('-H', 'Content-Type: application/json');
-    curlArgs.push('-H', `api-key: ${OPENAI_KEY}`);
-    curlArgs.push('-d', body);
-    curlArgs.push(targetUrl);
-
-    const curl = spawn('curl', curlArgs);
-    let stdout = '';
-    let stderr = '';
-    curl.stdout.on('data', (d) => { stdout += d.toString(); });
-    curl.stderr.on('data', (d) => { stderr += d.toString(); });
-
-    curl.on('close', (code) => {
-      if (code === 0) {
-        res.setHeader('Content-Type', 'application/json');
-        try {
-          const parsed = JSON.parse(stdout);
-          return res.status(200).json(parsed);
-        } catch (e) {
-          return res.status(200).send(stdout);
-        }
-      }
-      // Curl failed
-      res.status(502).json({ error: 'upstream_error', details: stderr || stdout });
+    const upstream = await fetch(TARGET, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'api-key': API_KEY },
+      body: JSON.stringify({ ...incoming, messages }),
     });
+    const text = await upstream.text();
+    if (!upstream.ok) return res.status(502).json({ error: 'upstream_error', details: `HTTP ${upstream.status}: ${text}` });
+    res.type('application/json').send(text);
   } catch (err) {
-    res.status(500).json({ error: err && err.message });
+    res.status(502).json({ error: 'upstream_error', details: err.message });
   }
 });
 
 const port = process.env.AZURE_GRADER_PROXY_PORT || 8002;
 app.listen(port, '127.0.0.1', () => {
   console.log(`[azure-grader-proxy] listening on http://127.0.0.1:${port}/grade`);
-  console.log('[azure-grader-proxy] proxy:', PROXY || '(none)');
 });

@@ -1,169 +1,124 @@
 # AI evaluation workspace
 
-This project evaluates an AI Form Assist application that communicates with a hosted WebSocket API endpoint. It is designed around the real Water Permitting workflow as the first use case, using a custom wrapper to send prompts to the AIFA application and then evaluate the responses.
+Red-team and quality evaluation for the **AI Form Assist (AIFA)** water-licence assistant. It sends test prompts to the hosted AIFA WebSocket API and scores the answers.
 
-The project is intentionally single-tenant for the current scenario, with the prompts and runtime assumptions tuned to that environment. Water Permitting is the initial domain focus, and the same evaluation pattern can be extended to other business use cases later. The core red-team flow stays focused on PyRIT, Promptfoo and DeepEval.
+| Product | What it does | Docs |
+|---|---|---|
+| **PyRIT** (`aifa_pyrit/`) | Adversarial attacks (jailbreaks, prompt injection, multi-turn) with scoring; CLI + FastAPI | [aifa_pyrit/README.md](aifa_pyrit/README.md) |
+| **Promptfoo** (`promptfoo/`) | Quality eval of curated test cases, graded by a judge model | [promptfoo/README.md](promptfoo/README.md) |
+| **Frontend** (`frontend/`) | Browser UI for both (static files behind nginx) | [frontend/README.md](frontend/README.md) |
+| **Infra** (`infra/aca/`, `.github/workflows/`) | Terraform + GitHub Actions release to Azure Container Apps | [infra/README.md](infra/README.md) |
 
-## Core model
+```mermaid
+flowchart LR
+  user(["Browser"])
 
-- The default runtime uses PyRIT for the red-team flow.
-- The project uses a custom wrapper to call the hosted AI Form Assist application instead of a generic local inference path.
-- Report output is stored under the repo-root [results](results) directory for both CLI and browser runs.
-- Promptfoo and DeepEval are optional extras and are not required for the main evaluation path.
+  subgraph aca["Azure Container App (one network namespace)"]
+    direction LR
+    fe["frontend<br/>nginx :80<br/>public ingress"]
+    py["pyrit<br/>FastAPI :8000"]
+    subgraph pfc["promptfoo container"]
+      pf["promptfoo service<br/>FastAPI :8001"]
+      gr["judge proxy<br/>:8002"]
+    end
+    fe -- "/api/*" --> py
+    fe -- "/api/promptfoo/*" --> pf
+    pf -- "/grade" --> gr
+  end
 
-## Setup
+  aifa[("AIFA backend<br/>WebSocket")]
+  llm[("Azure OpenAI<br/>judge and attacker models")]
+  blob[("Azure Blob<br/>reports and test data")]
+
+  user -- HTTPS --> fe
+  py -- "attack prompts" --> aifa
+  pf -- "test prompts" --> aifa
+  py -- "score and attack" --> llm
+  gr -- "grade answers" --> llm
+  py --> blob
+  pf --> blob
+```
+
+Other folders: `data/` (PyRIT test cases), `data_promptfoo/` (Promptfoo test cases), `results/` and `results-promptfoo/` (reports), `docs/` (proxy and registry notes), [env-inventory.md](env-inventory.md) (every environment variable per container).
+
+## Prerequisites
+
+Python 3.11+, [uv](https://docs.astral.sh/uv/), Node.js 22+, Docker (for Compose), and for releases the Azure CLI and GitHub CLI.
+
+## 1. Configure
 
 ```bash
-cd /Users/jatindersingh/Desktop/Projects/AI/project/aifa-ai-evaluation
 uv sync --extra dev
+cp aifa_pyrit/.env.example aifa_pyrit/.env      # PyRIT settings
+cp promptfoo/.env.example promptfoo/.env        # Promptfoo settings
 ```
 
-## Common commands
+Fill in the AIFA backend URL (`BACKEND_API_URL`, a `wss://…/ws` endpoint), the judge model (`AUDIT_LLM_*`) and, for LLM attacks, `ADVERSARIAL_OPENAI_*`. Never commit `.env` files.
+
+## 2. Run locally (CLI)
+
+Each product also runs on its own; see its README for details.
 
 ```bash
-# CLI help
-./.venv/bin/python -m aifa_pyrit.cli --help
-# or
-uv run red-team --help
+# PyRIT command line
+uv run red-team list-cases
+uv run red-team scan --use-file -a PromptSending
 
-# List cases
-./.venv/bin/python -m aifa_pyrit.cli list-cases
-
-# Run a file-based scan
-./.venv/bin/python -m aifa_pyrit.cli scan --use-file -a PromptSending
-
-# Run a single query
-./.venv/bin/python -m aifa_pyrit.cli test-query -q "What is the application fee?" -a Crescendo
-
-# Seed attack content
-./.venv/bin/python -m aifa_pyrit.cli seed-attack -d "violence,harassment,scams"
+# Browser UI + PyRIT API on http://localhost:8011
+uv run python -m uvicorn aifa_pyrit.web_app:app --port 8011
 ```
 
-## Run (local / Docker / Docker Compose)
-
-Run locally (direct server)
+The Promptfoo pages of the UI also need the promptfoo service (the UI on `:8011` forwards `/api/promptfoo/*` to `:8001`):
 
 ```bash
-# Activate your Python venv, then start the FastAPI app with Uvicorn
-cd /Users/jatindersingh/Desktop/Projects/AI/project/aifa-ai-evaluation
-source ./.venv/bin/activate
-./.venv/bin/python -m uvicorn aifa_pyrit.web_app:app --host 0.0.0.0 --port 8011
+cd promptfoo && uv sync && npm ci && cd ..
+(cd promptfoo && set -a && . ./.env && set +a && node azure-grader-proxy.js) &   # judge proxy :8002
+promptfoo/.venv/bin/python -m uvicorn promptfoo.src.promptfoo_service:app --port 8001
 ```
 
-Then open:
+## 3. Run with Docker Compose
 
-```text
-http://localhost:8011
-```
-
-Run with Docker (single container)
+Mirrors production: only the frontend is exposed.
 
 ```bash
-# From repo root: build the image and run the backend container
-docker build -t aifa-backend -f Dockerfile .
-docker run --rm -p 8011:8011 \
-	-e BACKEND_API_URL=http://localhost:8011 \
-	-v "$(pwd)/results:/app/results" \
-	aifa-backend
+docker compose up --build        # UI at http://localhost:8080
+docker compose logs -f promptfoo # follow one service
+docker compose down
 ```
 
-Run with Docker Compose (recommended for integrating `promptfoo` runner)
+The PyRIT API is also published on `http://localhost:8011` for debugging. Compose reads `aifa_pyrit/.env` and `promptfoo/.env`; set `PROMPTFOO_RUN_TOKEN` in your shell to require a token on Promptfoo calls. Reports persist in `results/` and `results-promptfoo/`.
 
-```bash
-# from repo root
-docker-compose up --build backend promptfoo
+## 4. Production release (Azure Container Apps)
 
-# to run only the backend service via compose
-docker-compose build backend --no-cache
-docker-compose up backend
+One Container App runs the three containers; only the frontend has public ingress. Details and variables: [infra/README.md](infra/README.md).
 
-# or run backend locally without compose
-./.venv/bin/python -m uvicorn aifa_pyrit.web_app:app --host 0.0.0.0 --port 8011
+```mermaid
+flowchart LR
+  dev(["Push or PR"]) --> gha["GitHub Actions<br/>Deploy to ACA"]
+  gha --> build["Build images<br/>pyrit, frontend, promptfoo"]
+  build --> ghcr[("GHCR<br/>latest, sha-commit, run-n")]
+  gha --> plan["terraform plan"]
+  manual(["Run workflow<br/>plan or apply"]) --> gha
+  manual -- "apply" --> apply["terraform apply<br/>OIDC login"]
+  ghcr --> apply
+  apply --> app["Azure Container App<br/>image tag run-n"]
+  app --> verify{{"Verify<br/>/healthz and /api/health"}}
 ```
 
-## Azure App Service deployment
+**One-time setup:** run [initial-azure-setup.sh](initial-azure-setup.sh) to create the GitHub OIDC identity and Terraform state storage, add the identity to the Azure contributor group, then set the secrets and variables in the GitHub `dev` environment.
 
-This repository is designed for a Python App Service deployment pattern rather than a container-based deployment. The app is exposed through the FastAPI service in [aifa_pyrit/web_app.py](aifa_pyrit/web_app.py), and the runtime expects the repo-root [results](results) directory to exist for JSON reports.
+**Release:**
 
-Key deployment requirements:
+1. Push your branch or open a PR. *Deploy to ACA* builds the three images, pushes them to GHCR (`latest`, `sha-<commit>`, `run-<n>`) and runs `terraform plan`.
+2. GitHub → Actions → **Deploy to ACA** → Run workflow → `plan`, review, then run again with `apply`.
+3. Verify using the `container_app_url` output: `/healthz`, `/api/health`, `/api/promptfoo/info`.
 
-- use a Linux Python App Service
-- run the app with `gunicorn` and expose port `8000` via `WEBSITES_PORT`
-- keep runtime settings in environment variables such as `BACKEND_API_URL`, `AZURE_OPENAI_*`, and `ADVERSARIAL_OPENAI_*`
-- keep the repo-root `.env` or App Service app settings aligned with the same config names used by [aifa_pyrit/config.py](aifa_pyrit/config.py)
+**Rollback:** re-run the `apply` workflow run of the last good release; it redeploys that run's image tag.
 
-Example deployment commands:
+## Troubleshooting
 
-```bash
-cd infra
-terraform init
-terraform plan
-terraform apply
-```
-
-The workflow in [.github/workflows/deploy-to-dev.yml](.github/workflows/deploy-to-dev.yml) calls the reusable deployment stack under [.github/workflows/.deploy_stack.yml](.github/workflows/.deploy_stack.yml), which performs Azure login, Terraform provisioning, and a zip deploy of the app package.
-
-## Optional extras
-
-Framework-specific work remains isolated in [promptfoo](promptfoo) so the main red-team package stays lightweight and predictable. Use those directories only when you need the extra evaluation path.
-
-Promptfoo (optional)
-
-Promptfoo runs are optional and live under the `promptfoo/` folder. Run the eval, then view the interactive Promptfoo UI:
-
-Local (promptfoo runner only)
-
-```bash
-cd promptfoo
-./run_promptfoo_eval.sh
-# view results (optional)
-npx promptfoo view -p 15500 -y
-```
-
-Docker / Docker Compose
-
-```bash
-# build and run the promptfoo service via compose
-docker-compose build promptfoo --no-cache
-docker-compose up promptfoo
-```
-
-The raw JSON export remains under [results](results). If you run both services with Docker Compose, ensure the `promptfoo` service writes its report into the shared `results` volume so the backend can read it.
-
-## Running services (backend + Promptfoo)
-
-You can run both the `aifa_pyrit` backend and the `promptfoo` runner together using Docker Compose, or run them separately when you only need one service.
-
-Run both services (recommended for local integration):
-
-```bash
-# from repo root
-docker-compose up --build backend promptfoo
-```
-
-Run backend only:
-
-```bash
-# build and run backend service only
-docker-compose build backend --no-cache
-docker-compose up backend
-# or run locally with uvicorn in a Python venv
-./.venv/bin/python -m uvicorn aifa_pyrit.web_app:app --host 0.0.0.0 --port 8011
-```
-
-Notes and verification
-
-- The `./.venv/bin/python -m aifa_pyrit.cli --help` command was verified locally and prints CLI help.
-- Starting the backend with Uvicorn in the local venv has been exercised successfully.
-- The `promptfoo` runner (`./run_promptfoo_eval.sh`) has been observed to fail intermittently in this environment (exit code 100). If you see failures, inspect `promptfoo` logs and ensure no HTTP proxy (`HTTP_PROXY`/`HTTPS_PROXY`) is interfering, or run the promptfoo service via Docker Compose to use the containerized environment.
-
-- The backend expects JSON reports under the repo-root `results` directory (for example `results/promptfoo-report.json`).
-- When running both services with Docker Compose, the `promptfoo` service should write its report into a shared `results` volume so the backend can read it.
-- If you run `promptfoo` locally, set the `OUTPUT_PATH` env variable or confirm `run_promptfoo_eval.sh` writes to `../results-promptfoo/promptfoo-report.json`.
-
-## Conventions
-
-- [pyproject.toml](pyproject.toml) remains at the repo root for the main package.
-- runtime configuration stays under [aifa_pyrit](aifa_pyrit)
-- generated reports stay in [results](results)
-- avoid stale `src/`, `red_team/`, or legacy package references
+- **404 on `/api/promptfoo/*` locally:** the promptfoo service on `:8001` is not running or is stale; restart it.
+- **UI shows old behavior:** hard-reload (`Cmd/Ctrl+Shift+R`); the browser caches scripts.
+- **Judge returns 404:** `AUDIT_LLM_ENDPOINT` must serve `/openai/deployments/<deployment>/chat/completions`. Check with `promptfoo/test_grader_no_proxy.sh`.
+- **Azure calls hang locally:** unset `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY` unless you need the tunnel ([docs/proxy-connection-guide.md](docs/proxy-connection-guide.md)).
+- **Where did my reports go:** `results/` (PyRIT) and `results-promptfoo/` locally; Blob containers when `AZURE_STORAGE_CONNECTION_STRING` is set.

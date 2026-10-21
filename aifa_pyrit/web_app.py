@@ -672,6 +672,28 @@ async def run_promptfoo(request: Request) -> dict[str, Any]:
     return resp
 
 
+# Local dev only: in containers nginx routes /api/promptfoo/* straight to the promptfoo service.
+PROMPTFOO_SERVICE_URL = os.getenv("PROMPTFOO_SERVICE_URL", "http://127.0.0.1:8001").rstrip("/")
+
+
+@app.api_route("/api/promptfoo/{path:path}", methods=["GET", "POST"])
+async def promptfoo_dev_proxy(path: str, request: Request) -> Response:
+    headers = {"content-type": request.headers.get("content-type", "application/json")}
+    if PROMPTFOO_RUN_TOKEN:
+        headers["x-run-token"] = PROMPTFOO_RUN_TOKEN
+    try:
+        # trust_env=False: a developer SOCKS proxy (ALL_PROXY) must not intercept this local call.
+        async with httpx.AsyncClient(timeout=120.0, trust_env=False) as client:
+            upstream = await client.request(
+                request.method, f"{PROMPTFOO_SERVICE_URL}/api/promptfoo/{path}",
+                params=request.query_params, content=await request.body(), headers=headers,
+            )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Promptfoo service unreachable at {PROMPTFOO_SERVICE_URL}: {exc}") from exc
+    passthrough = {k: v for k, v in upstream.headers.items() if k.lower() in {"content-type", "content-disposition"}}
+    return Response(content=upstream.content, status_code=upstream.status_code, headers=passthrough)
+
+
 if FRONTEND_DIR.exists():
     app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
 

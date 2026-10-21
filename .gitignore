@@ -173,3 +173,6 @@ docs/*
 # Generated scan reports (local only)
 results/*
 !results/.gitkeep
+tests
+tests/*
+results-promptfoo/*

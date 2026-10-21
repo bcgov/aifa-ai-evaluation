@@ -95,15 +95,18 @@ jobs:
       TF_VAR_backend_api_url: ${{ vars.BACKEND_API_URL || secrets.BACKEND_API_URL || 'http://localhost:8000' }}
       TF_VAR_backend_api_timeout: ${{ vars.BACKEND_API_TIMEOUT || '30' }}
       TF_VAR_promptfoo_run_token: ${{ secrets.PROMPTFOO_RUN_TOKEN }}
-      TF_VAR_azure_openai_api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
-      TF_VAR_azure_openai_endpoint: ${{ vars.AZURE_OPENAI_ENDPOINT || secrets.AZURE_OPENAI_ENDPOINT }}
-      TF_VAR_azure_openai_api_version: ${{ vars.AZURE_OPENAI_API_VERSION || '2025-01-01-preview' }}
-      TF_VAR_azure_openai_deployment: ${{ vars.AZURE_OPENAI_DEPLOYMENT || secrets.AZURE_OPENAI_DEPLOYMENT }}
+      TF_VAR_audit_llm_api_key: ${{ secrets.AUDIT_LLM_API_KEY }}
+      TF_VAR_audit_llm_endpoint: ${{ vars.AUDIT_LLM_ENDPOINT || secrets.AUDIT_LLM_ENDPOINT }}
+      TF_VAR_audit_llm_api_version: ${{ vars.AUDIT_LLM_API_VERSION || '2025-01-01-preview' }}
+      TF_VAR_audit_llm_deployment: ${{ vars.AUDIT_LLM_DEPLOYMENT || secrets.AUDIT_LLM_DEPLOYMENT }}
       TF_VAR_adversarial_openai_api_key: ${{ secrets.ADVERSARIAL_OPENAI_API_KEY }}
       TF_VAR_adversarial_openai_endpoint: ${{ vars.ADVERSARIAL_OPENAI_ENDPOINT || secrets.ADVERSARIAL_OPENAI_ENDPOINT }}
       TF_VAR_adversarial_openai_deployment: ${{ vars.ADVERSARIAL_OPENAI_DEPLOYMENT || secrets.ADVERSARIAL_OPENAI_DEPLOYMENT }}
       TF_VAR_azure_storage_connection_string: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
-      TF_VAR_azure_storage_container_name: ${{ vars.AZURE_STORAGE_CONTAINER_NAME || 'aifa-reports' }}
+      TF_VAR_pyrit_results_container_name: ${{ vars.PYRIT_RESULTS_CONTAINER_NAME || 'pyrit-results' }}
+      TF_VAR_pyrit_data_container_name: ${{ vars.PYRIT_DATA_CONTAINER_NAME || 'pyrit-data' }}
+      TF_VAR_promptfoo_results_container_name: ${{ vars.PROMPTFOO_RESULTS_CONTAINER_NAME || 'promptfoo-results' }}
+      TF_VAR_promptfoo_data_container_name: ${{ vars.PROMPTFOO_DATA_CONTAINER_NAME || 'promptfoo-data' }}
       ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
@@ -242,15 +245,18 @@ jobs:
             -var="backend_api_url=${{ vars.BACKEND_API_URL || secrets.BACKEND_API_URL || 'http://localhost:8000' }}" \
             -var="backend_api_timeout=${{ vars.BACKEND_API_TIMEOUT || '30' }}" \
             -var="promptfoo_run_token=${{ secrets.PROMPTFOO_RUN_TOKEN }}" \
-            -var="azure_openai_api_key=${{ secrets.AZURE_OPENAI_API_KEY }}" \
-            -var="azure_openai_endpoint=${{ vars.AZURE_OPENAI_ENDPOINT || secrets.AZURE_OPENAI_ENDPOINT }}" \
-            -var="azure_openai_api_version=${{ vars.AZURE_OPENAI_API_VERSION || '2025-01-01-preview' }}" \
-            -var="azure_openai_deployment=${{ vars.AZURE_OPENAI_DEPLOYMENT || secrets.AZURE_OPENAI_DEPLOYMENT }}" \
+            -var="audit_llm_api_key=${{ secrets.AUDIT_LLM_API_KEY }}" \
+            -var="audit_llm_endpoint=${{ vars.AUDIT_LLM_ENDPOINT || secrets.AUDIT_LLM_ENDPOINT }}" \
+            -var="audit_llm_api_version=${{ vars.AUDIT_LLM_API_VERSION || '2025-01-01-preview' }}" \
+            -var="audit_llm_deployment=${{ vars.AUDIT_LLM_DEPLOYMENT || secrets.AUDIT_LLM_DEPLOYMENT }}" \
             -var="adversarial_openai_api_key=${{ secrets.ADVERSARIAL_OPENAI_API_KEY }}" \
             -var="adversarial_openai_endpoint=${{ vars.ADVERSARIAL_OPENAI_ENDPOINT || secrets.ADVERSARIAL_OPENAI_ENDPOINT }}" \
             -var="adversarial_openai_deployment=${{ vars.ADVERSARIAL_OPENAI_DEPLOYMENT || secrets.ADVERSARIAL_OPENAI_DEPLOYMENT }}" \
             -var="azure_storage_connection_string=${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}" \
-            -var="azure_storage_container_name=${{ vars.AZURE_STORAGE_CONTAINER_NAME || 'aifa-reports' }}"
+            -var="pyrit_results_container_name=${{ vars.PYRIT_RESULTS_CONTAINER_NAME || 'pyrit-results' }}" \
+            -var="pyrit_data_container_name=${{ vars.PYRIT_DATA_CONTAINER_NAME || 'pyrit-data' }}" \
+            -var="promptfoo_results_container_name=${{ vars.PROMPTFOO_RESULTS_CONTAINER_NAME || 'promptfoo-results' }}" \
+            -var="promptfoo_data_container_name=${{ vars.PROMPTFOO_DATA_CONTAINER_NAME || 'promptfoo-data' }}"
 
       - name: Terraform apply
         if: inputs.command == 'apply'
@@ -278,12 +284,15 @@ jobs:
             -var="backend_api_url=${{ vars.BACKEND_API_URL || secrets.BACKEND_API_URL || 'http://localhost:8000' }}" \
             -var="backend_api_timeout=${{ vars.BACKEND_API_TIMEOUT || '30' }}" \
             -var="promptfoo_run_token=${{ secrets.PROMPTFOO_RUN_TOKEN }}" \
-            -var="azure_openai_api_key=${{ secrets.AZURE_OPENAI_API_KEY }}" \
-            -var="azure_openai_endpoint=${{ vars.AZURE_OPENAI_ENDPOINT || secrets.AZURE_OPENAI_ENDPOINT }}" \
-            -var="azure_openai_api_version=${{ vars.AZURE_OPENAI_API_VERSION || '2025-01-01-preview' }}" \
-            -var="azure_openai_deployment=${{ vars.AZURE_OPENAI_DEPLOYMENT || secrets.AZURE_OPENAI_DEPLOYMENT }}" \
+            -var="audit_llm_api_key=${{ secrets.AUDIT_LLM_API_KEY }}" \
+            -var="audit_llm_endpoint=${{ vars.AUDIT_LLM_ENDPOINT || secrets.audit_llm_ENDPOINT }}" \
+            -var="audit_llm_api_version=${{ vars.AUDIT_LLM_API_VERSION || '2025-01-01-preview' }}" \
+            -var="audit_llm_deployment=${{ vars.AUDIT_LLM_DEPLOYMENT || secrets.AUDIT_LLM_DEPLOYMENT }}" \
             -var="adversarial_openai_api_key=${{ secrets.ADVERSARIAL_OPENAI_API_KEY }}" \
             -var="adversarial_openai_endpoint=${{ vars.ADVERSARIAL_OPENAI_ENDPOINT || secrets.ADVERSARIAL_OPENAI_ENDPOINT }}" \
             -var="adversarial_openai_deployment=${{ vars.ADVERSARIAL_OPENAI_DEPLOYMENT || secrets.ADVERSARIAL_OPENAI_DEPLOYMENT }}" \
             -var="azure_storage_connection_string=${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}" \
-            -var="azure_storage_container_name=${{ vars.AZURE_STORAGE_CONTAINER_NAME || 'aifa-reports' }}"
+            -var="pyrit_results_container_name=${{ vars.PYRIT_RESULTS_CONTAINER_NAME || 'pyrit-results' }}" \
+            -var="pyrit_data_container_name=${{ vars.PYRIT_DATA_CONTAINER_NAME || 'pyrit-data' }}" \
+            -var="promptfoo_results_container_name=${{ vars.PROMPTFOO_RESULTS_CONTAINER_NAME || 'promptfoo-results' }}" \
+            -var="promptfoo_data_container_name=${{ vars.PROMPTFOO_DATA_CONTAINER_NAME || 'promptfoo-data' }}"
