@@ -95,10 +95,10 @@ jobs:
       TF_VAR_backend_api_url: ${{ vars.BACKEND_API_URL || secrets.BACKEND_API_URL || 'http://localhost:8000' }}
       TF_VAR_backend_api_timeout: ${{ vars.BACKEND_API_TIMEOUT || '30' }}
       TF_VAR_promptfoo_run_token: ${{ secrets.PROMPTFOO_RUN_TOKEN }}
-      TF_VAR_AUDIT_LLM_api_key: ${{ secrets.AUDIT_LLM_API_KEY }}
-      TF_VAR_AUDIT_LLM_endpoint: ${{ vars.AUDIT_LLM_ENDPOINT || secrets.AUDIT_LLM_ENDPOINT }}
-      TF_VAR_AUDIT_LLM_api_version: ${{ vars.AUDIT_LLM_API_VERSION || '2025-01-01-preview' }}
-      TF_VAR_AUDIT_LLM_deployment: ${{ vars.AUDIT_LLM_DEPLOYMENT || secrets.AUDIT_LLM_DEPLOYMENT }}
+      TF_VAR_audit_llm_api_key: ${{ secrets.AUDIT_LLM_API_KEY }}
+      TF_VAR_audit_llm_endpoint: ${{ vars.AUDIT_LLM_ENDPOINT || secrets.AUDIT_LLM_ENDPOINT }}
+      TF_VAR_audit_llm_api_version: ${{ vars.AUDIT_LLM_API_VERSION || '2025-01-01-preview' }}
+      TF_VAR_audit_llm_deployment: ${{ vars.AUDIT_LLM_DEPLOYMENT || secrets.AUDIT_LLM_DEPLOYMENT }}
       TF_VAR_adversarial_openai_api_key: ${{ secrets.ADVERSARIAL_OPENAI_API_KEY }}
       TF_VAR_adversarial_openai_endpoint: ${{ vars.ADVERSARIAL_OPENAI_ENDPOINT || secrets.ADVERSARIAL_OPENAI_ENDPOINT }}
       TF_VAR_adversarial_openai_deployment: ${{ vars.ADVERSARIAL_OPENAI_DEPLOYMENT || secrets.ADVERSARIAL_OPENAI_DEPLOYMENT }}
