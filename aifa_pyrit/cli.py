@@ -252,7 +252,7 @@ def check_proxy(timeout: int):
         for key, value in proxy_lines.items():
             click.echo(f"{key}={value}")
 
-        if not settings.audit_llmi_key or not settings.audit_llm_endpoint:
+        if not settings.audit_llms_key or not settings.audit_llm_endpoint:
             raise ValueError("AUDIT_LLM_API_KEY and AUDIT_LLM_ENDPOINT must be configured first")
 
         endpoint = settings.audit_llm_endpoint.rstrip("/")
@@ -261,7 +261,7 @@ def check_proxy(timeout: int):
         url = f"{endpoint}/openai/deployments/{deployment}/chat/completions?api-version={api_version}"
 
         payload = {"messages": [{"role": "user", "content": "hello"}]}
-        headers = {"Content-Type": "application/json", "api-key": settings.AUDIT_LLM_api_key}
+        headers = {"Content-Type": "application/json", "api-key": settings.audit_llm_api_key}
 
         click.echo(f"Testing Azure OpenAI call: {url}")
         with httpx.Client(proxy=os.environ.get("HTTPS_PROXY") or os.environ.get("ALL_PROXY"), trust_env=True, timeout=timeout) as client:

@@ -295,9 +295,9 @@ class PyRITRunner:
 
     def _set_pyrit_env(self) -> None:
         self._ensure_runtime_proxy_env()
-        os.environ["OPENAI_CHAT_MODEL"] = settings.AUDIT_LLM_deployment
-        os.environ["AUDIT_LLM_ENDPOINT"] = ensure_AUDIT_LLM_v1_endpoint(settings.AUDIT_LLM_endpoint)
-        os.environ["OPENAI_CHAT_KEY"] = settings.AUDIT_LLM_api_key
+        os.environ["OPENAI_CHAT_MODEL"] = settings.audit_llm_deployment
+        os.environ["AUDIT_LLM_ENDPOINT"] = ensure_AUDIT_LLM_v1_endpoint(settings.audit_llm_endpoint)
+        os.environ["OPENAI_CHAT_KEY"] = settings.audit_llm_api_key
 
     def _create_objective_target(self, backend_url: str, log_label: str) -> Any:
         if self._is_custom_backend(backend_url):
@@ -458,12 +458,12 @@ class PyRITRunner:
             )
             return objective_target, attack_config
 
-        endpoint = settings.AUDIT_LLM_endpoint
+        endpoint = settings.audit_llm_endpoint
         if not endpoint:
             raise ValueError(ERR_AUDIT_LLM_ENDPOINT_NOT_CONFIGURED)
 
         base_endpoint = self._extract_base_endpoint(endpoint)
-        api_key = settings.AUDIT_LLM_api_key
+        api_key = settings.audit_llm_api_key
         if not api_key:
             raise ValueError(ERR_audit_llm_API_KEY_NOT_CONFIGURED)
 
@@ -571,7 +571,7 @@ class PyRITRunner:
             from pyrit.setup.initializers import TargetInitializer
             
             # Set environment variables for PyRIT. PyRIT expects the /openai/v1 endpoint shape here.
-            normalized_endpoint = ensure_audit_llm_v1_endpoint(settings.AUDIT_LLM_endpoint)
+            normalized_endpoint = ensure_audit_llm_v1_endpoint(settings.audit_llm_endpoint)
             os.environ["OPENAI_CHAT_ENDPOINT"] = normalized_endpoint or "https://dummy.openai.azure.com/openai/v1"
             os.environ["OPENAI_CHAT_MODEL"] = settings.audit_llm_deployment
             os.environ["OPENAI_CHAT_KEY"] = settings.audit_llm_api_key or "dummy-key"
@@ -580,7 +580,7 @@ class PyRITRunner:
             if settings.audit_llm_endpoint:
                 os.environ["AUDIT_LLM_ENDPOINT"] = normalized_endpoint
             if settings.audit_llm_api_key:
-                os.environ["AUDIT_LLM_API_KEY"] = settings.AUDIT_LLM_api_key
+                os.environ["AUDIT_LLM_API_KEY"] = settings.audit_llm_api_key
             
             logger.info("initializing_pyrit")
             try:
@@ -841,7 +841,7 @@ class PyRITRunner:
                 # Fall back to Azure OpenAI as objective
                 from pyrit.prompt_target import OpenAIChatTarget
                 
-                endpoint = settings.AUDIT_LLM_endpoint
+                endpoint = settings.audit_llm_endpoint
                 if not endpoint:
                     raise ValueError(ERR_AUDIT_LLM_ENDPOINT_NOT_CONFIGURED)
                 

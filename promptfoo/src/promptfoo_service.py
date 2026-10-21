@@ -247,7 +247,7 @@ def grader_provider() -> dict[str, Any] | None:
     if not settings.audit_llm_api_key:
         return None
     return _azure_provider(settings.audit_llm_endpoint, settings.audit_llm_deployment,
-                           settings.AUDIT_LLM_api_version, "audit_llm_API_KEY")
+                           settings.audit_llm_api_version, "audit_llm_API_KEY")
 
 
 def judge_provider() -> dict[str, Any] | None:
