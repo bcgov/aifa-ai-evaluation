@@ -10,7 +10,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     # Judge model (llm-rubric grading), reached through the local grader proxy
-    audit_llm_api_key: str = Field(default="", validation_alias="audit_llm_API_KEY")
+    audit_llm_api_key: str = Field(default="", validation_alias="AUDIT_LLM_API_KEY")
     audit_llm_endpoint: str = Field(default="", validation_alias="AUDIT_LLM_ENDPOINT")
     audit_llm_api_version: str = Field(default="2024-10-21", validation_alias="AUDIT_LLM_API_VERSION")
     audit_llm_deployment: str = Field(

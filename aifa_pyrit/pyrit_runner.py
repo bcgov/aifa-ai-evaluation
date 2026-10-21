@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from io import StringIO
 
 import structlog
-from aifa_pyrit.config import ensure_audit_llm_v1_endpoint, normalize_AUDIT_LLM_endpoint, settings
+from aifa_pyrit.config import ensure_audit_llm_v1_endpoint, normalize_audit_llm_endpoint, settings
 from aifa_pyrit.custom_backend_target import CustomBackendTarget
 from aifa_pyrit.crescendo_step_capture import (
     CrescendoMemoryTracer,
@@ -296,7 +296,7 @@ class PyRITRunner:
     def _set_pyrit_env(self) -> None:
         self._ensure_runtime_proxy_env()
         os.environ["OPENAI_CHAT_MODEL"] = settings.audit_llm_deployment
-        os.environ["AUDIT_LLM_ENDPOINT"] = ensure_AUDIT_LLM_v1_endpoint(settings.audit_llm_endpoint)
+        os.environ["AUDIT_LLM_ENDPOINT"] = ensure_audit_llm_v1_endpoint(settings.audit_llm_endpoint)
         os.environ["OPENAI_CHAT_KEY"] = settings.audit_llm_api_key
 
     def _create_objective_target(self, backend_url: str, log_label: str) -> Any:
@@ -314,7 +314,7 @@ class PyRITRunner:
 
         endpoint = settings.audit_llm_endpoint
         if not endpoint:
-            raise ValueError(ERR_audit_llm_ENDPOINT_NOT_CONFIGURED)
+            raise ValueError(ERR_AUDIT_LLM_ENDPOINT_NOT_CONFIGURED)
 
         base_endpoint = ensure_audit_llm_v1_endpoint(endpoint)
         logger.info("using_openai_target", endpoint=base_endpoint)
@@ -465,7 +465,7 @@ class PyRITRunner:
         base_endpoint = self._extract_base_endpoint(endpoint)
         api_key = settings.audit_llm_api_key
         if not api_key:
-            raise ValueError(ERR_audit_llm_API_KEY_NOT_CONFIGURED)
+            raise ValueError(ERR_AUDIT_LLM_API_KEY_NOT_CONFIGURED)
 
         logger.info("using_openai_target", endpoint=base_endpoint)
         objective_target = OpenAIChatTarget(

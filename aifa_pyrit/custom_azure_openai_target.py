@@ -22,7 +22,7 @@ from pyrit.prompt_target.common.target_capabilities import TargetCapabilities
 from pyrit.models import Message
 import structlog
 
-from aifa_pyrit.config import normalize_audit_llmdpoint
+from aifa_pyrit.config import normalize_audit_llm_endpoint
 
 logger = structlog.get_logger(__name__)
 

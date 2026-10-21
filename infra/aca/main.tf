@@ -188,7 +188,7 @@ resource "azurerm_container_app" "main" {
 
       env {
         name  = "AUDIT_LLM_API_KEY"
-        value = var.AUDIT_LLM_api_key
+        value = var.audit_llm_api_key
       }
 
       env {
@@ -292,7 +292,7 @@ resource "azurerm_container_app" "main" {
 
       env {
         name  = "AUDIT_LLM_API_KEY"
-        value = var.AUDIT_LLM_api_key
+        value = var.audit_llm_api_key
       }
 
       env {

@@ -65,10 +65,10 @@ class Settings(BaseSettings):
     # Accept both env names:
     # - AUDIT_LLM_DEPLOYMENT (our .env.example)
     # - AUDIT_LLM_chat_deployment_name (common in Azure AI SDK samples)
-    AUDIT_LLM_deployment: str = Field(
+    audit_llm_deployment: str = Field(
         default="gpt-4",
         validation_alias=AliasChoices(
-            "AUDIT_LLM_DEPLOYMENT", "AUDIT_LLM_chat_deployment_name"
+            "AUDIT_LLM_DEPLOYMENT", "audit_llm_chat_deployment_name"
         ),
     )
 
