@@ -256,8 +256,14 @@ def judge_provider() -> dict[str, Any] | None:
 
 
 def promptfoo_env() -> dict[str, str]:
-    # Node's fetch cannot use SOCKS proxies, and the target adapter is on localhost.
-    env = {k: v for k, v in os.environ.items() if k.lower() not in {"all_proxy", "https_proxy", "http_proxy"}}
+    # Keep explicit private-network proxies when the user opts in. Otherwise avoid
+    # local SOCKS settings that can break direct-access public endpoints.
+    use_private_proxy = os.environ.get("PROMPTFOO_USE_PRIVATE_PROXY", "0").lower() in {"1", "true", "yes", "on"}
+    use_proxy = os.environ.get("PROMPTFOO_USE_PROXY", "0").lower() in {"1", "true", "yes", "on"}
+    env = dict(os.environ)
+    if not use_private_proxy and not use_proxy:
+        for key in ("ALL_PROXY", "all_proxy", "HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy"):
+            env.pop(key, None)
     # promptfoo auto-loads ./.env, which would re-add the SOCKS proxy; settings already come from our config.
     env["DOTENV_PATH"] = os.devnull
     env.pop("DOTENV_CONFIG_PATH", None)

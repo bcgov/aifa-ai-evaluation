@@ -13,8 +13,17 @@ if [ -f .env ]; then
   set +a
 fi
 
-# Azure and the backend are reached directly; a leftover SOCKS proxy would break Node's fetch.
-unset ALL_PROXY HTTPS_PROXY HTTP_PROXY all_proxy https_proxy http_proxy NO_PROXY no_proxy
+# By default keep direct Azure access for local/public endpoints. When the user
+# explicitly sets a proxy for a private Azure resource, preserve it instead of
+# unsetting it; the proxy chain is the safe route for private endpoint access.
+if [ "${PROMPTFOO_USE_PRIVATE_PROXY:-0}" != "1" ] && [ "${PROMPTFOO_USE_PROXY:-0}" != "1" ]; then
+  unset ALL_PROXY HTTPS_PROXY HTTP_PROXY all_proxy https_proxy http_proxy NO_PROXY no_proxy
+  export NO_PROXY="localhost,127.0.0.1,::1"
+  export no_proxy="${NO_PROXY}"
+else
+  export NO_PROXY="${NO_PROXY:-localhost,127.0.0.1,::1}"
+  export no_proxy="${NO_PROXY}"
+fi
 export OPENAI_API_KEY="${OPENAI_API_KEY:-${AUDIT_LLM_API_KEY:-}}"
 export PROMPTFOO_DISABLE_TELEMETRY=1 PROMPTFOO_DISABLE_UPDATE=1
 
