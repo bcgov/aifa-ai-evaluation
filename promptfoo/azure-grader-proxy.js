@@ -4,6 +4,7 @@
 // request logic in multiple files.
 
 const express = require('express');
+const fs = require('fs');
 const { spawn } = require('child_process');
 const path = require('path');
 
@@ -15,7 +16,11 @@ const DEPLOYMENT = process.env.AUDIT_LLM_DEPLOYMENT || process.env.AUDIT_LLM_MOD
 const API_VERSION = process.env.AUDIT_LLM_API_VERSION || '2025-01-01-preview';
 const API_KEY = process.env.OPENAI_API_KEY || process.env.AUDIT_LLM_API_KEY || '';
 const SHARED_CLIENT = path.resolve(__dirname, '..', 'scripts', 'shared_llm_client.py');
-const PYTHON = process.env.PYTHON || 'python3';
+const PYTHON = process.env.PYTHON || (
+  fs.existsSync('/opt/venv/bin/python')
+    ? '/opt/venv/bin/python'
+    : (fs.existsSync('/usr/local/bin/python') ? '/usr/local/bin/python' : 'python3')
+);
 
 function extractMessages(reqBody) {
   let messages = reqBody && reqBody.messages;

@@ -20,10 +20,11 @@ COPY promptfoo/package.json promptfoo/package-lock.json ./
 RUN npm ci --omit=dev
 
 COPY promptfoo/ /app/promptfoo/
+COPY scripts/ /app/scripts/
 COPY data_promptfoo/ /app/data_promptfoo/
 
 RUN mkdir -p /app/results-promptfoo /app/results \
- && chmod +x docker-entrypoint.sh run_promptfoo_eval.sh \
+ && chmod +x docker-entrypoint.sh run_promptfoo_eval.sh /app/scripts/shared_llm_client.py \
  && chown -R node:node /app
 
 ENV PATH=/opt/venv/bin:$PATH \
