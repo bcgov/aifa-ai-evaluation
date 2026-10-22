@@ -56,6 +56,7 @@ app.post('/grade', async (req, res) => {
       '--api-key', API_KEY,
       '--deployment', DEPLOYMENT,
       '--api-version', API_VERSION,
+      '--json-output',
       '--message', String(promptMessage.content || ''),
     ], { stdio: ['ignore', 'pipe', 'pipe'] });
 
