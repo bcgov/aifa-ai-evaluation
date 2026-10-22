@@ -13,11 +13,12 @@
     query: "What is BCeID?"
   assert:
     - type: icontains
-      value: "secure online authentication service"
+      value: "BC Electronic Identity"
     - type: icontains
-      value: "Government of British Columbia"
+      value: "British Columbia"
     - type: llm-rubric
-      value: "The response explains that BCeID stands for BC Electronic Identity, enables single sign-on for BC government services, and removes the need for separate accounts."
+      value: >
+        The response explains that BCeID stands for BC Electronic Identity, is a secure online authentication or login service for BC government services, and lets people sign in with a single username and password to access multiple provincial services.
 
 - vars:
     context: |
@@ -32,6 +33,7 @@
     query: "Do I need to be the registered owner of land to apply for a water licence?"
   assert:
     - type: icontains
-      value: "eligible to apply"
+      value: "not need to be the registered owner"
     - type: llm-rubric
-      value: "The response confirms that you do not need to be the registered owner, provided you have a 'substantial interest' (significant legal or financial stake)."
+      value: >
+        The response explains that you do not need to be the registered owner to apply, and that a significant legal or financial stake in the land, mine, or undertaking may qualify as a substantial interest for eligibility.

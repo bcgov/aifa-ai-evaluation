@@ -38,7 +38,11 @@ function extractMessages(reqBody) {
   if (typeof messages === 'string') {
     return [{ role: 'user', content: messages }];
   }
-  return Array.isArray(messages) ? messages : [{ role: 'user', content: String(messages) }];
+  const normalized = Array.isArray(messages) ? messages : [{ role: 'user', content: String(messages) }];
+  if (!normalized.some((m) => (m.role || 'user').toLowerCase() === 'system')) {
+    normalized.unshift({ role: 'system', content: 'Return valid JSON only with keys "pass" and "reason". No markdown, no code fences, no prose outside JSON.' });
+  }
+  return normalized;
 }
 
 function normalizeOpenAIShape(payload) {
@@ -96,7 +100,7 @@ app.post('/grade', async (req, res) => {
       '--deployment', DEPLOYMENT,
       '--api-version', API_VERSION,
       '--json-output',
-      '--message', String(promptMessage.content || ''),
+      '--messages-json', JSON.stringify(messages),
     ], { stdio: ['ignore', 'pipe', 'pipe'] });
 
     let stdout = '';

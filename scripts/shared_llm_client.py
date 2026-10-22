@@ -76,6 +76,7 @@ def build_message_payload(messages: list[dict[str, Any]] | None, deployment: str
     payload = {"messages": messages or []}
     if is_foundry_endpoint(endpoint):
         payload["model"] = deployment
+    payload["response_format"] = {"type": "json_object"}
     return payload
 
 
@@ -160,6 +161,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--deployment", required=True, help="Deployment/model name")
     parser.add_argument("--api-version", default="2025-01-01-preview")
     parser.add_argument("--message", action="append", default=[], help="User prompt; may be repeated")
+    parser.add_argument("--messages-json", help="JSON array of full chat messages to send to the model")
     parser.add_argument("--json-output", action="store_true", help="Emit JSON only")
     parser.add_argument("--max-completion-tokens", type=int, default=None)
     parser.add_argument("--reasoning-effort", default=None)
@@ -169,7 +171,16 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    messages = [{"role": "user", "content": msg} for msg in args.message]
+    messages = []
+    if args.messages_json:
+        try:
+            parsed = json.loads(args.messages_json)
+            if isinstance(parsed, list):
+                messages = parsed
+        except (TypeError, ValueError):
+            messages = []
+    if not messages:
+        messages = [{"role": "user", "content": msg} for msg in args.message]
     if not messages:
         messages = [{"role": "user", "content": os.environ.get("LLM_PROMPT", "hello")}]
 

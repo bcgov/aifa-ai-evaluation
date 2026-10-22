@@ -34,22 +34,44 @@ Attack types (`-a`): `PromptSending`, `Crescendo`, `MultiTurn`, `RedTeaming`, `P
 
 ## Web app and API
 
+Use the shared repo launcher for the supported local setup:
+
 ```bash
-uv run python -m uvicorn aifa_pyrit.web_app:app --port 8011     # PORT env var also works
+./scripts/start_app_with_proxy.sh
 ```
 
-Open <http://localhost:8011>: **New Run** (pick cases, attack, disguises), **Live Run** (progress and transcripts, pause/stop), **Export** (CSV of saved reports).
+This starts the PyRIT app plus the Promptfoo service and judge proxy in one shell. The browser UI is available at <http://localhost:8011>.
+
+If you want to run only the PyRIT app manually:
 
 ```bash
-curl localhost:8011/api/health
-curl localhost:8011/api/datasets                       # available test sets
-curl -X POST localhost:8011/api/runs -H 'Content-Type: application/json' \
+uv run python -m uvicorn aifa_pyrit.web_app:app --host 127.0.0.1 --port 8011
+```
+
+Open <http://localhost:8011>: **New Run**, **Live Run**, and **Export**.
+
+Useful checks:
+
+```bash
+curl http://127.0.0.1:8011/api/health
+curl http://127.0.0.1:8011/api/datasets
+curl -X POST http://127.0.0.1:8011/api/runs -H 'Content-Type: application/json' \
   -d '{"tenant_id":"aifa-water-licence","dataset_id":"saved-test-cases","attack_type":"PromptSending"}'
-curl localhost:8011/api/runs/<id>                      # status of a run
-curl localhost:8011/api/reports                        # saved reports
+curl http://127.0.0.1:8011/api/runs/<id>
+curl http://127.0.0.1:8011/api/reports
 ```
 
-`/api/promptfoo/*` is forwarded to the promptfoo service (`PROMPTFOO_SERVICE_URL`, default `http://127.0.0.1:8001`) for local development only.
+`/api/promptfoo/*` is forwarded to the Promptfoo service (`PROMPTFOO_SERVICE_URL`, default `http://127.0.0.1:8001`) for local development.
+
+If the judge endpoint is private-only, export the proxy chain in the same shell before starting the app:
+
+```bash
+export PROMPTFOO_USE_PRIVATE_PROXY=1
+export HTTP_PROXY=http://127.0.0.1:8118
+export HTTPS_PROXY=http://127.0.0.1:8118
+export ALL_PROXY=http://127.0.0.1:8118
+./scripts/start_app_with_proxy.sh
+```
 
 ## Test cases
 

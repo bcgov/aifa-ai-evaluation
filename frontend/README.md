@@ -4,19 +4,30 @@ Static single-page UI (plain HTML, CSS and ES modules, no build step) for both e
 
 ## Run locally
 
-The PyRIT web app serves this folder, so there is nothing to build:
+Use the repo-level launcher for the supported local setup:
 
 ```bash
-uv run python -m uvicorn aifa_pyrit.web_app:app --port 8011      # http://localhost:8011
+cd /Users/jatindersingh/Desktop/Projects/AI/project/aifa-ai-evaluation
+./scripts/start_app_with_proxy.sh
 ```
 
-PyRIT pages work immediately. The Promptfoo pages need the promptfoo service on `:8001` ([../promptfoo/README.md](../promptfoo/README.md)); the app forwards `/api/promptfoo/*` there (`PROMPTFOO_SERVICE_URL` to change it). After editing JS or CSS, hard-reload the page.
+This starts the backend and Promptfoo services that the frontend depends on, and serves the UI on http://localhost:8011.
+
+If you only want to run the app itself manually:
+
+```bash
+uv run python -m uvicorn aifa_pyrit.web_app:app --host 127.0.0.1 --port 8011
+```
+
+PyRIT pages work immediately. The Promptfoo pages need the Promptfoo service on `:8001`; the app forwards `/api/promptfoo/*` there (`PROMPTFOO_SERVICE_URL` can override it). After editing JS or CSS, hard-reload the page.
 
 ## Run with nginx (Docker)
 
 ```bash
-docker compose up --build frontend     # from the repo root; starts backend and promptfoo too
+docker compose up --build
 # UI at http://localhost:8080
+docker compose logs -f
+docker compose down
 ```
 
 Or build the image alone:
@@ -26,7 +37,7 @@ docker build -t aifa-frontend frontend
 docker run --rm -p 8080:80 -e PYRIT_UPSTREAM=host.docker.internal:8011 -e PROMPTFOO_UPSTREAM=host.docker.internal:8001 aifa-frontend
 ```
 
-nginx ([nginx.conf](nginx.conf)) serves the files and proxies `/api/promptfoo/*` to the promptfoo container and `/api/*` to PyRIT; `/healthz` is the health check.
+nginx ([nginx.conf](nginx.conf)) serves the static files and proxies `/api/promptfoo/*` to the Promptfoo service and `/api/*` to PyRIT; `/healthz` is the health check.
 
 | Variable | Default | Purpose |
 |---|---|---|

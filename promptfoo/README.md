@@ -11,62 +11,102 @@ promptfoo eval ─► /invoke (adapter) ─► AIFA backend (WebSocket)
 
 ```bash
 cd promptfoo
-cp .env.example .env     # fill in the values
-uv sync && npm ci        # Python deps and the judge proxy's Node deps
+cp .env.example .env
+uv sync && npm ci
 ```
+
+Required values:
 
 | Variable | Purpose |
 |---|---|
-| `AUDIT_LLM_ENDPOINT`, `_API_KEY`, `_DEPLOYMENT`, `_API_VERSION` | Judge model. Any endpoint serving `/openai/deployments/<deployment>/chat/completions` works, including a gateway path prefix |
-| `BACKEND_API_URL` | AIFA system under test (`wss://…/ws`) |
-| `AZURE_STORAGE_CONNECTION_STRING` | Optional Blob storage (see below) |
+| `AUDIT_LLM_ENDPOINT`, `_API_KEY`, `_DEPLOYMENT`, `_API_VERSION` | Judge model used for rubric grading |
+| `BACKEND_API_URL` | AIFA backend under test (`wss://…/ws`) |
+| `AZURE_STORAGE_CONNECTION_STRING` | Optional Blob storage |
 
 ## Run from the command line
 
+Use the repo-level launcher for the supported local setup:
+
 ```bash
-cd promptfoo
-./run_promptfoo_eval.sh          # judge proxy + adapter + eval → ../results-promptfoo/promptfoo-report.json
-./test_grader_no_proxy.sh        # checks the judge endpoint on its own
-npx promptfoo view -p 15500 -y   # native Promptfoo viewer
+cd /Users/jatindersingh/Desktop/Projects/AI/project/aifa-ai-evaluation
+./scripts/start_app_with_proxy.sh
 ```
 
-The script restarts the judge proxy, starts the adapter on `:8001` if nothing is there, and runs every test case.
+This starts the full stack, including the Promptfoo judge proxy and the Promptfoo service.
 
-## Run the service (what the web UI talks to)
+You can also run only Promptfoo tests using the repo script:
+
+```bash
+cd promptfoo
+./run_promptfoo_eval.sh
+```
+
+Other useful commands:
+
+```bash
+./test_grader_no_proxy.sh
+npx promptfoo view -p 15500 -y
+```
+
+## Private endpoint / proxy mode
+
+If the judge model is behind a private Azure endpoint, you must preserve the proxy chain in the same shell session that starts the app:
+
+```bash
+export PROMPTFOO_USE_PRIVATE_PROXY=1
+export HTTP_PROXY=http://127.0.0.1:8118
+export HTTPS_PROXY=http://127.0.0.1:8118
+export ALL_PROXY=http://127.0.0.1:8118
+export NO_PROXY=localhost,127.0.0.1,::1
+
+./scripts/start_app_with_proxy.sh
+```
+
+This is the supported local path when the Azure judge endpoint blocks direct public access.
+
+For the full private-network tunnel setup, see [../docs/private-network-proxy.md](../docs/private-network-proxy.md).
+
+## Run the service the browser talks to
 
 From the repo root:
 
 ```bash
-(cd promptfoo && set -a && . ./.env && set +a && node azure-grader-proxy.js) &       # judge :8002
-promptfoo/.venv/bin/python -m uvicorn promptfoo.src.promptfoo_service:app --port 8001
+./scripts/start_app_with_proxy.sh
 ```
 
-The service exposes the `/invoke` adapter, `/health`, and `/api/promptfoo/*` (jobs, results, test files). In Docker the entrypoint starts both the proxy and the service on `$PORT` (8001).
+This starts:
+
+- Promptfoo API on `http://127.0.0.1:8001`
+- Judge proxy on `http://127.0.0.1:8002`
+- PyRIT app on `http://127.0.0.1:8011`
+
+The service exposes `/invoke`, `/health`, and `/api/promptfoo/*` endpoints used by the UI and job runner.
 
 ## Use it from the UI
 
-Open **Run tests**, pick a YAML file from `data_promptfoo`, tick the cases, press **Run selected**. The run opens on its own screen with live CLI output and a pass/fail summary; **Results** keeps every run with per-test responses and grader reasons, JSON and CSV downloads, and **Re-run failures**.
+Open the main app at `http://localhost:8011`, then go to the Promptfoo flow in the browser. Select a YAML case file from `data_promptfoo`, choose the cases, and run them. Results are kept under `results-promptfoo/` and can be re-run or downloaded from the UI.
 
 ## Use it from curl
 
 ```bash
-curl localhost:8001/api/promptfoo/tests/files                              # YAML files and case counts
-curl localhost:8001/api/promptfoo/tests/datasets/promptfoo_tests_cases.yaml/cases
-curl -X POST localhost:8001/api/promptfoo/tests/run -H 'Content-Type: application/json' \
-  -d '{"dataset":"promptfoo_tests_cases.yaml","cases":[0,1]}'              # → job id
-curl "localhost:8001/api/promptfoo/jobs/<id>/logs?since=0"                 # console output
-curl localhost:8001/api/promptfoo/results                                  # saved results
+curl http://127.0.0.1:8001/api/promptfoo/tests/files
+curl http://127.0.0.1:8001/api/promptfoo/tests/datasets/promptfoo_tests_cases.yaml/cases
+curl -X POST http://127.0.0.1:8001/api/promptfoo/tests/run -H 'Content-Type: application/json' \
+  -d '{"dataset":"promptfoo_tests_cases.yaml","cases":[0,1]}'
+curl "http://127.0.0.1:8001/api/promptfoo/jobs/<id>/logs?since=0"
+curl http://127.0.0.1:8001/api/promptfoo/results
 ```
 
 ## Test cases and storage
 
-A test file is a YAML list of `vars.query` plus `assert` entries (`icontains`, `llm-rubric`, …); see [../data_promptfoo/promptfoo_tests_cases.yaml](../data_promptfoo/promptfoo_tests_cases.yaml). Every `.yaml` file in `data_promptfoo/` appears in the UI.
+Test files live under [../data_promptfoo](../data_promptfoo) and are YAML lists of `vars.query` plus assertions such as `icontains` or `llm-rubric`.
 
-With `AZURE_STORAGE_CONNECTION_STRING` (or `AZURE_STORAGE_ACCOUNT_NAME` for managed identity), test files are read from the `PROMPTFOO_DATA_CONTAINER_NAME` container (default `promptfoo-data`) and results are saved to `PROMPTFOO_RESULTS_CONTAINER_NAME` (`promptfoo-results`). Without them the local folders are used.
+When Azure storage is configured, Promptfoo reads dataset files from the configured data container and writes results to the results container; otherwise it uses the local `data_promptfoo/` and `results-promptfoo/` folders.
 
 ## Files
 
-- [promptfoo-config.yaml](promptfoo-config.yaml): target, judge and tests; the target URL comes from `PROMPTFOO_TARGET_URL` (default `http://127.0.0.1:8001/invoke`)
-- [src/promptfoo_service.py](src/promptfoo_service.py): API, jobs, results · [src/promptfoo_adapter.py](src/promptfoo_adapter.py), [src/promptfoo_wrapper.py](src/promptfoo_wrapper.py): `/invoke` and the WebSocket client
+- [promptfoo-config.yaml](promptfoo-config.yaml): target, judgment config, and test settings
+- [src/promptfoo_service.py](src/promptfoo_service.py): API, jobs, results
+- [src/promptfoo_adapter.py](src/promptfoo_adapter.py): `/invoke` and `/health`
+- [azure-grader-proxy.js](azure-grader-proxy.js): legacy grader compatibility shim
 - [Dockerfile](Dockerfile), [docker-entrypoint.sh](docker-entrypoint.sh): container image
-- [setup_local_forward.sh](setup_local_forward.sh), [teardown_local_forward.sh](teardown_local_forward.sh): optional SOCKS tunnel helpers ([../docs/proxy-connection-guide.md](../docs/proxy-connection-guide.md))

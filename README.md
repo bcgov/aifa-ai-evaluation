@@ -55,38 +55,84 @@ cp promptfoo/.env.example promptfoo/.env        # Promptfoo settings
 
 Fill in the AIFA backend URL (`BACKEND_API_URL`, a `wss://…/ws` endpoint), the judge model (`AUDIT_LLM_*`) and, for LLM attacks, `ADVERSARIAL_OPENAI_*`. Never commit `.env` files.
 
-## 2. Run locally (CLI)
+## 2. Run locally with the shared launcher
 
-Each product also runs on its own; see its README for details.
+The easiest supported path is the repo launcher, which loads the proxy settings and starts the whole local stack:
 
 ```bash
-# PyRIT command line
+./scripts/start_app_with_proxy.sh --check
+./scripts/start_app_with_proxy.sh
+```
+
+This starts:
+
+- PyRIT web app: http://localhost:8011
+- Promptfoo service: http://localhost:8001
+- Promptfoo judge proxy: http://localhost:8002
+
+Health checks:
+
+```bash
+curl http://127.0.0.1:8011/api/health
+curl http://127.0.0.1:8001/api/promptfoo/info
+curl http://127.0.0.1:8002/health
+```
+
+If your Azure judge endpoint is private-only, export the proxy chain before starting the app:
+
+```bash
+export PROMPTFOO_USE_PRIVATE_PROXY=1
+export HTTP_PROXY=http://127.0.0.1:8118
+export HTTPS_PROXY=http://127.0.0.1:8118
+export ALL_PROXY=http://127.0.0.1:8118
+export NO_PROXY=localhost,127.0.0.1,::1
+./scripts/start_app_with_proxy.sh
+```
+
+## 3. Run individual pieces manually
+
+### PyRIT CLI
+
+```bash
+uv run red-team --help
 uv run red-team list-cases
 uv run red-team scan --use-file -a PromptSending
-
-# Browser UI + PyRIT API on http://localhost:8011
-uv run python -m uvicorn aifa_pyrit.web_app:app --port 8011
 ```
 
-The Promptfoo pages of the UI also need the promptfoo service (the UI on `:8011` forwards `/api/promptfoo/*` to `:8001`):
+### PyRIT web app only
 
 ```bash
-cd promptfoo && uv sync && npm ci && cd ..
-(cd promptfoo && set -a && . ./.env && set +a && node azure-grader-proxy.js) &   # judge proxy :8002
-promptfoo/.venv/bin/python -m uvicorn promptfoo.src.promptfoo_service:app --port 8001
+uv run python -m uvicorn aifa_pyrit.web_app:app --host 127.0.0.1 --port 8011
 ```
 
-## 3. Run with Docker Compose
-
-Mirrors production: only the frontend is exposed.
+### Promptfoo only
 
 ```bash
-docker compose up --build        # UI at http://localhost:8080
-docker compose logs -f promptfoo # follow one service
+cd promptfoo
+uv sync && npm ci
+OPENAI_API_KEY="${AUDIT_LLM_API_KEY:-}" node azure-grader-proxy.js
+promptfoo/.venv/bin/python -m uvicorn promptfoo.src.promptfoo_service:app --host 127.0.0.1 --port 8001
+```
+
+## 4. Run with Docker Compose
+
+This mirrors production and exposes the frontend at http://localhost:8080:
+
+```bash
+docker compose up --build
+docker compose logs -f
 docker compose down
 ```
 
-The PyRIT API is also published on `http://localhost:8011` for debugging. Compose reads `aifa_pyrit/.env` and `promptfoo/.env`; set `PROMPTFOO_RUN_TOKEN` in your shell to require a token on Promptfoo calls. Reports persist in `results/` and `results-promptfoo/`.
+Useful checks:
+
+```bash
+curl http://localhost:8080
+curl http://localhost:8011/api/health
+curl http://localhost:8001/api/promptfoo/info
+```
+
+Compose reads the repo `.env` files and keeps the app, promptfoo service, and front-end together in one networking setup.
 
 ## 4. Production release (Azure Container Apps)
 
