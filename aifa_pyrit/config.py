@@ -6,6 +6,8 @@ import os
 from pathlib import Path
 from typing import Optional
 
+from urllib.parse import urlparse
+
 from pydantic import AliasChoices, Field
 
 # pydantic-settings is an optional runtime dependency in some environments.
@@ -18,6 +20,14 @@ except Exception:
 
     class SettingsConfigDict(dict):
         pass
+
+
+def _endpoint_hostname(endpoint: str) -> str:
+    if not endpoint:
+        return ""
+    parsed = urlparse(endpoint.strip())
+    host = parsed.hostname or ""
+    return host.lower()
 
 
 def normalize_audit_llm_endpoint(endpoint: str) -> str:
@@ -48,10 +58,16 @@ def is_foundry_openai_endpoint(endpoint: str) -> bool:
     value = (endpoint or "").strip()
     if not value:
         return False
-    lowered = value.lower()
-    return "services.ai.azure.com" in lowered or (
-        "/openai/v1" in lowered and ".openai.azure.com" not in lowered
-    )
+
+    parsed = urlparse(value)
+    hostname = (parsed.hostname or "").lower()
+    path = (parsed.path or "").lower()
+
+    if hostname == "services.ai.azure.com" or hostname.endswith(".services.ai.azure.com"):
+        return True
+    if hostname and hostname.endswith(".openai.azure.com"):
+        return False
+    return "/openai/v1" in path and bool(hostname)
 
 
 def build_chat_completion_url(endpoint: str, deployment: str, api_version: str) -> str:

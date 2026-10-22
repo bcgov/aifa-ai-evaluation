@@ -14,8 +14,16 @@ import json
 import os
 import sys
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
+
+
+def _endpoint_hostname(endpoint: str) -> str:
+    if not endpoint:
+        return ""
+    parsed = urlparse(endpoint.strip())
+    return (parsed.hostname or "").lower()
 
 
 def normalize_endpoint(endpoint: str) -> str:
@@ -30,10 +38,19 @@ def normalize_endpoint(endpoint: str) -> str:
 
 
 def is_foundry_endpoint(endpoint: str) -> bool:
-    value = (endpoint or "").strip().lower()
+    value = (endpoint or "").strip()
     if not value:
         return False
-    return "services.ai.azure.com" in value or "/openai/v1" in value
+
+    parsed = urlparse(value)
+    hostname = (parsed.hostname or "").lower()
+    path = (parsed.path or "").lower()
+
+    if hostname == "services.ai.azure.com" or hostname.endswith(".services.ai.azure.com"):
+        return True
+    if hostname and hostname.endswith(".openai.azure.com"):
+        return False
+    return "/openai/v1" in path and bool(hostname)
 
 
 def build_chat_completion_url(endpoint: str, deployment: str, api_version: str) -> str:
