@@ -41,6 +41,45 @@ function extractMessages(reqBody) {
   return Array.isArray(messages) ? messages : [{ role: 'user', content: String(messages) }];
 }
 
+function normalizeOpenAIShape(payload) {
+  if (!payload || typeof payload !== 'object') {
+    const text = typeof payload === 'string' ? payload : '';
+    return {
+      id: 'chatcmpl-fallback',
+      object: 'chat.completion',
+      created: 0,
+      model: DEPLOYMENT,
+      choices: [{
+        index: 0,
+        finish_reason: 'stop',
+        message: { role: 'assistant', content: text },
+      }],
+      usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+    };
+  }
+
+  if (payload.choices) {
+    return payload;
+  }
+
+  const content = payload.content || (payload.message && payload.message.content) || '';
+  return {
+    id: payload.id || 'chatcmpl-normalized',
+    object: payload.object || 'chat.completion',
+    created: payload.created || 0,
+    model: payload.model || DEPLOYMENT,
+    choices: [{
+      index: 0,
+      finish_reason: 'stop',
+      message: {
+        role: payload.role || 'assistant',
+        content: String(content),
+      },
+    }],
+    usage: payload.usage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+  };
+}
+
 app.get('/health', (req, res) => {
   res.json({ ok: true, target: AZURE_URL, deployment: DEPLOYMENT });
 });
@@ -71,9 +110,10 @@ app.post('/grade', async (req, res) => {
       }
       try {
         const payload = JSON.parse(stdout || '{}');
-        res.type('application/json').send(payload);
+        res.type('application/json').send(normalizeOpenAIShape(payload));
       } catch (error) {
-        res.type('application/json').send({ content: stdout.trim() || '' });
+        const fallback = normalizeOpenAIShape(stdout.trim() || '');
+        res.type('application/json').send(fallback);
       }
     });
   } catch (error) {
