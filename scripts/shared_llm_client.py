@@ -114,6 +114,45 @@ def send_chat_completion(
     return response.status_code, body, response.text
 
 
+def normalize_chat_completion_response(payload: Any) -> Any:
+    if not isinstance(payload, dict):
+        return payload
+
+    if payload.get("choices") is not None:
+        return payload
+
+    content_value = payload.get("content")
+    message_value = payload.get("message")
+    if content_value is None and not isinstance(message_value, dict):
+        return payload
+
+    normalized_content = content_value
+    if content_value is None and isinstance(message_value, dict):
+        normalized_content = message_value.get("content")
+
+    if normalized_content is None:
+        return payload
+
+    message = {"role": payload.get("role") or "assistant", "content": normalized_content}
+    if isinstance(message_value, dict):
+        message.update({k: v for k, v in message_value.items() if k != "content"})
+
+    return {
+        "id": payload.get("id") or "chatcmpl-normalized",
+        "object": payload.get("object") or "chat.completion",
+        "created": payload.get("created") or 0,
+        "model": payload.get("model") or "normalized",
+        "choices": [
+            {
+                "index": 0,
+                "finish_reason": "stop",
+                "message": message,
+            }
+        ],
+        "usage": payload.get("usage") or {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+    }
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Send a chat completion through the shared Azure/OpenAI-compatible client.")
     parser.add_argument("--endpoint", required=True, help="Azure OpenAI or Foundry endpoint")
@@ -153,10 +192,10 @@ def main() -> int:
         print(raw, file=sys.stderr)
         return status
 
+    output = normalize_chat_completion_response(payload or {})
     if args.json_output:
-        print(json.dumps(payload or {}, ensure_ascii=False))
+        print(json.dumps(output, ensure_ascii=False))
     else:
-        output = payload or {}
         choices = output.get("choices") or []
         if choices:
             msg = choices[0].get("message") or {}
