@@ -82,11 +82,12 @@ def build_chat_completion_url(endpoint: str, deployment: str, api_version: str) 
 
 def build_chat_request_headers(api_key: str, endpoint: str) -> dict[str, str]:
     """Return the correct auth headers for the configured endpoint contract."""
+    sanitized_api_key = (api_key or "").strip()
     headers = {"Content-Type": "application/json"}
     if is_foundry_openai_endpoint(endpoint):
-        headers["Authorization"] = f"Bearer {api_key}"
+        headers["Authorization"] = f"Bearer {sanitized_api_key}"
         return headers
-    headers["api-key"] = api_key
+    headers["api-key"] = sanitized_api_key
     return headers
 
 
