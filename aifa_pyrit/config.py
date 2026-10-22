@@ -26,6 +26,7 @@ def normalize_audit_llm_endpoint(endpoint: str) -> str:
     Azure resources are commonly configured as either:
     - https://resource.openai.azure.com
     - https://resource.openai.azure.com/openai/v1
+    - https://resource.services.ai.azure.com/openai/v1
 
     The REST endpoint used by the custom target needs the resource root, while PyRIT's
     OpenAIChatTarget expects the /openai/v1 form. This helper strips any trailing
@@ -40,6 +41,37 @@ def normalize_audit_llm_endpoint(endpoint: str) -> str:
         if lowered.endswith(suffix):
             return value[: -len(suffix)]
     return value
+
+
+def is_foundry_openai_endpoint(endpoint: str) -> bool:
+    """True for Azure AI Foundry OpenAI-compatible service endpoints."""
+    value = (endpoint or "").strip()
+    if not value:
+        return False
+    lowered = value.lower()
+    return "services.ai.azure.com" in lowered or (
+        "/openai/v1" in lowered and ".openai.azure.com" not in lowered
+    )
+
+
+def build_chat_completion_url(endpoint: str, deployment: str, api_version: str) -> str:
+    """Return the full chat-completions URL for either legacy Azure OpenAI or Foundry endpoints."""
+    base = normalize_audit_llm_endpoint(endpoint)
+    if not base or not deployment:
+        return base
+    if is_foundry_openai_endpoint(endpoint):
+        return f"{base.rstrip('/')}/openai/v1/chat/completions"
+    return f"{base.rstrip('/')}/openai/deployments/{deployment}/chat/completions?api-version={api_version}"
+
+
+def build_chat_request_headers(api_key: str, endpoint: str) -> dict[str, str]:
+    """Return the correct auth headers for the configured endpoint contract."""
+    headers = {"Content-Type": "application/json"}
+    if is_foundry_openai_endpoint(endpoint):
+        headers["Authorization"] = f"Bearer {api_key}"
+        return headers
+    headers["api-key"] = api_key
+    return headers
 
 
 def ensure_audit_llm_v1_endpoint(endpoint: str) -> str:
