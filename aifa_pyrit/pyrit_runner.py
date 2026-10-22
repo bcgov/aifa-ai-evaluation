@@ -335,10 +335,10 @@ class PyRITRunner:
         if not adversarial_api_key:
             raise ValueError("ADVERSARIAL_API_KEY or AUDIT_LLM_API_KEY not configured")
 
-        from .custom_audit_llm_target import CustomAzureOpenAITarget
+        from .custom_azure_openai_target import CustomAzureOpenAITarget
 
         logger.info(
-            "using_custom_audit_llm_target",
+            "using_shared_audit_adversarial_llm_target",
             endpoint=adversarial_endpoint,
             deployment=adversarial_deployment,
             api_version=adversarial_api_version,

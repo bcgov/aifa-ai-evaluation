@@ -22,7 +22,12 @@ from pyrit.prompt_target.common.target_capabilities import TargetCapabilities
 from pyrit.models import Message
 import structlog
 
-from aifa_pyrit.config import normalize_audit_llm_endpoint
+from aifa_pyrit.config import (
+    build_chat_completion_url,
+    build_chat_request_headers,
+    normalize_audit_llm_endpoint,
+    is_foundry_openai_endpoint,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -165,9 +170,9 @@ class CustomAzureOpenAITarget(PromptTarget):
             # Extract prompt text from message
             prompt = str(last_message.get_value())
             
-            # Construct full URL for Azure OpenAI
-            url = f"{self.endpoint}/openai/deployments/{self.deployment}/chat/completions?api-version={self.api_version}"
-            
+            # Construct full URL for Azure OpenAI or Azure AI Foundry
+            url = build_chat_completion_url(self.endpoint, self.deployment, self.api_version)
+
             # Build request payload
             # Convert message history to Azure OpenAI format
             messages = []
@@ -176,14 +181,13 @@ class CustomAzureOpenAITarget(PromptTarget):
                     "role": msg.api_role,
                     "content": str(msg.get_value())
                 })
-            
+
             payload = {"messages": messages}
-            
-            # Headers with proper API key authentication
-            headers = {
-                "Content-Type": "application/json",
-                "api-key": self.api_key,
-            }
+            if is_foundry_openai_endpoint(self.endpoint):
+                payload["model"] = self.deployment
+
+            # Headers with the auth scheme expected by the configured endpoint
+            headers = build_chat_request_headers(self.api_key, self.endpoint)
             
             logger.info(
                 "sending_audit_llm_request",

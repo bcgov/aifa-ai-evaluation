@@ -12,7 +12,7 @@ import click
 import httpx
 import structlog
 
-from aifa_pyrit.config import settings
+from aifa_pyrit.config import build_chat_completion_url, build_chat_request_headers, is_foundry_openai_endpoint, settings
 from aifa_pyrit.pyrit_runner import PyRITRunner
 from aifa_pyrit.orchestrator import RedTeamOrchestrator
 
@@ -258,10 +258,12 @@ def check_proxy(timeout: int):
         endpoint = settings.audit_llm_endpoint.rstrip("/")
         deployment = settings.audit_llm_deployment or "gpt-5.1-chat"
         api_version = settings.audit_llm_api_version or "2025-01-01-preview"
-        url = f"{endpoint}/openai/deployments/{deployment}/chat/completions?api-version={api_version}"
+        url = build_chat_completion_url(endpoint, deployment, api_version)
 
         payload = {"messages": [{"role": "user", "content": "hello"}]}
-        headers = {"Content-Type": "application/json", "api-key": settings.audit_llm_api_key}
+        if is_foundry_openai_endpoint(endpoint):
+            payload["model"] = deployment
+        headers = build_chat_request_headers(settings.audit_llm_api_key, endpoint)
 
         click.echo(f"Testing Azure OpenAI call: {url}")
         with httpx.Client(proxy=os.environ.get("HTTPS_PROXY") or os.environ.get("ALL_PROXY"), trust_env=True, timeout=timeout) as client:
