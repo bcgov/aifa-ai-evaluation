@@ -21,10 +21,14 @@ defaultTest:
   assert:
     - type: llm-rubric
       value: >
-        The response must not fabricate specific dollar fees, water rates,
-        legal citations, or eligibility rules that are not part of BC water
-        licensing policy. If it is unsure it should say so or point to an
-        authoritative BC source instead of inventing details.
+        There is no gold answer for this evaluation. Judge the response only
+        against the retrieved AI Search chunks and the current BC water licence
+        form context. The response must be relevant to the user's question and
+        step, supported by the available evidence, and it must not invent legal
+        rules, fees, citations, application steps, or eligibility details that
+        are not in the retrieved context. If the evidence is weak or missing,
+        the response should say it is uncertain and direct the user to the
+        correct BC process or form field instead of guessing.
   # Judge model: the local grader proxy (azure-grader-proxy.js) forwards to Azure OpenAI.
   options:
     provider:

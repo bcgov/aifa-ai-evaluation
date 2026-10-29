@@ -15,10 +15,13 @@ from pydantic import BaseModel, Field
 
 from aifa_pyrit.config import settings
 from aifa_pyrit.csv_export import reports_to_csv
+from aifa_pyrit.logging_utils import setup_logger
 from aifa_pyrit.orchestrator import RedTeamOrchestrator
 from aifa_pyrit.pyrit_runner import PyRITRunner
 from aifa_pyrit.run_manager import RunManager
 from aifa_pyrit.storage import get_report_store
+
+logger = setup_logger("aifa_pyrit.web_app")
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 RESULTS_DIR = BASE_DIR / "results"
@@ -564,10 +567,12 @@ async def run_seed_attack(request: RunSeedAttackRequest) -> dict[str, Any]:
 
 @app.post("/api/run-promptfoo")
 async def run_promptfoo(request: Request) -> dict[str, Any]:
+    logger.info("api_run_promptfoo_start headers=%s content_type=%s", dict(request.headers), request.headers.get("content-type"))
     # Optional token-based auth: set PROMPTFOO_RUN_TOKEN env var to require X-Run-Token header
     if PROMPTFOO_RUN_TOKEN:
         header = request.headers.get("x-run-token")
         if not header or header != PROMPTFOO_RUN_TOKEN:
+            logger.warning("api_run_promptfoo_unauthorized")
             raise HTTPException(status_code=401, detail="Unauthorized")
 
     # Run the promptfoo orchestration script and collect the produced report
@@ -626,19 +631,21 @@ async def run_promptfoo(request: Request) -> dict[str, Any]:
         )
         try:
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=900)
+            stdout_text = stdout.decode(errors="replace")[:2000]
+            stderr_text = stderr.decode(errors="replace")[:2000]
+            logger.info(
+                "api_run_promptfoo_process_finished returncode=%s stdout_preview=%s stderr_preview=%s",
+                proc.returncode,
+                stdout_text,
+                stderr_text,
+            )
+            if proc.returncode != 0 and not PROMPTFOO_RESULT.exists():
+                logger.error("api_run_promptfoo_nonzero_exit_without_result returncode=%s stderr_preview=%s", proc.returncode, stderr_text)
+                raise HTTPException(status_code=500, detail=f"Promptfoo failed: {stderr_text[:500]}")
         except asyncio.TimeoutError:
             proc.kill()
+            logger.exception("api_run_promptfoo_process_timeout")
             raise HTTPException(status_code=504, detail="Promptfoo run timed out")
-
-            # If the runner returns a non-zero code but produced a usable result
-            # file, continue and return that report (the Promptfoo process may
-            # emit non-fatal errors such as telemetry shutdown timeouts). Only
-            # fail if no output file was produced.
-            stdout, stderr = stdout or b"", stderr or b""
-            stderr_text = stderr.decode(errors='replace')[:2000]
-            if proc.returncode != 0 and not PROMPTFOO_RESULT.exists():
-                msg = stderr_text[:500]
-                raise HTTPException(status_code=500, detail=f"Promptfoo failed: {msg}")
 
     if not PROMPTFOO_RESULT.exists():
         raise HTTPException(status_code=500, detail="Promptfoo did not produce a result file")

@@ -22,6 +22,9 @@
     <a href="#/live" class="nav-item" data-view="live" data-short="L">
       <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
       <span class="nav-text">Live Run</span></a>
+    <a href="#/pyrit-results" class="nav-item" data-view="pyrit-results" data-short="R">
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>
+      <span class="nav-text">PyRIT results</span></a>
     <a href="#/export" class="nav-item" data-view="export" data-short="E">
       <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
       <span class="nav-text">Export</span></a>
@@ -155,6 +158,59 @@
         <div id="tr-attempts" class="attempt-tabs" role="tablist" aria-label="Attempts"></div>
         <div id="turns"></div>
       </section>
+    </section>
+
+    <!-- ============ PYRIT: RESULTS ============ -->
+    <section id="view-pyrit-results" class="view wrap-wide" hidden>
+      <header class="top">
+        <div>
+          <h1 id="pyr-title">PyRIT results</h1>
+          <p id="pyr-sub" class="sub"></p>
+        </div>
+        <div class="row-gap center">
+          <a id="pyr-back" href="#/pyrit-results" class="btn-secondary" hidden>All results</a>
+          <a id="pyr-json" class="btn-secondary" download hidden>JSON</a>
+        </div>
+      </header>
+
+      <section id="pyr-list-view" class="card">
+        <div class="exp-toolbar">
+          <input id="pyr-list-filter" class="text-in" type="search" placeholder="Filter by report name or attack type" aria-label="Filter PyRIT reports">
+        </div>
+        <div class="pf-res-row exp-head"><span>Result</span><span>Saved</span><span>Attack</span><span>Cases</span><span>Turns</span><span>Status</span><span>Rate</span></div>
+        <div id="pyr-list"></div>
+      </section>
+
+      <div id="pyr-detail" class="view" hidden>
+        <div class="stats">
+          <div class="card stat"><div class="stat-label">Cases</div><div class="stat-num" id="pyr-st-total">–</div></div>
+          <div class="card stat"><div class="stat-label">Turns</div><div class="stat-num" id="pyr-st-turns">–</div></div>
+          <div class="card stat"><div class="stat-label" id="pyr-pass-label">Successful turns</div><div class="stat-num ok-text" id="pyr-st-pass">–</div></div>
+          <div class="card stat"><div class="stat-label" id="pyr-fail-label">Review / incomplete</div><div class="stat-num bad-num" id="pyr-st-review">–</div></div>
+          <div class="card stat"><div class="stat-label">Errors</div><div class="stat-num" id="pyr-st-error">–</div></div>
+          <div class="card stat"><div class="stat-label">Success rate</div><div class="stat-num" id="pyr-st-rate">–</div><div class="track"><span id="pyr-tr-rate" class="ok"></span></div></div>
+        </div>
+
+        <div class="g2">
+          <section class="card c"><div class="c-head"><h2>By attack</h2><span class="tag cat">count</span></div><div id="pyr-attacks"></div></section>
+          <section class="card c"><div class="c-head"><h2>By outcome</h2><span class="tag cat">count</span></div><div id="pyr-outcomes"></div></section>
+        </div>
+
+        <section class="card">
+          <div class="exp-toolbar">
+            <div id="pyr-filter" class="seg">
+              <button type="button" data-status="all" class="on">All</button>
+              <button type="button" data-status="fail">Fail</button>
+              <button type="button" data-status="pass">Pass</button>
+              <button type="button" data-status="error">Error</button>
+              <button type="button" data-status="review">Review</button>
+            </div>
+            <input id="pyr-search" class="text-in" type="search" placeholder="Search queries or responses" aria-label="Search PyRIT cases">
+            <span id="pyr-row-count" class="note nomargin"></span>
+          </div>
+          <div id="pyr-rows"></div>
+        </section>
+      </div>
     </section>
 
     <!-- ============ EXPORT ============ -->
