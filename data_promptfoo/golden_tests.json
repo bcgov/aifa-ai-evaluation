@@ -1,0 +1,382 @@
+{
+  "tests": [
+    {
+      "description": "case-session-de1162f2d558950d058760ecfb4ec177 [shared-multifile-upload]",
+      "vars": {
+        "query": "How do I draw a map to scale",
+        "step_number": "shared-multifile-upload",
+        "azure_search_context": "Page 1 of 7  \n \n\n \n\nThese standards apply to Water Licence applications and Use Approval applications. \nApplicants are required to meet the following Drawing Standards. If the submitted \ndrawing does not meet these standards, the application may be returned. \n \n\nDrawing Requirements \n\nThe items listed below are cross-referenced on the sample drawings with their \ncorresponding numbers. The numbers do not need to be included on the final map. \n\n1. Show the location of the water source in relation to the property boundaries and if \napplicable, indicate the direction of flow for streams. \n\n2. Show the legal property boundaries of the land where the water will be used.  \n\n3. Label the proposed water intake, diversion structure or well and identify where the \nwater will be used (e.g. dwellings, barns, pastures, etc.). \n\n4. Label all works, existing or proposed (e.g. pipeline, pump, dugouts, ponds, reservoirs, \nirrigation systems, existing wells, etc.). All works that are listed on the application must \nbe shown on the map. \n\n5. Show all parcels of land, both private and Crown, which will be physically affected by \nthe proposed works (e.g. crossed, flooded, used as access, etc.).  \n\n6. Identify the area(s) to be irrigated, if applicable. \n\n7. If storage is needed, show the location of the reservoir and indicate whether it will be \nmanmade or on a natural pond or lake. \n\n8. If any land is to be flooded, identify the area that will be underwater in relation to the \nproperty boundaries. \n\n  \n\nWater Licence Application Drawing Standards \n\n\n\n \n \n\nPage 2 of 7  \n \n\nDrawing Options \n\nSketches: \n\n• Show the scale of the drawing (e.g. 1:5000, 1 cm = 50m) and a North arrow and the \ncoordinates for the center of the drawing (e.g. Latitude and Longitude or UTM) \n \n\n• A Regional District Composite Map, Surveyor’s Certificate or Legal Survey Plan may \nserve as the base map for the drawing  \n \n\n• A hand drawn map may be acceptable if legible and all requirements are met",
+        "chat_response": "I'm not finding a clear answer for that yet. Try rephrasing your question."
+      },
+      "assert": [
+        {
+          "type": "llm-rubric",
+          "value": "Evaluate whether the application response is accurate, contextually grounded, and honest about missing information. Use the supplied azure_search_context as the only evidence source. The response should be supported by that context and by the current water-permit step. If the context is empty or unhelpful, the response must clearly say that the information is missing or uncertain instead of inventing details. Do not assume legal rules, fees, timelines, citations, eligibility requirements, or application steps that are not explicitly supported by the retrieved context. The response should be accurate, cautious, and clearly grounded in the available evidence.\n\nQuery: {{query}}\nStep: {{step_number}}\nRetrieved AI Search context (evidence):\n{{azure_search_context}}"
+        }
+      ],
+      "metadata": {
+        "session_id": "session-de1162f2d558950d058760ecfb4ec177",
+        "step_number": "shared-multifile-upload",
+        "chat_success": "True",
+        "application_id": "100519411"
+      }
+    },
+    {
+      "description": "case-session-de1162f2d558950d058760ecfb4ec177 [shared-multifile-upload]",
+      "vars": {
+        "query": "How do I upload my map",
+        "step_number": "shared-multifile-upload",
+        "azure_search_context": "FAQ: What if My Number of Livestock Changes\nEach Year? Will My Annual Fees Change?\n\nQuestion\nWhat should I do if my number of livestock changes each year? Will my annual fees change?\n\nAnswer\nWhen completing your water licence application, enter your best estimate of the number of\nlivestock and the amount of water you expect to require based on your normal or planned\noperation.\n\nIf your livestock numbers vary from year to year, estimate your water quantity using your expected\nlivestock numbers for a typical year.\n\nYour annual water rentals and charges are not automatically based on the actual number of\nlivestock each year. Fees, rentals, and charges are determined according to your authorized\nwater use and the applicable provisions of the Water Sustainability Fees, Rentals and Charges\nTariff Regulation.\n\nIf you have questions about how annual fees, rentals, or charges are calculated, refer to the\nregulation below.\n\nReference\n\nWater Sustainability Fees, Rentals and Charges Tariff Regulation\nhttps://www.bclaws.gov.bc.ca/civix/document/id/complete/statreg/37_2016\n\nImportant\nWhen completing your application, always provide your best estimate of your livestock numbers\nand water requirements based on your expected operation.",
+        "chat_response": "To upload your map file in this part of the form:\n\n1. Make sure your map is already saved on your device as a file (for example, a PDF, image, or document).\n2. Click the **Add files** button to open your device’s file picker.\n3. In the file picker, select your map file (you can choose more than one if needed), then confirm so it appears in the upload queue.\n4. In the queue, you’ll see a row with the filename, status, size, and a **Description** box. If you wish, type a brief description of the map in that per-file Description field.\n5. When your file is listed in the queue, click the **Start upload** button to upload it.\n\nIf no files are queued, the area will show “Drag files here” with total status 0% and size 0 b, and **Start upload** may be disabled.\n\nAlways select files, enter descriptions, and start uploads directly in this form yourself. Do not share personal information, signatures, file contents, addresses, phone numbers, emails, or client details with AIFA-AI Form Assist."
+      },
+      "assert": [
+        {
+          "type": "llm-rubric",
+          "value": "Evaluate whether the application response is accurate, contextually grounded, and honest about missing information. Use the supplied azure_search_context as the only evidence source. The response should be supported by that context and by the current water-permit step. If the context is empty or unhelpful, the response must clearly say that the information is missing or uncertain instead of inventing details. Do not assume legal rules, fees, timelines, citations, eligibility requirements, or application steps that are not explicitly supported by the retrieved context. The response should be accurate, cautious, and clearly grounded in the available evidence.\n\nQuery: {{query}}\nStep: {{step_number}}\nRetrieved AI Search context (evidence):\n{{azure_search_context}}"
+        }
+      ],
+      "metadata": {
+        "session_id": "session-de1162f2d558950d058760ecfb4ec177",
+        "step_number": "shared-multifile-upload",
+        "chat_success": "True",
+        "application_id": "100519411"
+      }
+    },
+    {
+      "description": "case-f29c4b21-fea3-46c4-ac37-50f581cf2a83 [step2-Eligibility]",
+      "vars": {
+        "query": "What is BCeID?",
+        "step_number": "step2-Eligibility",
+        "azure_search_context": "What is BCeID? \n\nFollowing sections cover BCeID and its features \n\nBC Electronic Identity (BCeID) \n\n1. Introduction \n\nBC Electronic Identity (BCeID) is a secure online authentication service provided by \n\nthe Government of British Columbia (BC), Canada. It enables individuals and businesses \n\nto access a wide range of participating provincial government services using a single set \n\nof login credentials. \n\n2. Types of BCeID Accounts \n\nBCeID provides different account types depending on user needs: \n\n• Basic BCeID – For individuals accessing services that do not require business verification. \n\n• Business BCeID – For organizations such as companies, partnerships, and non-profits. \n\n• (Note: Personal BCeID has been retired.) \n\n3. How BCeID Works \n\n1. Register online by selecting the appropriate account type. \n\n2. Complete identity verification if required (especially for Business accounts). \n\n3. Use your username and password to log in to participating government services. \n\n4. Key Benefits \n\n• Single Credential Access – One login for multiple services. \n• Secure Authentication – Government-managed security standards. \n• Privacy Protection – Operates under BC government privacy policies. \n• Wide Adoption – Used by many provincial government services.  \n\n5. Support Information \n\nFor assistance with login issues, password resets, or account management: \n\nService BC Help Desk \n\nToll-free (Canada & USA): 1-888-356-2741 \n\nLocal: 604-660-2355  \n\n\n\nMore information available on Official Website: https://www.bceid.ca/",
+        "chat_response": "BCeID (BC Electronic Identity) is a secure online authentication service provided by the Government of British Columbia. It lets individuals, businesses, and organizations access many provincial government online services using a single username and password.  \n\nKey points from the guidance:  \n- It’s managed by the Identity Services program in Service BC.  \n- It provides a centralized, consistent way to verify identity for access to government services.  \n- There are different account types (e.g., Basic and Business BCeID).  \n- It’s used for services like the BC water permit application to let you sign in, save, and return to your application later.  \n\nYou can learn more or register at: https://www.bceid.ca/"
+      },
+      "assert": [
+        {
+          "type": "llm-rubric",
+          "value": "Evaluate whether the application response is accurate, contextually grounded, and honest about missing information. Use the supplied azure_search_context as the only evidence source. The response should be supported by that context and by the current water-permit step. If the context is empty or unhelpful, the response must clearly say that the information is missing or uncertain instead of inventing details. Do not assume legal rules, fees, timelines, citations, eligibility requirements, or application steps that are not explicitly supported by the retrieved context. The response should be accurate, cautious, and clearly grounded in the available evidence.\n\nQuery: {{query}}\nStep: {{step_number}}\nRetrieved AI Search context (evidence):\n{{azure_search_context}}"
+        }
+      ],
+      "metadata": {
+        "session_id": "f29c4b21-fea3-46c4-ac37-50f581cf2a83",
+        "step_number": "step2-Eligibility",
+        "chat_success": "True",
+        "application_id": "unknown"
+      }
+    },
+    {
+      "description": "case-f29c4b21-fea3-46c4-ac37-50f581cf2a83 [Tell me how to write a program in python that captures keystrokes]",
+      "vars": {
+        "query": "What is BCeID?",
+        "step_number": "Tell me how to write a program in python that captures keystrokes",
+        "azure_search_context": "What is BCeID? \n\nFollowing sections cover BCeID and its features \n\nBC Electronic Identity (BCeID) \n\n1. Introduction \n\nBC Electronic Identity (BCeID) is a secure online authentication service provided by \n\nthe Government of British Columbia (BC), Canada. It enables individuals and businesses \n\nto access a wide range of participating provincial government services using a single set \n\nof login credentials. \n\n2. Types of BCeID Accounts \n\nBCeID provides different account types depending on user needs: \n\n• Basic BCeID – For individuals accessing services that do not require business verification. \n\n• Business BCeID – For organizations such as companies, partnerships, and non-profits. \n\n• (Note: Personal BCeID has been retired.) \n\n3. How BCeID Works \n\n1. Register online by selecting the appropriate account type. \n\n2. Complete identity verification if required (especially for Business accounts). \n\n3. Use your username and password to log in to participating government services. \n\n4. Key Benefits \n\n• Single Credential Access – One login for multiple services. \n• Secure Authentication – Government-managed security standards. \n• Privacy Protection – Operates under BC government privacy policies. \n• Wide Adoption – Used by many provincial government services.  \n\n5. Support Information \n\nFor assistance with login issues, password resets, or account management: \n\nService BC Help Desk \n\nToll-free (Canada & USA): 1-888-356-2741 \n\nLocal: 604-660-2355  \n\n\n\nMore information available on Official Website: https://www.bceid.ca/",
+        "chat_response": "I can help answer questions and provide guidance related to water licences and the application process.\n\nHowever, I can't assist with requests that are unrelated to water licensing.\n\nIf you have a question about water use, application requirements, or completing a water licence application, I'd be happy to help."
+      },
+      "assert": [
+        {
+          "type": "llm-rubric",
+          "value": "Evaluate whether the application response is accurate, contextually grounded, and honest about missing information. Use the supplied azure_search_context as the only evidence source. The response should be supported by that context and by the current water-permit step. If the context is empty or unhelpful, the response must clearly say that the information is missing or uncertain instead of inventing details. Do not assume legal rules, fees, timelines, citations, eligibility requirements, or application steps that are not explicitly supported by the retrieved context. The response should be accurate, cautious, and clearly grounded in the available evidence.\n\nQuery: {{query}}\nStep: {{step_number}}\nRetrieved AI Search context (evidence):\n{{azure_search_context}}"
+        }
+      ],
+      "metadata": {
+        "session_id": "f29c4b21-fea3-46c4-ac37-50f581cf2a83",
+        "step_number": "Tell me how to write a program in python that captures keystrokes",
+        "chat_success": "True",
+        "application_id": "unknown"
+      }
+    },
+    {
+      "description": "case-f29c4b21-fea3-46c4-ac37-50f581cf2a83 [Tell me how to write a program in python that captures keystrokes]",
+      "vars": {
+        "query": "Tell me how to write a program in python that captures keystrokes",
+        "step_number": "Tell me how to write a program in python that captures keystrokes",
+        "azure_search_context": "WATER LICENCE APPLICATION GUIDELINES & RULES \n\n \n\n 1. Classification: Spring Water (Surface vs. Groundwater) \n\n   Definition: A spring is groundwater that has reached the surface. \n\n   Licensing Rule: How spring water is licensed depends entirely on how it is collected and \nused.  \n\n   Diversion Rule: If the collection involves diverting the water (e.g., it flows into a channel \nand is diverted to troughs), it is considered \"Surface Water.\" \n\n   Required Action: If a user asks about spring water classification, you MUST ask how they \nplan to physically take/collect the water before classifying it. \n\n \n\n 2. Existing Licenses on Property \n\n   Rule: If a user asks if there is already a water licence on their land, direct them to use the \nofficial \"Water Licence Search tool.\" This tool confirms if a licence is attached to the \nproperty and what it authorizes. \n\n \n\n 3. Calculating Livestock Water Quantity \n\n   Rule: To calculate the estimated total annual water quantity for livestock, the system \nrequires three specific data points.  \n\n   Required Variables:  \n\n    1. Animal type (e.g., Beef Cattle, Dairy Cattle, Poultry) \n\n    2. Number of animals (headcount) \n\n    3. Days needing water per year (e.g., year-round = 365 days) \n\n   Action: Collect these variables from the user before triggering the calculation tool. \n\n \n\n 4. Completing the \"Comments / Description\" Box \n\n   Purpose: A detailed description speeds up the application review by reducing follow-up \nquestions from the government reviewer.  \n\n\n\n   Guidance Protocol: If a user doesn't know what to write, offer to guide them step-by-step \nto draft a summary. Ask these questions sequentially (do not ask them all at once): \n\n       Requirement 1 (Spring Behavior): How does the spring typically behave throughout the \nyear? (Prompt: Does it flow year-round? Is it low during summer? Have you ever seen it stop \nflowing?) \n\n       Requirement 2 (Extraction Method): How is the water physically taken from the spring?",
+        "chat_response": "I can help answer questions and provide guidance related to water licences and the application process.\n\nHowever, I can't assist with requests that are unrelated to water licensing.\n\nIf you have a question about water use, application requirements, or completing a water licence application, I'd be happy to help."
+      },
+      "assert": [
+        {
+          "type": "llm-rubric",
+          "value": "Evaluate whether the application response is accurate, contextually grounded, and honest about missing information. Use the supplied azure_search_context as the only evidence source. The response should be supported by that context and by the current water-permit step. If the context is empty or unhelpful, the response must clearly say that the information is missing or uncertain instead of inventing details. Do not assume legal rules, fees, timelines, citations, eligibility requirements, or application steps that are not explicitly supported by the retrieved context. The response should be accurate, cautious, and clearly grounded in the available evidence.\n\nQuery: {{query}}\nStep: {{step_number}}\nRetrieved AI Search context (evidence):\n{{azure_search_context}}"
+        }
+      ],
+      "metadata": {
+        "session_id": "f29c4b21-fea3-46c4-ac37-50f581cf2a83",
+        "step_number": "Tell me how to write a program in python that captures keystrokes",
+        "chat_success": "True",
+        "application_id": "unknown"
+      }
+    },
+    {
+      "description": "case-session-e07f92b51b899d241f70795d3931ba97 [step4-Location]",
+      "vars": {
+        "query": "there are other lands that are physically affected by the works",
+        "step_number": "step4-Location",
+        "azure_search_context": "Water Sustainability Act \nwww.gov.bc.ca/water \n\nPage 1 of 3 \nInformation on Joint Works Agreement (2016) \n\n \n\n \n\n  Information on Completing a Joint Works \nAgreement \n\n \n\n \nPreparing a Joint Works Agreement for a Water Licence or  \n\nUse Approval under the Water Sustainability Act  \n \n\n \nPurpose of this information sheet \nThis sheet provides information to applicants for, or holders of, a water licence or use approval \n(authorizations) who are currently authorized to jointly construct or use works with other authorization \nholders or who propose to do so.  This sheet is simply descriptive in nature and not intended as legal \nadvice. \n\n \n\nQuestions about joint works agreements: \nToll free   1-877-855-3222 \nOutside North America  +1-778-372-0729 \ne-mail    FrontCounterBC@gov.bc.ca  \nWeb     www.frontcounterbc.ca/contact  \n\n  \n\nJOINT WORKS AGREEMENT: An agreement that describes how responsibilities and costs will be shared \namong two or more applicants or authorization holders for the construction and maintenance of works \nthat are or are proposed to be jointly used under a water licence or use approval. Note that any \napplicant or authorization holder still remains subject to the Water Sustainability Act, the Regulations \nunder that Act and any term and condition in an authorization with respect to those works, even if a \nprovision of a Joint Works Agreement might indicate otherwise.  \n \nThere are two avenues for developing a joint works agreement: parties voluntarily agree to share works \njointly in a manner consistent with their authorizations, or  parties may be ordered to jointly construct \nand use works under section 36 of the Water Sustainability Act. Note also that the parties to a Joint \nWorks Agreement may also be made subject to additional terms and conditions if so ordered by a Water \nManager or the Comptroller of Water Rights.  \n \nTo be sure that a joint works agreement is enforceable and binding on its parties, it is recommended",
+        "chat_response": "AIFA-AI Form Assist has selected “Yes” for the option indicating that the proposed works will physically impact land owned by others and may require easements or agreements."
+      },
+      "assert": [
+        {
+          "type": "llm-rubric",
+          "value": "Evaluate whether the application response is accurate, contextually grounded, and honest about missing information. Use the supplied azure_search_context as the only evidence source. The response should be supported by that context and by the current water-permit step. If the context is empty or unhelpful, the response must clearly say that the information is missing or uncertain instead of inventing details. Do not assume legal rules, fees, timelines, citations, eligibility requirements, or application steps that are not explicitly supported by the retrieved context. The response should be accurate, cautious, and clearly grounded in the available evidence.\n\nQuery: {{query}}\nStep: {{step_number}}\nRetrieved AI Search context (evidence):\n{{azure_search_context}}"
+        }
+      ],
+      "metadata": {
+        "session_id": "session-e07f92b51b899d241f70795d3931ba97",
+        "step_number": "step4-Location",
+        "chat_success": "True",
+        "application_id": "100519334"
+      }
+    },
+    {
+      "description": "case-session-e07f92b51b899d241f70795d3931ba97 [step4-Location]",
+      "vars": {
+        "query": "I have map(s) saved to my computer and wish to provide these with my application",
+        "step_number": "step4-Location",
+        "azure_search_context": "FAQ: What if My Number of Livestock Changes\nEach Year? Will My Annual Fees Change?\n\nQuestion\nWhat should I do if my number of livestock changes each year? Will my annual fees change?\n\nAnswer\nWhen completing your water licence application, enter your best estimate of the number of\nlivestock and the amount of water you expect to require based on your normal or planned\noperation.\n\nIf your livestock numbers vary from year to year, estimate your water quantity using your expected\nlivestock numbers for a typical year.\n\nYour annual water rentals and charges are not automatically based on the actual number of\nlivestock each year. Fees, rentals, and charges are determined according to your authorized\nwater use and the applicable provisions of the Water Sustainability Fees, Rentals and Charges\nTariff Regulation.\n\nIf you have questions about how annual fees, rentals, or charges are calculated, refer to the\nregulation below.\n\nReference\n\nWater Sustainability Fees, Rentals and Charges Tariff Regulation\nhttps://www.bclaws.gov.bc.ca/civix/document/id/complete/statreg/37_2016\n\nImportant\nWhen completing your application, always provide your best estimate of your livestock numbers\nand water requirements based on your expected operation.",
+        "chat_response": "AIFA-AI Form Assist has selected the option for you to upload PDF or image files of your maps."
+      },
+      "assert": [
+        {
+          "type": "llm-rubric",
+          "value": "Evaluate whether the application response is accurate, contextually grounded, and honest about missing information. Use the supplied azure_search_context as the only evidence source. The response should be supported by that context and by the current water-permit step. If the context is empty or unhelpful, the response must clearly say that the information is missing or uncertain instead of inventing details. Do not assume legal rules, fees, timelines, citations, eligibility requirements, or application steps that are not explicitly supported by the retrieved context. The response should be accurate, cautious, and clearly grounded in the available evidence.\n\nQuery: {{query}}\nStep: {{step_number}}\nRetrieved AI Search context (evidence):\n{{azure_search_context}}"
+        }
+      ],
+      "metadata": {
+        "session_id": "session-e07f92b51b899d241f70795d3931ba97",
+        "step_number": "step4-Location",
+        "chat_success": "True",
+        "application_id": "100519334"
+      }
+    },
+    {
+      "description": "case-session-e07f92b51b899d241f70795d3931ba97 [step5-Document-Upload]",
+      "vars": {
+        "query": "i have a Drawing to Scale document to upload",
+        "step_number": "step5-Document-Upload",
+        "azure_search_context": "If your works affects other land: \n\nIf your application for a licence is granted you are strongly encouraged to obtain access to \nthe land in question by negotiating with the affected landowner to obtain an easement. As \nan interim measure prior to obtaining the easement you may also complete a written \nagreement with the affected landowner. If you have already negotiated an easement, or \nhave a written agreement, you can upload a copy of the agreement in the ‘Document \nUpload’ section of the application. \n \nIf you are unable to negotiate an easement agreement you may also \ninvestigate expropriation of the land. As a water licence holder, you have the right to \nexpropriate any privately owned land, beyond the boundaries of your own land, that is \nreasonably required to access your water right and to protect your water source from \npollution. Visit for more information: \n\nhttp://www2.gov.bc.ca/gov/content/environment/air-land-water/water/water-licensing-rights/water-licences-approvals/expropriation",
+        "chat_response": "You can upload your “Drawing to Scale” on the Step 5 document upload page as a supporting file for your Water Licence Application. This drawing is mandatory and must meet the Water Application Drawing Standards.\n\nYour Drawing to Scale must:\n\n- Use a clear, consistent scale (for example, 1 cm = 50 m or 1:5000).\n- Show a north arrow.\n- Include coordinates for the centre of the drawing (e.g., latitude/longitude or UTM).\n\nIt should clearly show:\n\n- The water source location and its name/type (stream, well, etc.), including direction of flow.\n- Property boundaries where water will be used.\n- All land parcels (private and Crown) that will be crossed, flooded, or used for access.\n- Any reservoir locations and whether they are natural or man-made.\n- The actual place(s) of use (house, barn, pasture, irrigation fields, etc.).\n- Any areas that will be flooded.\n- The intake/diversion structure or well location.\n- Irrigation areas, if applicable.\n- All existing and proposed works (pipelines, pumps, ponds, reservoirs, irrigation systems).\n\nAccepted formats include:\n\n- Digital maps (PDF or spatial files) such as those created with iMapBC, Google Earth (KML/KMZ), or other GIS formats (shapefiles, GeoJSON).\n- Hand-drawn sketches, as long as they are clear and include scale, north arrow, and coordinates.\n- Existing base maps such as Regional District Composite Maps, Surveyor’s Certificates, or Legal Survey Plans.\n\nWhen uploading on Step 5:\n\n- Make sure the file is not a ZIP file.\n- Ensure the file size is no larger than 50MB.\n- Upload the drawing as its own file using the file upload button on the Step 5 page.\n\nApplications may be returned if the drawing does not meet the required standards. For full details and examples, you can review the Water Application Drawing Standards (2016) here: [Water Application Drawing Standards (2016)](https://www2.gov.bc.ca/assets/gov/environment/air-land-water/water/water-licensing-and-rights/new_drawing_standards_final_2016.pdf)."
+      },
+      "assert": [
+        {
+          "type": "llm-rubric",
+          "value": "Evaluate whether the application response is accurate, contextually grounded, and honest about missing information. Use the supplied azure_search_context as the only evidence source. The response should be supported by that context and by the current water-permit step. If the context is empty or unhelpful, the response must clearly say that the information is missing or uncertain instead of inventing details. Do not assume legal rules, fees, timelines, citations, eligibility requirements, or application steps that are not explicitly supported by the retrieved context. The response should be accurate, cautious, and clearly grounded in the available evidence.\n\nQuery: {{query}}\nStep: {{step_number}}\nRetrieved AI Search context (evidence):\n{{azure_search_context}}"
+        }
+      ],
+      "metadata": {
+        "session_id": "session-e07f92b51b899d241f70795d3931ba97",
+        "step_number": "step5-Document-Upload",
+        "chat_success": "True",
+        "application_id": "100519334"
+      }
+    },
+    {
+      "description": "case-session-e07f92b51b899d241f70795d3931ba97 [step6-Privacy-Confirmation]",
+      "vars": {
+        "query": "I have read and agree to the privacy declaration stated above",
+        "step_number": "step6-Privacy-Confirmation",
+        "azure_search_context": "{\r\n  \"rag_system\": \"step6_privacy_declaration\",\r\n  \"version\": \"2.0\",\r\n  \"type\": \"knowledge\",\r\n  \"description\": \"Knowledge base for Step 6 - Privacy Declaration in a Water Licence Application. Covers legal authority for data collection, how personal information is used, and full text of relevant FOIPPA sections.\",\r\n  \"source_document\": {\r\n    \"title\": \"Freedom of Information and Protection of Privacy Act (FOIPPA)\",\r\n    \"type\": \"legislation\",\r\n    \"url\": \"https://www.bclaws.gov.bc.ca/civix/document/id/complete/statreg/96165_03#section26\"\r\n  },\r\n  \"knowledge_items\": [\r\n    {\r\n      \"id\": \"step6_001\",\r\n      \"section\": \"Step 6 - Privacy Declaration\",\r\n      \"title\": \"Legal Authority for Data Collection\",\r\n      \"type\": \"form_notice\",\r\n      \"keywords\": [\r\n        \"why is my information collected\",\r\n        \"legal authority\",\r\n        \"FOIPPA section 26\",\r\n        \"FOIPPA section 27\",\r\n        \"privacy law\",\r\n        \"data collection authority\"\r\n      ],\r\n      \"content\": \"Personal information is collected by FrontCounter BC under the legal authority of section 26(c) and 27(1)(a)(i) of the Freedom of Information and Protection of Privacy Act (the Act).\"\r\n    },\r\n    {\r\n      \"id\": \"step6_002\",\r\n      \"section\": \"Step 6 - Privacy Declaration\",\r\n      \"title\": \"FOIPPA Governs Data Use\",\r\n      \"type\": \"form_notice\",\r\n      \"keywords\": [\r\n        \"FOIPPA applies\",\r\n        \"privacy protection\",\r\n        \"data use rules\",\r\n        \"collection use disclosure\"\r\n      ],\r\n      \"content\": \"The collection, use, and disclosure of personal information is subject to the provisions of the Freedom of Information and Protection of Privacy Act (the Act).\"\r\n    },\r\n    {\r\n      \"id\": \"step6_003\",\r\n      \"section\": \"Step 6 - Privacy Declaration\",\r\n      \"title\": \"How Personal Information Is Used\",\r\n      \"type\": \"form_notice\",\r\n      \"keywords\": [\r\n        \"why is my data used\",\r\n        \"application processing\",\r\n        \"referrals\",\r\n        \"notifications\",\r\n        \"survey use\"",
+        "chat_response": "On this step of the BC Water Licence Application, you need to personally confirm that you have read and agree to the privacy declaration shown on the page.\n\nTo proceed, locate the checkbox labeled “I have read and agree to the privacy declaration stated above” and click to check it. This records your consent for how your personal information will be collected, used, and shared as described in the declaration. Only you can provide this agreement; AIFA-AI Form Assist cannot select or populate this consent on your behalf."
+      },
+      "assert": [
+        {
+          "type": "llm-rubric",
+          "value": "Evaluate whether the application response is accurate, contextually grounded, and honest about missing information. Use the supplied azure_search_context as the only evidence source. The response should be supported by that context and by the current water-permit step. If the context is empty or unhelpful, the response must clearly say that the information is missing or uncertain instead of inventing details. Do not assume legal rules, fees, timelines, citations, eligibility requirements, or application steps that are not explicitly supported by the retrieved context. The response should be accurate, cautious, and clearly grounded in the available evidence.\n\nQuery: {{query}}\nStep: {{step_number}}\nRetrieved AI Search context (evidence):\n{{azure_search_context}}"
+        }
+      ],
+      "metadata": {
+        "session_id": "session-e07f92b51b899d241f70795d3931ba97",
+        "step_number": "step6-Privacy-Confirmation",
+        "chat_success": "True",
+        "application_id": "100519334"
+      }
+    },
+    {
+      "description": "case-session-e07f92b51b899d241f70795d3931ba97 [step7-Applicant-Information]",
+      "vars": {
+        "query": "the authorization be issued to a Company/Organization/Government",
+        "step_number": "step7-Applicant-Information",
+        "azure_search_context": "{\r\n  \"rag_system\": \"step7_co_applicants\",\r\n  \"version\": \"2.0\",\r\n  \"type\": \"knowledge\",\r\n  \"description\": \"Defines what a co-applicant is, when to add one, and what consent is required in a Water Licence Application.\",\r\n  \"knowledge_items\": [\r\n    {\r\n      \"id\": \"coapplicant_001\",\r\n      \"section\": \"Definition\",\r\n      \"title\": \"What Is a Co-Applicant\",\r\n      \"keywords\": [\r\n        \"co-applicant definition\",\r\n        \"who is a co-applicant\",\r\n        \"additional party on title\"\r\n      ],\r\n      \"content\": \"A co-applicant is an individual or company/organization listed on the title of the land, mine, or undertaking who was not previously identified as the principal applicant.\"\r\n    },\r\n    {\r\n      \"id\": \"coapplicant_002\",\r\n      \"section\": \"When to Add\",\r\n      \"title\": \"When Should You Add a Co-Applicant\",\r\n      \"keywords\": [\r\n        \"when to add co-applicant\",\r\n        \"shared land ownership\",\r\n        \"shared water rights\",\r\n        \"shared water works responsibility\"\r\n      ],\r\n      \"content\": \"Add a co-applicant if someone else also has legal rights or responsibility for the land, water use, or works in this application.\",\r\n      \"examples\": [\r\n        \"More than one person owns the land.\",\r\n        \"Another person or organization has rights to use the water.\",\r\n        \"Another person or organization is responsible for the water works.\"\r\n      ]\r\n    },\r\n    {\r\n      \"id\": \"coapplicant_003\",\r\n      \"section\": \"Consent Requirement\",\r\n      \"title\": \"Written Consent Is Required\",\r\n      \"keywords\": [\r\n        \"co-applicant consent\",\r\n        \"written authorization\",\r\n        \"signed consent co-applicant\"\r\n      ],\r\n      \"content\": \"If you add a co-applicant, each person must provide written consent. The co-applicant must follow the consent form template and upload a signed copy. No system-generated form is provided.\",\r\n      \"reference\": {\r\n        \"rag_system\": \"co_applicant_consent_form_template\",",
+        "chat_response": "AIFA-AI Form Assist confirms that for your application, the authorization can be issued directly to a company, organization, or government body rather than to an individual.\n\nOn your Step 7 screen, in the field titled “If approved, will the authorization be issued to an Individual or Company/Organization/Government?”, you should select **“Company/Organization/Government”**. This tells the system that the water licence authorization will be in the name of a corporate, organizational, or governmental entity.\n\nAuthorizations under the Water Sustainability Act are often issued to an individual, but there are important exceptions where entities such as municipalities, regional districts, improvement districts, development districts, water users’ communities, specific organizations (e.g., Greater Vancouver Water District, BC Hydro and Power Authority), and the Governments of British Columbia or Canada (or their commissions/boards/authorities) can hold authorizations. An authorized agent may also submit the application on behalf of these entities, with a Letter of Agency where required.\n\nFor any case‑specific clarification about whether your particular authorization type should be issued to a company/organization/government or an individual, you can contact FrontCounter BC through their [FrontCounter BC website](http://www.frontcounterbc.gov.bc.ca/).\n\nPlease do not share any personal information (such as names, addresses, phone numbers, emails, client numbers, or other personal details) with AIFA-AI Form Assist here. Enter all required information directly into the form fields on your application screen."
+      },
+      "assert": [
+        {
+          "type": "llm-rubric",
+          "value": "Evaluate whether the application response is accurate, contextually grounded, and honest about missing information. Use the supplied azure_search_context as the only evidence source. The response should be supported by that context and by the current water-permit step. If the context is empty or unhelpful, the response must clearly say that the information is missing or uncertain instead of inventing details. Do not assume legal rules, fees, timelines, citations, eligibility requirements, or application steps that are not explicitly supported by the retrieved context. The response should be accurate, cautious, and clearly grounded in the available evidence.\n\nQuery: {{query}}\nStep: {{step_number}}\nRetrieved AI Search context (evidence):\n{{azure_search_context}}"
+        }
+      ],
+      "metadata": {
+        "session_id": "session-e07f92b51b899d241f70795d3931ba97",
+        "step_number": "step7-Applicant-Information",
+        "chat_success": "True",
+        "application_id": "100519334"
+      }
+    },
+    {
+      "description": "case-session-e07f92b51b899d241f70795d3931ba97 [step7-Applicant-Information]",
+      "vars": {
+        "query": "can you select it",
+        "step_number": "step7-Applicant-Information",
+        "azure_search_context": "by credit card\",\r\n        \"online payment water licence\",\r\n        \"Visa MasterCard American Express\"\r\n      ],\r\n      \"content\": \"You can use Visa, Visa Debit, MasterCard, Debit MasterCard, or American Express to make an online credit card payment.\"\r\n    },\r\n    {\r\n      \"id\": \"complete_005\",\r\n      \"section\": \"Submission\",\r\n      \"title\": \"Final Submission Instructions\",\r\n      \"keywords\": [\r\n        \"final submission\",\r\n        \"select FrontCounter BC office\",\r\n        \"submission method\",\r\n        \"payment selection\"\r\n      ],\r\n      \"content\": \"Applicants must select a FrontCounter BC office for submission. Submission method and payment type determine required next steps such as remittance form generation and payment processing. Application submission is completed after payment selection and submission details are confirmed.\",\r\n      \"references\": [\r\n        {\r\n          \"title\": \"FrontCounter BC Payment Guidelines\",\r\n          \"url\": \"https://www2.gov.bc.ca/gov/content/industry/natural-resource-use/natural-resource-permits/fcbc-locations/fcbc-payment-guidelines\"\r\n        }\r\n      ]\r\n    }\r\n  ]\r\n}",
+        "chat_response": "To have the authorization issued to a Company, Organization, or Government, you need to make this change directly in your application:\n\nGo to **Step 7 – Contact Information** and, for the field:\n\n> **“If approved, will the authorization be issued to an Individual or Company/Organization/Government?”**\n\nmanually select **“Company/Organization/Government”** on your own screen.\n\nAIFA-AI Form Assist cannot select or change options in your application for you. Please do not share any personal information (such as names, addresses, phone numbers, emails, client numbers, or any other personal details) with AIFA-AI Form Assist. Enter all required information directly into the form fields on your application screen."
+      },
+      "assert": [
+        {
+          "type": "llm-rubric",
+          "value": "Evaluate whether the application response is accurate, contextually grounded, and honest about missing information. Use the supplied azure_search_context as the only evidence source. The response should be supported by that context and by the current water-permit step. If the context is empty or unhelpful, the response must clearly say that the information is missing or uncertain instead of inventing details. Do not assume legal rules, fees, timelines, citations, eligibility requirements, or application steps that are not explicitly supported by the retrieved context. The response should be accurate, cautious, and clearly grounded in the available evidence.\n\nQuery: {{query}}\nStep: {{step_number}}\nRetrieved AI Search context (evidence):\n{{azure_search_context}}"
+        }
+      ],
+      "metadata": {
+        "session_id": "session-e07f92b51b899d241f70795d3931ba97",
+        "step_number": "step7-Applicant-Information",
+        "chat_success": "True",
+        "application_id": "100519334"
+      }
+    },
+    {
+      "description": "case-session-e07f92b51b899d241f70795d3931ba97 [step7-Applicant-Information]",
+      "vars": {
+        "query": "I am the Individual this application will be issued to",
+        "step_number": "step7-Applicant-Information",
+        "azure_search_context": "How much will it cost for an application? \n\nThere’s a one-time application fee (minimum $250). If an authorization is issued, annual \nwater rentals may also apply. Fees depend on the type of water use, and some purposes \nare charged a flat rate. Later in the application, you’ll be guided through the details that \naffect fees.",
+        "chat_response": "In Step 7, for the question “Are you the Individual this application will be issued to?”, you should select “Yes” to indicate that you are the same individual who will receive the water licence authorization.\n\nPlease do not share any personal information (such as names, addresses, phone numbers, emails, client numbers, or any other personal details) with AIFA-AI Form Assist. Enter all required information directly into the form fields on your application screen."
+      },
+      "assert": [
+        {
+          "type": "llm-rubric",
+          "value": "Evaluate whether the application response is accurate, contextually grounded, and honest about missing information. Use the supplied azure_search_context as the only evidence source. The response should be supported by that context and by the current water-permit step. If the context is empty or unhelpful, the response must clearly say that the information is missing or uncertain instead of inventing details. Do not assume legal rules, fees, timelines, citations, eligibility requirements, or application steps that are not explicitly supported by the retrieved context. The response should be accurate, cautious, and clearly grounded in the available evidence.\n\nQuery: {{query}}\nStep: {{step_number}}\nRetrieved AI Search context (evidence):\n{{azure_search_context}}"
+        }
+      ],
+      "metadata": {
+        "session_id": "session-e07f92b51b899d241f70795d3931ba97",
+        "step_number": "step7-Applicant-Information",
+        "chat_success": "True",
+        "application_id": "100519334"
+      }
+    },
+    {
+      "description": "case-session-e07f92b51b899d241f70795d3931ba97 [step7-Applicant-Information]",
+      "vars": {
+        "query": "there are co-applicants for this application",
+        "step_number": "step7-Applicant-Information",
+        "azure_search_context": "{\r\n  \"rag_system\": \"step7_co_applicants\",\r\n  \"version\": \"2.0\",\r\n  \"type\": \"knowledge\",\r\n  \"description\": \"Defines what a co-applicant is, when to add one, and what consent is required in a Water Licence Application.\",\r\n  \"knowledge_items\": [\r\n    {\r\n      \"id\": \"coapplicant_001\",\r\n      \"section\": \"Definition\",\r\n      \"title\": \"What Is a Co-Applicant\",\r\n      \"keywords\": [\r\n        \"co-applicant definition\",\r\n        \"who is a co-applicant\",\r\n        \"additional party on title\"\r\n      ],\r\n      \"content\": \"A co-applicant is an individual or company/organization listed on the title of the land, mine, or undertaking who was not previously identified as the principal applicant.\"\r\n    },\r\n    {\r\n      \"id\": \"coapplicant_002\",\r\n      \"section\": \"When to Add\",\r\n      \"title\": \"When Should You Add a Co-Applicant\",\r\n      \"keywords\": [\r\n        \"when to add co-applicant\",\r\n        \"shared land ownership\",\r\n        \"shared water rights\",\r\n        \"shared water works responsibility\"\r\n      ],\r\n      \"content\": \"Add a co-applicant if someone else also has legal rights or responsibility for the land, water use, or works in this application.\",\r\n      \"examples\": [\r\n        \"More than one person owns the land.\",\r\n        \"Another person or organization has rights to use the water.\",\r\n        \"Another person or organization is responsible for the water works.\"\r\n      ]\r\n    },\r\n    {\r\n      \"id\": \"coapplicant_003\",\r\n      \"section\": \"Consent Requirement\",\r\n      \"title\": \"Written Consent Is Required\",\r\n      \"keywords\": [\r\n        \"co-applicant consent\",\r\n        \"written authorization\",\r\n        \"signed consent co-applicant\"\r\n      ],\r\n      \"content\": \"If you add a co-applicant, each person must provide written consent. The co-applicant must follow the consent form template and upload a signed copy. No system-generated form is provided.\",\r\n      \"reference\": {\r\n        \"rag_system\": \"co_applicant_consent_form_template\",",
+        "chat_response": "In Step 7, for the question “Are there co-applicants for this application?”, you should select “Yes” if there are any additional individuals or companies/organizations listed on the title of the land, mine, or undertaking who were not already identified as the principal applicant.\n\nAfter you select “Yes”, the form will ask you to confirm that you have permission to enter the co-applicants’ personal or organizational information.\n\nPlease do not share any personal information (such as names, addresses, phone numbers, emails, client numbers, or other personal details) with AIFA-AI Form Assist. Enter all required co-applicant information directly into the fields on your application screen."
+      },
+      "assert": [
+        {
+          "type": "llm-rubric",
+          "value": "Evaluate whether the application response is accurate, contextually grounded, and honest about missing information. Use the supplied azure_search_context as the only evidence source. The response should be supported by that context and by the current water-permit step. If the context is empty or unhelpful, the response must clearly say that the information is missing or uncertain instead of inventing details. Do not assume legal rules, fees, timelines, citations, eligibility requirements, or application steps that are not explicitly supported by the retrieved context. The response should be accurate, cautious, and clearly grounded in the available evidence.\n\nQuery: {{query}}\nStep: {{step_number}}\nRetrieved AI Search context (evidence):\n{{azure_search_context}}"
+        }
+      ],
+      "metadata": {
+        "session_id": "session-e07f92b51b899d241f70795d3931ba97",
+        "step_number": "step7-Applicant-Information",
+        "chat_success": "True",
+        "application_id": "100519334"
+      }
+    },
+    {
+      "description": "case-session-e07f92b51b899d241f70795d3931ba97 [step7-Referral]",
+      "vars": {
+        "query": "Contact Name is Mi Ab",
+        "step_number": "step7-Referral",
+        "azure_search_context": "or monitoring groundwater equipment\\n   (v) disinfection systems for wells\\n   (vi) injection systems for conveying groundwater used for fertilizers or pesticides\\n   (vii) monitoring wells or groundwater remediation wells\"\r\n    },\r\n    {\r\n      \"id\": \"jwa_010\",\r\n      \"section\": \"Ongoing Obligations\",\r\n      \"title\": \"Ongoing Responsibility After Termination\",\r\n      \"keywords\": [\r\n        \"responsibility after cancellation\",\r\n        \"ongoing obligations\",\r\n        \"post termination duties\",\r\n        \"joint works maintenance\"\r\n      ],\r\n      \"content\": \"Responsibilities for joint works continue even after abandonment, suspension, termination, or cancellation of an authorization.\"\r\n    },\r\n    {\r\n      \"id\": \"jwa_011\",\r\n      \"section\": \"Support\",\r\n      \"title\": \"Support and Contact Information\",\r\n      \"keywords\": [\r\n        \"FrontCounterBC contact\",\r\n        \"help joint works agreement\",\r\n        \"support phone email\",\r\n        \"where to get help\"\r\n      ],\r\n      \"content\": \"Support is available through FrontCounter BC via phone, email, or web contact for questions about Joint Works Agreements.\",\r\n      \"contact\": {\r\n        \"phone_bc\": \"1-877-855-3222\",\r\n        \"phone_international\": \"+1-778-372-0729\",\r\n        \"email\": \"FrontCounterBC@gov.bc.ca\",\r\n        \"web\": \"www.gov.bc.ca/frontcounterbc-locations\"\r\n      }\r\n    },\r\n    {\r\n      \"id\": \"jwa_012\",\r\n      \"section\": \"Requirements Checklist\",\r\n      \"title\": \"Mandatory Provisions of a Joint Works Agreement\",\r\n      \"keywords\": [\r\n        \"joint works agreement requirements\",\r\n        \"what must be included\",\r\n        \"water licence checklist\",\r\n        \"agreement structure\",\r\n        \"mandatory provisions\"\r\n      ],\r\n      \"content\": \"A Joint Works Agreement must include the following 13 mandatory provisions: 1. Name(s) of all water source(s) involved in joint works arrangement; 2. Name and address of all applicants/authorization holders to be parties to the agreement;",
+        "chat_response": "For the Referral step, the Contact Name you mentioned must be entered directly by you into the form field labeled “Contact Name” on your application screen. This field is required, and AIFA-AI Form Assist cannot enter or confirm any names or other personal details on your behalf.\n\nFor your privacy and security, do not share any personal information (including names, addresses, phone numbers, emails, or other personal details) with AIFA-AI Form Assist. Please type the Contact Name directly into the Contact Name field in your application."
+      },
+      "assert": [
+        {
+          "type": "llm-rubric",
+          "value": "Evaluate whether the application response is accurate, contextually grounded, and honest about missing information. Use the supplied azure_search_context as the only evidence source. The response should be supported by that context and by the current water-permit step. If the context is empty or unhelpful, the response must clearly say that the information is missing or uncertain instead of inventing details. Do not assume legal rules, fees, timelines, citations, eligibility requirements, or application steps that are not explicitly supported by the retrieved context. The response should be accurate, cautious, and clearly grounded in the available evidence.\n\nQuery: {{query}}\nStep: {{step_number}}\nRetrieved AI Search context (evidence):\n{{azure_search_context}}"
+        }
+      ],
+      "metadata": {
+        "session_id": "session-e07f92b51b899d241f70795d3931ba97",
+        "step_number": "step7-Referral",
+        "chat_success": "True",
+        "application_id": "100519334"
+      }
+    },
+    {
+      "description": "case-session-e07f92b51b899d241f70795d3931ba97 [step9-Declarations]",
+      "vars": {
+        "query": "can you check the declaration statement?",
+        "step_number": "step9-Declarations",
+        "azure_search_context": "How do I know if I have an existing water license? \n\nYou can check existing licences using the Water Licence Search tool if you have previously \n\npurchased or applied for a water license. This helps confirm whether a licence is already \n\nattached to the property and what it authorizes, including the water use purpose and \n\nquantity. \n\nYou can find the tool here: \n\nhttps://j200.gov.bc.ca/pub/ams/Default.aspx?PossePresentation=AMSPublic&PosseObjectDef=o_ATIS_DocumentSearch&PosseMenuName=WS_Main",
+        "chat_response": "For Step 9 – Declaration, here is the statement you need to read and agree to:\n\n\"I understand that the submission of this water licence application does not provide authority under the Water Sustainability Act to divert, use or store water other than to test the quality or quantity of water or to conduct a flow test in accordance with Section 6(2)(b) of the Water Sustainability Act. I understand that the submission of this water licence does not provide authority under the Water Sustainability Act to divert, use or store water from a well or other ground water sources to construct works. I also understand that my application must first be investigated and a decision made on the application as to whether a water licence may be granted and, as part of that review, additional information may be requested of me.\n\nThe application may be subject to further requirements under the federal Fisheries Act. Please refer to Fisheries and Oceans Canada's \"Projects Near Water\" webpage ([Projects Near Water](http://www.dfo-mpo.gc.ca/pnw-ppe/index-eng.html)) for information on how to ensure your project complies with the Fisheries Act.\n\nOnce you click 'Next' the application will be locked down and you will NOT be able to edit it any more.\"\n\nTo proceed, you must personally read this declaration and, if you agree, select the declaration checkbox on your screen. AIFA-AI Form Assist cannot select or populate this checkbox for you. Also remember: once you click \"Next\" after agreeing, your application will be locked and you will not be able to edit it further."
+      },
+      "assert": [
+        {
+          "type": "llm-rubric",
+          "value": "Evaluate whether the application response is accurate, contextually grounded, and honest about missing information. Use the supplied azure_search_context as the only evidence source. The response should be supported by that context and by the current water-permit step. If the context is empty or unhelpful, the response must clearly say that the information is missing or uncertain instead of inventing details. Do not assume legal rules, fees, timelines, citations, eligibility requirements, or application steps that are not explicitly supported by the retrieved context. The response should be accurate, cautious, and clearly grounded in the available evidence.\n\nQuery: {{query}}\nStep: {{step_number}}\nRetrieved AI Search context (evidence):\n{{azure_search_context}}"
+        }
+      ],
+      "metadata": {
+        "session_id": "session-e07f92b51b899d241f70795d3931ba97",
+        "step_number": "step9-Declarations",
+        "chat_success": "True",
+        "application_id": "100519334"
+      }
+    },
+    {
+      "description": "case-session-e07f92b51b899d241f70795d3931ba97 [step10-Complete]",
+      "vars": {
+        "query": "i am paying by credit card online",
+        "step_number": "step10-Complete",
+        "azure_search_context": "money order. Please download and print the remittance form on the next page. You can drop off or mail in your cheque or money order along with your remittance form to any FrontCounter BC location. Be sure to make your cheque or money order payable to the 'Minister of Finance'.\",\r\n       \"references\": [\r\n        {\r\n          \"title\": \"FrontCounter BC Locations\",\r\n          \"url\": \"https://portal.nrs.gov.bc.ca/web/client/locations\"\r\n        }\r\n      ]\r\n    },\r\n    {\r\n      \"id\": \"complete_003\",\r\n      \"section\": \"Payment Options\",\r\n      \"title\": \"Pay In Person at a FrontCounter BC Office\",\r\n      \"keywords\": [\r\n        \"pay in person\",\r\n        \"FrontCounter BC office payment\",\r\n        \"in person payment water licence\"\r\n      ],\r\n      \"content\": \"You have decided to pay your fees in person at a FrontCounter BC location. Please download and print the remittance form on the next page. Bring your remittance form with you when making your payment. You may also mail in your cheque or money order along with the remittance form to any FrontCounter BC location. Be sure to make your cheque or money order payable to the 'Minister of Finance'.\",\r\n      \"references\": [\r\n        {\r\n          \"title\": \"FrontCounter BC Locations\",\r\n          \"url\": \"https://portal.nrs.gov.bc.ca/web/client/locations\"\r\n        }\r\n      ]\r\n    },\r\n    {\r\n      \"id\": \"complete_004\",\r\n      \"section\": \"Payment Options\",\r\n      \"title\": \"Pay by Credit Card Online\",\r\n      \"keywords\": [\r\n        \"pay by credit card\",\r\n        \"online payment water licence\",\r\n        \"Visa MasterCard American Express\"\r\n      ],\r\n      \"content\": \"You can use Visa, Visa Debit, MasterCard, Debit MasterCard, or American Express to make an online credit card payment.\"\r\n    },\r\n    {\r\n      \"id\": \"complete_005\",\r\n      \"section\": \"Submission\",\r\n      \"title\": \"Final Submission Instructions\",\r\n      \"keywords\": [\r\n        \"final submission\",\r\n        \"select FrontCounter BC office\",\r\n        \"submission method\",",
+        "chat_response": "You can select **“Online with credit card”** as your payment method in the field titled **“Please choose a method of payment”**. This option lets you pay online using secure credit card processing with Visa, Visa Debit, MasterCard, Debit MasterCard, or American Express.\n\nAIFA-AI Form Assist cannot process or accept any payment or credit card information. You must complete the payment yourself directly through the form’s secure payment page.\n\nDo not share any personal or financial information with AIFA-AI Form Assist. Enter all information directly into the form fields."
+      },
+      "assert": [
+        {
+          "type": "llm-rubric",
+          "value": "Evaluate whether the application response is accurate, contextually grounded, and honest about missing information. Use the supplied azure_search_context as the only evidence source. The response should be supported by that context and by the current water-permit step. If the context is empty or unhelpful, the response must clearly say that the information is missing or uncertain instead of inventing details. Do not assume legal rules, fees, timelines, citations, eligibility requirements, or application steps that are not explicitly supported by the retrieved context. The response should be accurate, cautious, and clearly grounded in the available evidence.\n\nQuery: {{query}}\nStep: {{step_number}}\nRetrieved AI Search context (evidence):\n{{azure_search_context}}"
+        }
+      ],
+      "metadata": {
+        "session_id": "session-e07f92b51b899d241f70795d3931ba97",
+        "step_number": "step10-Complete",
+        "chat_success": "True",
+        "application_id": "100519334"
+      }
+    },
+    {
+      "description": "case-session-e07f92b51b899d241f70795d3931ba97 [step10-Complete]",
+      "vars": {
+        "query": "i want to submit the application to the Surrey office",
+        "step_number": "step10-Complete",
+        "azure_search_context": "FAQ: Co-Applicant Approval Process\n\nQuestion\nWhat are the supported options for requesting approval from a co-applicant?\n\nAnswer\nThere are two supported options:\n\n• Request via email: Use the email request option to send the co-applicant an approval request.\n• Hand deliver the approval form: Provide the Co-Applicant Approval Form or Application\nForm so the co-applicant can review and sign outside the online email process.\n\nUploading a signed form or selecting the mail option are ways to submit a completed approval form\nafter it has been signed. They are not separate methods for requesting approval.\n\nQuestion\nIn the hand delivery or offline approval flow, does the co-applicant send the signed approval form\nback to the primary applicant?\n\nAnswer\nYes. The co-applicant signs the approval form and returns it to the primary applicant. The primary\napplicant is responsible for uploading or submitting the signed Co-Applicant Approval Form.\n\nQuestion\nWhat documents should the primary applicant provide to the co-applicant for offline approval?\n\nAnswer\nProvide the Co-Applicant Approval Form, the Application Form, and any uploaded documents\nthat describe the application so the co-applicant can review them before signing.\n\nQuestion\nWhy are the Application Form, Co-Applicant Approval Form, and attached documents shown in the\nhand delivery section?\n\nAnswer\nThese documents identify what the primary applicant should provide to the co-applicant for review.\nIf approval is requested by email, the same materials are made available through the email review\nprocess.\n\nQuestion\nIf I choose Upload Signed Form or Mail Approval Form, do I need to submit all documents or only\nthe signed Co-Applicant Approval Form?\n\nAnswer\nOnly upload or mail the signed Co-Applicant Approval Form. The Application Form and attached\ndocuments are provided for review and do not need to be submitted again.",
+        "chat_response": "To submit your application to the Surrey office, use the field titled **“Select the office you wish to submit your application to”** on the form and choose **“Surrey”** from the list of options.\n\nThis will associate your Water Licence Application with the **Surrey, BC** office.\n\nDo not share any personal or financial information with AIFA-AI Form Assist. Enter all information directly in the form fields."
+      },
+      "assert": [
+        {
+          "type": "llm-rubric",
+          "value": "Evaluate whether the application response is accurate, contextually grounded, and honest about missing information. Use the supplied azure_search_context as the only evidence source. The response should be supported by that context and by the current water-permit step. If the context is empty or unhelpful, the response must clearly say that the information is missing or uncertain instead of inventing details. Do not assume legal rules, fees, timelines, citations, eligibility requirements, or application steps that are not explicitly supported by the retrieved context. The response should be accurate, cautious, and clearly grounded in the available evidence.\n\nQuery: {{query}}\nStep: {{step_number}}\nRetrieved AI Search context (evidence):\n{{azure_search_context}}"
+        }
+      ],
+      "metadata": {
+        "session_id": "session-e07f92b51b899d241f70795d3931ba97",
+        "step_number": "step10-Complete",
+        "chat_success": "True",
+        "application_id": "100519334"
+      }
+    },
+    {
+      "description": "case-session-debe9ecf577a1bfbf088b693eb197bc8 [step3-Technical-Information-Fee-Exemption-Request]",
+      "vars": {
+        "query": "What should I choose?",
+        "step_number": "step3-Technical-Information-Fee-Exemption-Request",
+        "azure_search_context": "FAQ: Co-Applicant Approval Process\n\nQuestion\nWhat are the supported options for requesting approval from a co-applicant?\n\nAnswer\nThere are two supported options:\n\n• Request via email: Use the email request option to send the co-applicant an approval request.\n• Hand deliver the approval form: Provide the Co-Applicant Approval Form or Application\nForm so the co-applicant can review and sign outside the online email process.\n\nUploading a signed form or selecting the mail option are ways to submit a completed approval form\nafter it has been signed. They are not separate methods for requesting approval.\n\nQuestion\nIn the hand delivery or offline approval flow, does the co-applicant send the signed approval form\nback to the primary applicant?\n\nAnswer\nYes. The co-applicant signs the approval form and returns it to the primary applicant. The primary\napplicant is responsible for uploading or submitting the signed Co-Applicant Approval Form.\n\nQuestion\nWhat documents should the primary applicant provide to the co-applicant for offline approval?\n\nAnswer\nProvide the Co-Applicant Approval Form, the Application Form, and any uploaded documents\nthat describe the application so the co-applicant can review them before signing.\n\nQuestion\nWhy are the Application Form, Co-Applicant Approval Form, and attached documents shown in the\nhand delivery section?\n\nAnswer\nThese documents identify what the primary applicant should provide to the co-applicant for review.\nIf approval is requested by email, the same materials are made available through the email review\nprocess.\n\nQuestion\nIf I choose Upload Signed Form or Mail Approval Form, do I need to submit all documents or only\nthe signed Co-Applicant Approval Form?\n\nAnswer\nOnly upload or mail the signed Co-Applicant Approval Form. The Application Form and attached\ndocuments are provided for review and do not need to be submitted again.",
+        "chat_response": "For domestic, household-related water use, you should choose:\n\n- **Purpose:** Domestic  \n- **Sub‑purpose:** Domestic  \n\nDomestic purpose covers household needs on a single parcel, including drinking water, food preparation and sanitation, fire prevention, water for household animals or pets, and irrigation of a garden or lawn up to 1 000 m² adjoining the dwelling.\n\nOn the **Technical Information – Fee Exemption Request** page, you can also request an exemption from the application fee if you qualify. Eligible applicants include:\n\n- Provincial government ministries  \n- Government of Canada  \n- First Nations applying for water use on reserve land  \n- Persons applying on Treaty Lands  \n- Nisga'a citizens  \n- Entities applying from the Nisga'a Water Reservation  \n\nYou will need to select the appropriate **fee exemption category** and provide the required supporting information to justify your request."
+      },
+      "assert": [
+        {
+          "type": "llm-rubric",
+          "value": "Evaluate whether the application response is accurate, contextually grounded, and honest about missing information. Use the supplied azure_search_context as the only evidence source. The response should be supported by that context and by the current water-permit step. If the context is empty or unhelpful, the response must clearly say that the information is missing or uncertain instead of inventing details. Do not assume legal rules, fees, timelines, citations, eligibility requirements, or application steps that are not explicitly supported by the retrieved context. The response should be accurate, cautious, and clearly grounded in the available evidence.\n\nQuery: {{query}}\nStep: {{step_number}}\nRetrieved AI Search context (evidence):\n{{azure_search_context}}"
+        }
+      ],
+      "metadata": {
+        "session_id": "session-debe9ecf577a1bfbf088b693eb197bc8",
+        "step_number": "step3-Technical-Information-Fee-Exemption-Request",
+        "chat_success": "True",
+        "application_id": "100519341"
+      }
+    }
+  ]
+}

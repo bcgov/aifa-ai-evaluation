@@ -1,0 +1,157 @@
+tests:
+- description: case-session-de1162f2d558950d058760ecfb4ec177 [shared-multifile-upload]
+  vars:
+    query: How do I draw a map to scale
+    step_number: shared-multifile-upload
+    chat_response: I'm not finding a clear answer for that yet. Try rephrasing your
+    azure_search_context: "Page 1 of 7  \n \n\n \n\nThese standards apply to Water\
+      \ Licence applications and Use Approval applications. \nApplicants are required\
+      \ to meet the following Drawing Standards. If the submitted \ndrawing does not\
+      \ meet these standards, the application may be returned. \n \n\nDrawing Requirements\
+      \ \n\nThe items listed below are cross-referenced on the sample drawings with\
+      \ their \ncorresponding numbers. The numbers do not need to be included on the\
+      \ final map. \n\n1. Show the location of the water source in relation to the\
+      \ property boundaries and if \napplicable, indicate the direction of flow for\
+      \ streams. \n\n2. Show the legal property boundaries of the land where the water\
+      \ will be used.  \n\n3. Label the proposed water intake, diversion structure\
+      \ or well and identify where the \nwater will be used (e.g. dwellings, barns,\
+      \ pastures, etc.). \n\n4. Label all works, existing or proposed (e.g. pipeline,\
+      \ pump, dugouts, ponds, reservoirs, \nirrigation systems, existing wells, etc.).\
+      \ All works that are listed on the application must \nbe shown on the map. \n\
+      \n5. Show all parcels of land, both private and Crown, which will be physically\
+      \ affected by \nthe proposed works (e.g. crossed, flooded, used as access, etc.).\
+      \  \n\n6. Identify the area(s) to be irrigated, if applicable. \n\n7. If storage\
+      \ is needed, show the location of the reservoir and indicate whether it will\
+      \ be \nmanmade or on a natural pond or lake. \n\n8. If any land is to be flooded,\
+      \ identify the area that will be underwater in relation to the \nproperty boundaries.\
+      \ \n\n  \n\nWater Licence Application Drawing Standards \n\n\n\n \n \n\nPage\
+      \ 2 of 7  \n \n\nDrawing Options \n\nSketches: \n\n• Show the scale of the drawing\
+      \ (e.g. 1:5000, 1 cm = 50m) and a North arrow and the \ncoordinates for the\
+      \ center of the drawing (e.g. Latitude and Longitude or UTM) \n \n\n• A Regional\
+      \ District Composite Map, Surveyor’s Certificate or Legal Survey Plan may \n\
+      serve as the base map for the drawing  \n \n\n• A hand drawn map may be acceptable\
+      \ if legible and all requirements are met"
+    chat_response: I'm not finding a clear answer for that yet. Try rephrasing your
+      question.
+  assert:
+  - type: llm-rubric
+    value: Evaluate whether the application response is accurate, contextually grounded,
+      and honest about missing information. Use the supplied azure_search_context
+      as the only evidence source. The response should be supported by that context
+      and by the current water-permit step. If the context is empty or unhelpful,
+      the response must clearly say that the information is missing or uncertain instead
+      of inventing details. Do not assume legal rules, fees, timelines, citations,
+      eligibility requirements, or application steps that are not explicitly supported
+      by the retrieved context. The response should be accurate, cautious, and clearly
+      grounded in the available evidence.
+  metadata:
+    session_id: session-de1162f2d558950d058760ecfb4ec177
+    step_number: shared-multifile-upload
+    chat_success: 'True'
+    application_id: '100519411'
+- description: case-session-de1162f2d558950d058760ecfb4ec177 [shared-multifile-upload]
+  vars:
+    query: How do I upload my map
+    step_number: shared-multifile-upload
+    azure_search_context: 'FAQ: What if My Number of Livestock Changes
+
+      Each Year? Will My Annual Fees Change?
+
+
+      Question
+
+      What should I do if my number of livestock changes each year? Will my annual
+      fees change?
+
+
+      Answer
+
+      When completing your water licence application, enter your best estimate of
+      the number of
+
+      livestock and the amount of water you expect to require based on your normal
+      or planned
+
+      operation.
+
+
+      If your livestock numbers vary from year to year, estimate your water quantity
+      using your expected
+
+      livestock numbers for a typical year.
+
+
+      Your annual water rentals and charges are not automatically based on the actual
+      number of
+
+      livestock each year. Fees, rentals, and charges are determined according to
+      your authorized
+
+      water use and the applicable provisions of the Water Sustainability Fees, Rentals
+      and Charges
+
+      Tariff Regulation.
+
+
+      If you have questions about how annual fees, rentals, or charges are calculated,
+      refer to the
+
+      regulation below.
+
+
+      Reference
+
+
+      Water Sustainability Fees, Rentals and Charges Tariff Regulation
+
+      https://www.bclaws.gov.bc.ca/civix/document/id/complete/statreg/37_2016
+
+
+      Important
+
+      When completing your application, always provide your best estimate of your
+      livestock numbers
+
+      and water requirements based on your expected operation.'
+    chat_response: 'To upload your map file in this part of the form:
+
+
+      1. Make sure your map is already saved on your device as a file (for example,
+      a PDF, image, or document).
+
+      2. Click the **Add files** button to open your device’s file picker.
+
+      3. In the file picker, select your map file (you can choose more than one if
+      needed), then confirm so it appears in the upload queue.
+
+      4. In the queue, you’ll see a row with the filename, status, size, and a **Description**
+      box. If you wish, type a brief description of the map in that per-file Description
+      field.
+
+      5. When your file is listed in the queue, click the **Start upload** button
+      to upload it.
+
+
+      If no files are queued, the area will show “Drag files here” with total status
+      0% and size 0 b, and **Start upload** may be disabled.
+
+
+      Always select files, enter descriptions, and start uploads directly in this
+      form yourself. Do not share personal information, signatures, file contents,
+      addresses, phone numbers, emails, or client details with AIFA-AI Form Assist.'
+  assert:
+  - type: llm-rubric
+    value: Evaluate whether the application response is accurate, contextually grounded,
+      and honest about missing information. Use the supplied azure_search_context
+      as the only evidence source. The response should be supported by that context
+      and by the current water-permit step. If the context is empty or unhelpful,
+      the response must clearly say that the information is missing or uncertain instead
+      of inventing details. Do not assume legal rules, fees, timelines, citations,
+      eligibility requirements, or application steps that are not explicitly supported
+      by the retrieved context. The response should be accurate, cautious, and clearly
+      grounded in the available evidence.
+  metadata:
+    session_id: session-de1162f2d558950d058760ecfb4ec177
+    step_number: shared-multifile-upload
+    chat_success: 'True'
+    application_id: '100519411'
