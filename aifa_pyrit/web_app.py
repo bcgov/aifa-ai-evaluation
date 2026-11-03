@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 
 from aifa_pyrit.config import settings
 from aifa_pyrit.csv_export import reports_to_csv
+from aifa_pyrit import datasets
 from aifa_pyrit.logging_utils import setup_logger
 from aifa_pyrit.orchestrator import RedTeamOrchestrator
 from aifa_pyrit.pyrit_runner import PyRITRunner
@@ -78,7 +79,7 @@ class ExportRequest(BaseModel):
     all: bool = False
 
 
-DEFAULT_DATASET_ID = "saved-test-cases"
+DEFAULT_DATASET_ID = datasets.DEFAULT_DATASET_ID
 REPORT_NAME_PATTERN = re.compile(r"^[\w.-]+\.json$")
 EXPORTABLE_PREFIXES = ("run_", "scan_")
 TENANTS = [{"id": "aifa-water-licence", "name": "AI Forms Assist — Water Licence Application"}]
@@ -104,8 +105,16 @@ def _save_report(report: dict[str, Any], filename: str | None = None) -> Path:
     return path
 
 
-def _load_cases(case_names: str | None = None) -> list[dict[str, Any]]:
-    all_cases = RedTeamOrchestrator.load_test_cases()
+def _load_cases(case_names: str | None = None, dataset_id: str | None = None) -> list[dict[str, Any]]:
+    if dataset_id is None:
+        all_cases = RedTeamOrchestrator.load_test_cases()
+    else:
+        try:
+            all_cases = datasets.load_dataset(dataset_id)
+        except datasets.DatasetUnavailableError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        except (ValueError, FileNotFoundError) as exc:
+            raise HTTPException(status_code=400, detail="Unknown or invalid test-case dataset.") from exc
     if not all_cases:
         raise HTTPException(status_code=400, detail="No test cases loaded. Check the test-case source or choose Custom query.")
 
@@ -379,10 +388,12 @@ async def list_tenants() -> list[dict[str, Any]]:
     return _tenants()
 
 
-@app.get("/api/datasets")
+@app.get("/api/datasets", responses={503: {"description": "Dataset storage unavailable"}})
 async def list_datasets() -> list[dict[str, Any]]:
-    cases = RedTeamOrchestrator.load_test_cases()
-    return [{"id": DEFAULT_DATASET_ID, "name": "Saved test cases", "case_count": len(cases)}] if cases else []
+    try:
+        return await asyncio.to_thread(datasets.list_datasets)
+    except datasets.DatasetUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 def _previous_failed_cases(dataset_id: str | None) -> list[str]:
@@ -403,7 +414,11 @@ def _previous_failed_cases(dataset_id: str | None) -> list[str]:
     return failed
 
 
-@app.post("/api/runs")
+@app.post("/api/runs", responses={
+    400: {"description": "Invalid dataset or run request"},
+    409: {"description": "Run already active"},
+    503: {"description": "Dataset storage unavailable"},
+})
 async def start_run(request: StartRunRequest) -> dict[str, Any]:
     tenant = next((t for t in _tenants() if t["id"] == request.tenant_id), None)
     if tenant is None or not tenant["approved"]:
@@ -416,10 +431,10 @@ async def start_run(request: StartRunRequest) -> dict[str, Any]:
         test_cases = [{"name": f"custom_{i}", "query": q} for i, q in enumerate(questions, 1)]
         source, dataset_id = "custom_query", None
     else:
-        if request.dataset_id != DEFAULT_DATASET_ID:
+        if not request.dataset_id:
             raise HTTPException(status_code=400, detail="Unknown dataset.")
         failed = _previous_failed_cases(request.dataset_id) if request.only_failed else None
-        test_cases = _load_cases(",".join(failed) if failed else None)
+        test_cases = await asyncio.to_thread(_load_cases, ",".join(failed) if failed else None, request.dataset_id)
         source, dataset_id = "saved_cases", request.dataset_id
 
     name = request.name or f"{tenant['name']} · {request.attack_type}"

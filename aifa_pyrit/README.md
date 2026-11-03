@@ -75,7 +75,40 @@ export ALL_PROXY=http://127.0.0.1:8118
 
 ## Test cases
 
-`data/red_team_test_cases.json` is `{"test_cases": [{"name", "query", "expected_behavior", "description"}]}`. Add a case, then run `list-cases` to confirm. With Azure Blob enabled the file is read from the `PYRIT_DATA_CONTAINER_NAME` container (default `pyrit-data`) and reports go to `PYRIT_RESULTS_CONTAINER_NAME` (`pyrit-results`).
+The web app lists each valid JSON dataset separately under **Test questions**. Each file uses `{"test_cases": [{"name": "unique_case_name", "query": "Question", "expected_behavior": "Expected result", "description": "Purpose"}]}`. Names must be unique within a file; each case requires a nonempty name and query. Empty, malformed, and unrelated JSON files are skipped with a warning in the backend logs.
+
+Without Azure storage configuration, the web app discovers JSON files directly under `data/`. With `AZURE_STORAGE_CONNECTION_STRING` or `AZURE_STORAGE_ACCOUNT_NAME` configured, it instead discovers JSON blobs in `PYRIT_DATA_CONTAINER_NAME` (default `pyrit-data`), including blobs in virtual folders. Storage failures return HTTP 503 and appear in the UI rather than silently switching to local files. Uploading files to the container does not require an app restart; reload the page to refresh the dropdown.
+
+The dropdown sends the selected dataset ID to the run API, so only that file's cases run. IDs look like `azure:red_team_test_cases_security.json` or `local:red_team_test_cases_security.json`; use the ID returned by `/api/datasets`. The old `saved-test-cases` ID remains an alias for the default file. CLI `list-cases`, CLI file scans, and the classic scan API still use the existing default-file loader.
+
+### Azure Container Apps setup
+
+Rebuild and deploy the updated **PyRIT backend and frontend images**. Environment changes alone cannot enable multi-file selection in an older image. Set the following on the **pyrit container**, not only the frontend or Promptfoo container:
+
+| Variable | Value |
+| --- | --- |
+| `PYRIT_DATA_CONTAINER_NAME` | Your existing test dataset container, for example `pyrit-data` |
+| `PYRIT_RESULTS_CONTAINER_NAME` | Your reports container, for example `pyrit-results` |
+| `AZURE_STORAGE_ACCOUNT_NAME` | Storage account name only, when using managed identity |
+| `AZURE_STORAGE_CONNECTION_STRING` | Alternative to managed identity: a connection string supplied through an ACA secret reference |
+
+Prefer managed identity: enable the Container App identity and grant it **Storage Blob Data Reader** on the data container. Report storage additionally needs write/create permissions, typically **Storage Blob Data Contributor** on the reports container. Leave the connection string unset for managed identity; if both authentication settings are supplied, the connection string wins. These roles must be assigned to the identity used by the backend, not your personal account. The data reader does not create the data container.
+
+The existing ACA Terraform configuration already forwards `azure_storage_connection_string`, `pyrit_data_container_name`, and `pyrit_results_container_name` into the PyRIT container. It does not currently forward `AZURE_STORAGE_ACCOUNT_NAME`; add that environment setting through your deployment configuration if choosing managed identity. This change does not modify Terraform or deployed resources.
+
+Create the data container and upload the dataset JSON files themselves. For example, upload `red_team_test_cases.json`, `red_team_test_cases_additional.json`, `red_team_test_cases_security.json`, and `red_team_test_cases_integrity.json` as separate blobs. Committing these files does not upload them to Azure. Keep data and results in different containers.
+
+Storage firewalls and private endpoints must allow the ACA environment to reach the Blob endpoint, including correct private DNS when applicable. Credentials alone do not provide network access.
+
+After deploying and reloading the frontend, inspect `GET https://<your-app-host>/api/datasets`:
+
+- Multiple entries with `source: "azure"`: discovery is working; the UI should show their filenames and case counts.
+- Entries with `source: "local"`: neither Azure authentication setting is configured on the backend.
+- HTTP 503: check the backend logs, authentication, Blob data permissions, container name, firewall, and private DNS.
+- An empty array: the selected source has no nonempty valid test-case datasets; inspect JSON format and skipped-file warnings.
+- Only a `saved-test-cases` entry named `Saved test cases`: the backend is still running the older single-file implementation.
+
+No additional dataset-specific environment variable is required. Existing `BACKEND_API_URL` and attacker/judge settings are still required to execute evaluations; they do not control dataset discovery.
 
 ## Docker
 
