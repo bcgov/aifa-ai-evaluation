@@ -4,12 +4,14 @@ FROM node:22-bookworm-slim
 ARG PROMPTFOO_VERSION=latest
 
 RUN apt-get update \
- && apt-get install -y --no-install-recommends python3 python3-venv curl ca-certificates \
+ && apt-get install -y --no-install-recommends \
+      build-essential curl ca-certificates python3 python3-venv rustc cargo \
  && rm -rf /var/lib/apt/lists/*
 
 RUN npm install -g "promptfoo@${PROMPTFOO_VERSION}" && npm cache clean --force
 
 RUN python3 -m venv /opt/venv \
+ && /opt/venv/bin/pip install --no-cache-dir --upgrade pip \
  && /opt/venv/bin/pip install --no-cache-dir \
     "fastapi>=0.110.0" "uvicorn>=0.30.0" "httpx[socks]>=0.25.0" "websockets>=12.0" \
     "pydantic>=2.5.0" "pydantic-settings>=2.1.0" "python-dotenv>=1.1.1" \
@@ -19,11 +21,14 @@ WORKDIR /app/promptfoo
 COPY promptfoo/package.json promptfoo/package-lock.json ./
 RUN npm ci --omit=dev
 
+COPY pyproject.toml README.md /app/
+COPY aifa_pyrit/ /app/aifa_pyrit/
 COPY promptfoo/ /app/promptfoo/
 COPY scripts/ /app/scripts/
 COPY data_promptfoo/ /app/data_promptfoo/
 
-RUN mkdir -p /app/results-promptfoo /app/results \
+RUN /opt/venv/bin/python -c "import sys; sys.path.insert(0, '/app'); import aifa_pyrit, aifa_pyrit.logging_utils; print(aifa_pyrit.__file__)" \
+ && mkdir -p /app/results-promptfoo /app/results \
  && chmod +x docker-entrypoint.sh run_promptfoo_eval.sh /app/scripts/shared_llm_client.py \
  && chown -R node:node /app
 
