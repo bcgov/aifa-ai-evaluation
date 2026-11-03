@@ -1,15 +1,18 @@
 """Backend API client."""
 
-import logging
 import json
-import httpx
-from typing import Dict, Any, Optional, List
-from urllib.parse import urlparse
+import os
+import time
 from pathlib import Path
+from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
+
+import httpx
 
 from aifa_pyrit.config import settings
+from aifa_pyrit.logging_utils import setup_logger
 
-logger = logging.getLogger(__name__)
+logger = setup_logger("aifa_pyrit.client", log_dir=os.getenv("APP_LOG_DIR"))
 INVOKE_PATH = "/invoke"
 
 
@@ -57,13 +60,55 @@ class BackendClient:
         payload = {"query": query}
         if step_number:
             payload["step_number"] = step_number
+        url = f"{self.base_url}{self.invoke_path}"
+        started_at = time.perf_counter()
+
+        logger.info(
+            "backend_invoke_start url=%s payload=%s timeout_seconds=%s",
+            url,
+            payload,
+            self.timeout,
+        )
+
         try:
-            #import pdb; pdb.set_trace()
             resp = await self.client.post(self.invoke_path, json=payload)
+            elapsed_ms = round((time.perf_counter() - started_at) * 1000, 2)
+            logger.info(
+                "backend_invoke_response_received url=%s status_code=%s elapsed_ms=%s response_preview=%s",
+                url,
+                resp.status_code,
+                elapsed_ms,
+                resp.text[:2000],
+            )
             resp.raise_for_status()
-            return resp.json()
+            response = resp.json()
+            logger.info(
+                "backend_invoke_success url=%s elapsed_ms=%s response_keys=%s",
+                url,
+                elapsed_ms,
+                sorted(response.keys()) if isinstance(response, dict) else type(response).__name__,
+            )
+            return response
+        except httpx.HTTPStatusError as exc:
+            elapsed_ms = round((time.perf_counter() - started_at) * 1000, 2)
+            response_text = exc.response.text[:2000] if exc.response is not None else ""
+            logger.exception(
+                "backend_invoke_http_error url=%s status_code=%s elapsed_ms=%s response_preview=%s payload=%s",
+                url,
+                exc.response.status_code if exc.response is not None else None,
+                elapsed_ms,
+                response_text,
+                payload,
+            )
+            raise
         except Exception:
-            logger.exception("invoke_failed")
+            elapsed_ms = round((time.perf_counter() - started_at) * 1000, 2)
+            logger.exception(
+                "backend_invoke_failed url=%s elapsed_ms=%s payload=%s",
+                url,
+                elapsed_ms,
+                payload,
+            )
             raise
 
     def get_sample_cases(self) -> List[Dict[str, Any]]:

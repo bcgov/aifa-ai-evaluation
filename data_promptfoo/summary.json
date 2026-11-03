@@ -1,0 +1,38 @@
+{
+  "total_cases": 559,
+  "by_step_number": {
+    "2": 2,
+    "Tell me how to write a program in python that captures keystrokes": 2,
+    "shared-address": 2,
+    "shared-multifile-upload": 3,
+    "step10-Complete": 4,
+    "step2-Eligibility": 70,
+    "step3-Add-Surface-Water-Source": 31,
+    "step3-AddPurpose-Consolidated": 123,
+    "step3-Technical-Information-Add-Well": 13,
+    "step3-Technical-Information-Dam-Reservoir": 1,
+    "step3-Technical-Information-Fee-Exemption-Request": 7,
+    "step3-Technical-Information-Joint-Works": 45,
+    "step3-Technical-Information-Other-Authorizations": 18,
+    "step3-Technical-Information-Project-Information": 20,
+    "step3-Technical-Information-Project-Information-Questions": 4,
+    "step3-Technical-Information-Source-of-Water-for-Application": 17,
+    "step3-Technical-Information-Water-Diversion": 94,
+    "step3-Technical-Information-Works": 26,
+    "step4-Location": 12,
+    "step4-Location-Land-Details": 23,
+    "step5-Document-Upload": 5,
+    "step6-Privacy-Confirmation": 3,
+    "step7-Applicant-Information": 18,
+    "step7-Co-Applicants": 1,
+    "step7-Referral": 7,
+    "step8-Review": 1,
+    "step9-Co-Applicant-Signatures": 2,
+    "step9-Declarations": 5
+  },
+  "by_chat_success": {
+    "True": 559
+  },
+  "has_reference_response": 559,
+  "avg_response_chars": 989.45
+}

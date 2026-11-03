@@ -49,6 +49,8 @@ export const stopRun  = (id) => post('/runs/' + encodeURIComponent(id) + '/stop'
 
 // Saved reports + export
 export const listReports = () => request('/reports');
+export const getReport = (name) => request('/reports/' + encodeURIComponent(name));
+export const getReportInsights = (name) => request('/reports/' + encodeURIComponent(name) + '/insights');
 export const getHealth = () => request('/health');
 
 // payload: { reports: [names] } or { all: true }. Downloads a single CSV file.

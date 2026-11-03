@@ -211,7 +211,7 @@ class Settings(BaseSettings):
 
     # Azure AI Search Configuration
     azure_search_endpoint: str = Field(
-        default="",
+        default="https://css-ai-dev-aisearch.search.windows.net",
         validation_alias="AZURE_SEARCH_ENDPOINT",
     )
     azure_search_api_key: str = Field(
@@ -219,7 +219,7 @@ class Settings(BaseSettings):
         validation_alias="AZURE_SEARCH_API_KEY",
     )
     azure_search_index_name: str = Field(
-        default="",
+        default="rag-bc-waterpermit-dev",
         validation_alias="AZURE_SEARCH_INDEX_NAME",
     )
     azure_search_top: int = Field(

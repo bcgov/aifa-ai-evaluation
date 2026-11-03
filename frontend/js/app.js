@@ -6,10 +6,11 @@ import { getInfo, startJob } from './promptfoo-api.js';
 import { initPfCommands, showPfCommands } from './pf-commands.js';
 import { initPfRun, showPfRun, stopPfRun } from './pf-run.js';
 import { initPfResults, showPfResults } from './pf-results.js';
+import { initPyritResults, showPyritResults } from './pyrit-results.js';
 
-const VIEWS = ['new', 'live', 'export', 'pf-commands', 'pf-run', 'pf-results'];
+const VIEWS = ['new', 'live', 'pyrit-results', 'export', 'pf-commands', 'pf-run', 'pf-results'];
 
-// Hash routes:  #/new  #/live[/<runId>]  #/export  #/pf-commands  #/pf-run/<jobId>  #/pf-results[/<name>]
+// Hash routes:  #/new  #/live[/<runId>]  #/pyrit-results[/<reportName>]  #/export  #/pf-commands  #/pf-run/<jobId>  #/pf-results[/<name>]
 function route() {
   const [, raw, id] = location.hash.split('/');
   const view = VIEWS.includes(raw) ? raw : 'new';
@@ -18,6 +19,7 @@ function route() {
   document.querySelectorAll('.nav-item').forEach((a) => a.classList.toggle('active', a.dataset.view === (view === 'pf-run' ? 'pf-commands' : view)));
   if (view === 'live') showRun(param); else stopPolling();
   if (view === 'pf-run') showPfRun(param); else stopPfRun();
+  if (view === 'pyrit-results') showPyritResults(param);
   if (view === 'export') showExport();
   if (view === 'pf-commands') showPfCommands();
   if (view === 'pf-results') showPfResults(param);
@@ -40,6 +42,7 @@ const openRun = (id) => { location.hash = '#/pf-run/' + encodeURIComponent(id); 
 initLiveRun();
 initExport();
 initNewRun({ onStarted: (id) => { location.hash = '#/live/' + encodeURIComponent(id); } });
+initPyritResults();
 initPfCommands({ onJob: openRun });
 initPfRun();
 initPfResults({
