@@ -175,4 +175,7 @@ results/*
 !results/.gitkeep
 tests
 tests/*
+!/tests/
+!/tests/test_datasets.py
+!/tests/test_run_reports.py
 results-promptfoo/*
