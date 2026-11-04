@@ -32,6 +32,10 @@ uv run red-team check-proxy                              # show effective proxy 
 
 Attack types (`-a`): `PromptSending`, `Crescendo`, `MultiTurn`, `RedTeaming`, `PromptSeed`. Reports are written to `results/` (or the Blob results container).
 
+Dashboard runs save one consolidated JSON report containing every completed case, repeat, turn, score, and error. The filename includes the selected dataset filename (without `.json`), attack type, converters in order when used, and a UTC timestamp plus unique run suffix. For example: `run_red_team_test_cases_security_PromptSending_base64_rot13_20261103_231700_a1b2c3.json`. Custom questions use `custom_query` as the dataset label. Long or unsafe filename components are shortened or sanitized; full dataset and converter metadata remains inside the report.
+
+Individual attempt reports are disabled for dashboard runs. Live Run, saved report views, and CSV export retain their existing formats. Stopped runs save completed attempts in the same single report. Standalone CLI attacks retain their existing reporting behavior. No new environment settings are needed, and existing reports are not deleted or merged.
+
 ## Web app and API
 
 Use the shared repo launcher for the supported local setup:

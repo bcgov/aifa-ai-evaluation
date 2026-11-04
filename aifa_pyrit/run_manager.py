@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import secrets
 import threading
 from dataclasses import dataclass, field
@@ -172,6 +173,22 @@ class Run:
             "results": results,
         }
 
+    def report_filename(self) -> str:
+        dataset = (self.dataset_id or "custom_query").split(":", 1)[-1].rsplit("/", 1)[-1]
+        if self.dataset_id == "saved-test-cases":
+            dataset = "red_team_test_cases"
+        if dataset.endswith(".json"):
+            dataset = dataset[:-5]
+
+        def safe(value: str, limit: int) -> str:
+            return (re.sub(r"[^a-zA-Z0-9_-]+", "_", value).strip("_") or "unnamed")[:limit]
+
+        parts = ["run", safe(dataset, 64), safe(self.attack_type, 32)]
+        if self.converters:
+            parts.append(safe("_".join(self.converters), 96))
+        parts.append(self.id)
+        return "_".join(parts) + ".json"
+
 
 class RunManager:
     """Runs one attack run at a time on a worker thread and exposes thread-safe snapshots."""
@@ -202,7 +219,8 @@ class RunManager:
         with self._lock:
             if self.active():
                 raise RuntimeError("Another run is still in progress. Stop it or wait for it to finish.")
-            runner = self._runner_factory(converters=converters, **(runner_kwargs or {}))
+            options = {**(runner_kwargs or {}), "converters": converters, "persist_results": False}
+            runner = self._runner_factory(**options)
             run_id = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_") + secrets.token_hex(3)
             cases = [
                 CaseState(
@@ -323,7 +341,8 @@ class RunManager:
             for case in run.cases:
                 case.running = False
         try:
-            saved = self._save_report(run.report(), f"run_{run.id}.json")
-            run.report_name = getattr(saved, "name", None) or str(saved)
+            filename = run.report_filename()
+            self._save_report(run.report(), filename)
+            run.report_name = filename
         except Exception as exc:
             run.error = run.error or f"Run finished but the report could not be saved: {exc}"
