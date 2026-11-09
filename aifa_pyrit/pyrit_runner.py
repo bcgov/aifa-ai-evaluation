@@ -73,6 +73,7 @@ class PyRITRunner:
         max_iterations: int = 5,
         verbose: bool = False,
         converters: Optional[List[str]] = None,
+        persist_results: bool = True,
     ):
         """
         Initialize PyRIT runner.
@@ -82,10 +83,12 @@ class PyRITRunner:
             max_iterations: Max iterations per attack
             verbose: Enable verbose output
             converters: Optional list of converter names (e.g. base64, rot13)
+            persist_results: Save standalone attack reports when not managed by a run
         """
         self.threat_models = threat_models or ["jailbreak", "prompt_injection", "data_exfiltration"]
         self.max_iterations = max_iterations
         self.verbose = verbose
+        self.persist_results = persist_results
         self.converter_names = normalize_converter_names(converters)
         self.results: Dict[str, Any] = {}
         
@@ -1124,6 +1127,8 @@ class PyRITRunner:
 
     def save_result_payload(self, result: Dict[str, Any], attack_name: Optional[str] = None) -> str:
         """Persist one attack result under the project-level results folder or Azure Blob Storage."""
+        if not self.persist_results:
+            return ""
         attack_label = (attack_name or result.get("attack_type") or "attack").strip()
         safe_name = re.sub(r"[^a-zA-Z0-9_-]+", "_", attack_label).strip("_") or "attack"
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")

@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 
 from aifa_pyrit.config import settings
 from aifa_pyrit.csv_export import reports_to_csv
+from aifa_pyrit import datasets
 from aifa_pyrit.logging_utils import setup_logger
 from aifa_pyrit.orchestrator import RedTeamOrchestrator
 from aifa_pyrit.pyrit_runner import PyRITRunner
@@ -78,9 +79,7 @@ class ExportRequest(BaseModel):
     all: bool = False
 
 
-DEFAULT_DATASET_ID = "saved-test-cases"
-DEFAULT_DATASET_FILENAME = "red_team_test_cases.json"
-DATA_DIR = BASE_DIR / "data"
+DEFAULT_DATASET_ID = datasets.DEFAULT_DATASET_ID
 REPORT_NAME_PATTERN = re.compile(r"^[\w.-]+\.json$")
 EXPORTABLE_PREFIXES = ("run_", "scan_")
 TENANTS = [{"id": "aifa-water-licence", "name": "AI Forms Assist — Water Licence Application"}]
@@ -106,62 +105,27 @@ def _save_report(report: dict[str, Any], filename: str | None = None) -> Path:
     return path
 
 
-def _discover_local_datasets() -> dict[str, dict[str, Any]]:
-    discovered: dict[str, dict[str, Any]] = {}
-    default_cases = RedTeamOrchestrator.load_test_cases()
-    if default_cases:
-        discovered[DEFAULT_DATASET_ID] = {
-            "id": DEFAULT_DATASET_ID,
-            "name": "Saved test cases",
-            "cases": default_cases,
-        }
-    if not DATA_DIR.exists():
-        return discovered
-    for path in sorted(DATA_DIR.glob("*.json")):
-        if path.name == DEFAULT_DATASET_FILENAME:
-            continue
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            continue
-        if not isinstance(data, dict):
-            continue
-        cases = [c for c in data.get("test_cases", []) if isinstance(c, dict)]
-        if not cases:
-            continue
-        dataset_id = path.stem.replace("_", "-")
-        label = str(data.get("name") or path.stem.removesuffix("_test_cases").replace("_", " ").capitalize())
-        discovered[dataset_id] = {"id": dataset_id, "name": label, "cases": cases}
-    return discovered
-
-
-def _load_dataset_cases(dataset_id: str, only_names: list[str] | None = None) -> list[dict[str, Any]]:
-    if dataset_id == DEFAULT_DATASET_ID:
+def _load_cases(case_names: str | None = None, dataset_id: str | None = None) -> list[dict[str, Any]]:
+    if dataset_id is None:
         all_cases = RedTeamOrchestrator.load_test_cases()
     else:
-        entry = _discover_local_datasets().get(dataset_id)
-        if entry is None:
-            raise HTTPException(status_code=400, detail="Unknown dataset.")
-        all_cases = entry["cases"]
-
+        try:
+            all_cases = datasets.load_dataset(dataset_id)
+        except datasets.DatasetUnavailableError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        except (ValueError, FileNotFoundError) as exc:
+            raise HTTPException(status_code=400, detail="Unknown or invalid test-case dataset.") from exc
     if not all_cases:
         raise HTTPException(status_code=400, detail="No test cases loaded. Check the test-case source or choose Custom query.")
 
-    if only_names:
-        allowed = {name for name in only_names if name}
+    if case_names:
+        allowed = {name.strip() for name in case_names.split(",") if name.strip()}
         missing = allowed - {case.get("name") for case in all_cases}
         if not allowed or missing:
             raise HTTPException(status_code=400, detail=f"Unknown or empty case filter: {', '.join(sorted(missing))}")
         return [case for case in all_cases if case.get("name") in allowed]
 
     return all_cases
-
-
-def _load_cases(case_names: str | None = None) -> list[dict[str, Any]]:
-    names: list[str] | None = None
-    if case_names:
-        names = [name.strip() for name in case_names.split(",") if name.strip()]
-    return _load_dataset_cases(DEFAULT_DATASET_ID, names)
 
 
 def _normalized_turns(value: Any) -> list[dict[str, Any]]:
@@ -424,12 +388,12 @@ async def list_tenants() -> list[dict[str, Any]]:
     return _tenants()
 
 
-@app.get("/api/datasets")
+@app.get("/api/datasets", responses={503: {"description": "Dataset storage unavailable"}})
 async def list_datasets() -> list[dict[str, Any]]:
-    return [
-        {"id": ds["id"], "name": ds["name"], "case_count": len(ds["cases"])}
-        for ds in _discover_local_datasets().values()
-    ]
+    try:
+        return await asyncio.to_thread(datasets.list_datasets)
+    except datasets.DatasetUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 def _previous_failed_cases(dataset_id: str | None) -> list[str]:
@@ -450,7 +414,11 @@ def _previous_failed_cases(dataset_id: str | None) -> list[str]:
     return failed
 
 
-@app.post("/api/runs")
+@app.post("/api/runs", responses={
+    400: {"description": "Invalid dataset or run request"},
+    409: {"description": "Run already active"},
+    503: {"description": "Dataset storage unavailable"},
+})
 async def start_run(request: StartRunRequest) -> dict[str, Any]:
     tenant = next((t for t in _tenants() if t["id"] == request.tenant_id), None)
     if tenant is None or not tenant["approved"]:
@@ -463,10 +431,11 @@ async def start_run(request: StartRunRequest) -> dict[str, Any]:
         test_cases = [{"name": f"custom_{i}", "query": q} for i, q in enumerate(questions, 1)]
         source, dataset_id = "custom_query", None
     else:
-        dataset_id = request.dataset_id or DEFAULT_DATASET_ID
-        failed = _previous_failed_cases(dataset_id) if request.only_failed else None
-        test_cases = _load_dataset_cases(dataset_id, failed or None)
-        source = "saved_cases"
+        if not request.dataset_id:
+            raise HTTPException(status_code=400, detail="Unknown dataset.")
+        failed = _previous_failed_cases(request.dataset_id) if request.only_failed else None
+        test_cases = await asyncio.to_thread(_load_cases, ",".join(failed) if failed else None, request.dataset_id)
+        source, dataset_id = "saved_cases", request.dataset_id
 
     name = request.name or f"{tenant['name']} · {request.attack_type}"
     try:

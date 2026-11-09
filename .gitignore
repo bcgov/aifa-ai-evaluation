@@ -175,7 +175,14 @@ results/*
 !results/.gitkeep
 tests
 tests/*
+<<<<<<< HEAD
 results-promptfoo/*
 # Private evaluation data (KB export, UAT logs, gold answers, judge outputs) - never commit
 private/
 results/uat_eval_*
+=======
+!/tests/
+!/tests/test_datasets.py
+!/tests/test_run_reports.py
+results-promptfoo/*
+>>>>>>> upstream/master

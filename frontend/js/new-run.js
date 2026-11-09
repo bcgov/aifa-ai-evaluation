@@ -13,7 +13,7 @@ const ATTACKS = [
 const LLM_NOTE = ' needs the Azure OpenAI attacker/judge model. It only works where that endpoint is reachable (e.g. the deployed environment).';
 
 const $ = (id) => document.getElementById(id);
-const state = { tenants: [], datasets: [], converters: [], source: 'saved', repeats: 5, stack: [], starting: false };
+const state = { tenants: [], datasets: [], converters: [], datasetError: '', source: 'saved', repeats: 5, stack: [], starting: false };
 
 function fillSelect(select, items, label, emptyText) {
   select.replaceChildren();
@@ -38,6 +38,7 @@ function issue() {
   const t = selected(state.tenants, 'tenant');
   if (!t) return 'Choose a system to test.';
   if (!t.approved) return 'This system is not approved for testing.';
+  if (state.source === 'saved' && state.datasetError) return state.datasetError;
   if (questionCount() === 0) return 'Add at least one question to start.';
   return '';
 }
@@ -183,6 +184,7 @@ export async function initNewRun({ onStarted }) {
   const [tenants, datasets, converters] = await Promise.allSettled([getTenants(), getDatasets(), getConverters()]);
   state.tenants = tenants.status === 'fulfilled' ? tenants.value : [];
   state.datasets = datasets.status === 'fulfilled' ? datasets.value : [];
+  state.datasetError = datasets.status === 'rejected' ? 'Could not load test files: ' + datasets.reason.message : '';
   state.converters = converters.status === 'fulfilled' ? converters.value : [];
   fillSelect($('tenant'), state.tenants, (t) => t.name, 'No systems available');
   fillSelect($('dataset'), state.datasets, (d) => d.name + ' — ' + d.case_count + ' cases', 'No datasets available');

@@ -1,30 +1,51 @@
-"""Generate a Promptfoo-ready golden dataset from the WaterPermit telemetry workbook.
+"""Generate a Promptfoo-ready dataset from the WaterPermit workbook with Azure AI Search grounding.
 
-This project expects Promptfoo test cases to post a request body with the canonical
-fields used by the backend adapter:
-
-  {"query": "...", "step_number": "..."}
-
-The workbook contains raw Azure telemetry in columns such as `chat.query`,
-`chat.step_number`, and `chat.response`. We flatten those into the Promptfoo payload
-shape while preserving the original chat payload and response text in the generated
-JSONL records for evaluation and auditing.
-
-Usage:
-  python build_golden.py --xlsx "WaterPermit.xlsx" [--outdir .]
+Each record is converted into Promptfoo-compatible test variables that include the raw
+question and the retrieved AI Search context used to ground the assertion. When the
+search service is unavailable or returns no hits, the fallback context is explicit and
+honest: "No relevant source documents found.".
 """
+
+# Local run
+# export HTTP_PROXY="http://127.0.0.1:8118"
+# export HTTPS_PROXY="http://127.0.0.1:8118"
+# export ALL_PROXY="http://127.0.0.1:8118"
+# export NO_PROXY="localhost,127.0.0.1,::1"
+
+# export AZURE_SEARCH_ENDPOINT="https://css-ai-dev-aisearch.search.windows.net"
+# export AZURE_SEARCH_INDEX="rag-bc-waterpermit-dev"
+# export AZURE_SEARCH_API_KEY="<your-key>"
+
+# python data_promptfoo/build_golden.py --xlsx "WaterPermit.xlsx" --outdir data_promptfoo
 
 from __future__ import annotations
 
 import argparse
 import ast
 import json
+import os
 import re
+import sys
 from collections import Counter
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import openpyxl
+
+try:
+    import yaml
+except Exception:  # pragma: no cover - yaml is available in project dependencies
+    yaml = None
+
+try:
+    from azure.core.credentials import AzureKeyCredential
+    from azure.search.documents import SearchClient
+except Exception:  # pragma: no cover - keep the script importable when Azure libs are absent
+    AzureKeyCredential = None
+    SearchClient = None
+
+FALLBACK_CONTEXT = "No relevant source documents found."
 
 
 def _clean(v: Any) -> str:
@@ -118,6 +139,160 @@ def _case_id(row_map: dict[str, Any], fallback: int) -> str:
     return f"case-{fallback}"
 
 
+def normalize_search_endpoint(endpoint: str | None) -> str:
+    """Return the service root for Azure AI Search, even if the env value includes /indexes/.../docs/search."""
+    if not endpoint:
+        return ""
+
+    value = endpoint.strip().rstrip("/")
+    if not value:
+        return ""
+
+    parsed = urlparse(value)
+    if not parsed.scheme or not parsed.netloc:
+        return value
+
+    if parsed.path and "/indexes/" in parsed.path.lower():
+        return f"{parsed.scheme}://{parsed.netloc}"
+    return f"{parsed.scheme}://{parsed.netloc}"
+
+
+def _search_settings() -> dict[str, str] | None:
+    """Return the Azure AI Search configuration if present; otherwise None."""
+    endpoint = (os.getenv("AZURE_SEARCH_ENDPOINT") or "").strip()
+    api_key = (os.getenv("AZURE_SEARCH_API_KEY") or "").strip()
+    index_name = (os.getenv("AZURE_SEARCH_INDEX") or os.getenv("AZURE_SEARCH_INDEX_NAME") or "").strip()
+
+    if not endpoint or not api_key or not index_name:
+        return None
+
+    return {
+        "endpoint": normalize_search_endpoint(endpoint),
+        "api_key": api_key,
+        "index_name": index_name,
+    }
+
+
+def _extract_search_result_text(result: Any) -> str:
+    if isinstance(result, dict):
+        for key in ("content", "text", "chunk", "body", "content_text", "summary", "description"):
+            value = result.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+            if isinstance(value, list):
+                joined = " ".join(str(item).strip() for item in value if str(item).strip())
+                if joined:
+                    return joined
+
+        captions = result.get("@search.captions") or []
+        if isinstance(captions, list):
+            for caption in captions:
+                text = caption.get("text") if isinstance(caption, dict) else str(caption)
+                if text and str(text).strip():
+                    return str(text).strip()
+
+        for value in result.values():
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return ""
+
+    if isinstance(result, str):
+        return result.strip()
+    return ""
+
+
+def fetch_azure_search_context(query: str) -> str:
+    """Fetch the top relevant snippet from Azure AI Search for a query.
+
+    Missing env vars or unavailable search services are treated as a safe, explicit
+    fallback so the generated Promptfoo cases remain valid and honest.
+    """
+    clean_query = _clean(query)
+    if not clean_query:
+        return FALLBACK_CONTEXT
+
+    settings = _search_settings()
+    if settings is None:
+        return FALLBACK_CONTEXT
+
+    if SearchClient is None or AzureKeyCredential is None:
+        return FALLBACK_CONTEXT
+
+    try:
+        client = SearchClient(
+            endpoint=settings["endpoint"],
+            index_name=settings["index_name"],
+            credential=AzureKeyCredential(settings["api_key"]),
+        )
+        results = client.search(search_text=clean_query, top=1)
+        results_list = list(results)
+        if not results_list:
+            return FALLBACK_CONTEXT
+
+        for result in results_list:
+            text = _extract_search_result_text(result)
+            if text:
+                return text
+
+        return FALLBACK_CONTEXT
+    except Exception as exc:  # pragma: no cover - runtime environment may not have live Azure search
+        print(f"Warning: Azure AI Search lookup failed for query '{clean_query[:80]}': {exc}", file=sys.stderr)
+        return FALLBACK_CONTEXT
+
+
+def build_promptfoo_case(record: dict[str, Any], azure_search_context: str | None = None) -> dict[str, Any]:
+    """Build a Promptfoo case using the retrieved Azure AI Search evidence as the grounding context."""
+    query = _clean(record.get("query"))
+    step_number = _clean(record.get("step_number"))
+    context = _clean(azure_search_context or FALLBACK_CONTEXT) or FALLBACK_CONTEXT
+
+    rubric = (
+        "Evaluate whether the application response is accurate, contextually grounded, and honest about missing information. "
+        "Use the supplied azure_search_context as the only evidence source. The response should be supported by that context and by the current water-permit step. "
+        "If the context is empty or unhelpful, the response must clearly say that the information is missing or uncertain instead of inventing details. "
+        "Do not assume legal rules, fees, timelines, citations, eligibility requirements, or application steps that are not explicitly supported by the retrieved context. "
+        "The response should be accurate, cautious, and clearly grounded in the available evidence.\n\n"
+        "Query: {{query}}\n"
+        "Step: {{step_number}}\n"
+        "Retrieved AI Search context (evidence):\n"
+        "{{azure_search_context}}"
+    )
+
+    vars_payload: dict[str, Any] = {
+        "query": query,
+        "step_number": step_number,
+        "azure_search_context": context,
+        "chat_response": _clean(record.get("chat_response")),
+    }
+
+    return {
+        "description": f"{record.get('id', 'case')} [{step_number or 'unknown-step'}]",
+        "vars": vars_payload,
+        "assert": [{"type": "llm-rubric", "value": rubric}],
+        "metadata": {
+            "session_id": _clean(record.get("session_id")),
+            "step_number": step_number,
+            "chat_success": _clean(record.get("chat_success")),
+            "application_id": _clean(record.get("metadata", {}).get("application_id")),
+        },
+    }
+
+
+def build_promptfoo_suite(records: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    """Create the Promptfoo dynamic test suite structure, one test per workbook record."""
+    tests: list[dict[str, Any]] = []
+
+    for record in records:
+        query = _clean(record.get("query"))
+        if not query:
+            continue
+
+        context = fetch_azure_search_context(query)
+        tests.append(build_promptfoo_case(record, azure_search_context=context))
+
+    return {"tests": tests}
+
+
 def build(xlsx_path: Path, outdir: Path) -> None:
     wb = openpyxl.load_workbook(xlsx_path, data_only=True)
     ws = wb.active
@@ -156,19 +331,14 @@ def build(xlsx_path: Path, outdir: Path) -> None:
         )
         response_raw = row_map.get("chat_response") or row_map.get("response") or row_map.get("chat_response_value")
         response_text = _extract_chat_response(response_raw)
+
         rec = {
             "id": _case_id(row_map, len(records) + 1),
             "session_id": _clean(row_map.get("chat_session_id") or row_map.get("session_id")),
             "query": query,
             "step_number": step_number,
             "chat_response": response_text,
-            "chat_payload": {
-                "query": query,
-                "step_number": step_number,
-            },
-            "reference_response": response_text,
-            "raw_response": _clean(response_raw),
-            "chat_success": _clean(row_map.get("chat_success") or row_map.get("success")),
+            "chat_payload": {"query": query, "step_number": step_number},
             "metadata": {
                 "application_id": _clean(row_map.get("chat_application_id") or row_map.get("application_id")),
                 "client_id": _clean(row_map.get("chat_client_id") or row_map.get("client_id")),
@@ -176,6 +346,7 @@ def build(xlsx_path: Path, outdir: Path) -> None:
                 "service_name": _clean(row_map.get("service_name") or row_map.get("service")),
                 "cloud_role": _clean(row_map.get("cloud_role") or row_map.get("cloudrole")),
             },
+            "chat_success": _clean(row_map.get("chat_success") or row_map.get("success")),
         }
         records.append(rec)
 
@@ -186,55 +357,22 @@ def build(xlsx_path: Path, outdir: Path) -> None:
         for rec in records:
             fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
-    tests: list[dict[str, Any]] = []
-    for rec in records:
-        rubric = (
-            "There is no gold answer for this case. Judge the response only against the retrieved AI Search context "
-            "and the step-specific BC water licence guidance available to the agent. The answer passes only if it is "
-            "relevant to the user's question and the current form step, grounded in the retrieved context, and does not "
-            "invent legal rules, application steps, fees, citations, or eligibility requirements that are not supported by that context. "
-            "If the answer is uncertain or unsupported, it should say so and direct the user to the correct BC process, form field, or authoritative source instead of guessing. "
-            "Do not treat the recorded chat response as a canonical answer or compare the model to a hidden gold answer."
-        )
-        if rec["step_number"]:
-            rubric += f" This case is for step '{rec['step_number']}'."
-        rubric += " Use the retrieved AI Search chunks as the evidence base for grading."
+    promptfoo_suite = build_promptfoo_suite(records)
+    yaml_path = outdir / "golden_tests.yaml"
+    json_path = outdir / "golden_tests.json"
 
-        test_vars = {
-            "query": rec["query"],
-            "step_number": rec["step_number"],
-            "chat": {
-                "query": rec["query"],
-                "step_number": rec["step_number"],
-            },
-            "chat_response": rec["chat_response"],
-            "reference_response": "",
-            "ai_search_context": (
-                "There is no gold answer for this case. Grade the response against the retrieved AI Search chunks "
-                "and the current BC water licence step context only. The answer must be supported by that evidence, "
-                "not by a hidden canonical answer."
-            ),
-        }
-        tests.append(
-            {
-                "description": f"{rec['id']} [{rec['step_number'] or 'unknown-step'}]",
-                "vars": test_vars,
-                "assert": [{"type": "llm-rubric", "value": rubric}],
-                "metadata": {
-                    "session_id": rec["session_id"],
-                    "step_number": rec["step_number"],
-                    "chat_success": rec["chat_success"],
-                    "application_id": rec["metadata"]["application_id"],
-                },
-            }
+    if yaml is not None:
+        yaml_path.write_text(
+            yaml.safe_dump(promptfoo_suite, sort_keys=False, allow_unicode=True, default_flow_style=False),
+            encoding="utf-8",
         )
-    _dump_yaml(tests, outdir / "golden_tests.yaml")
+    json_path.write_text(json.dumps(promptfoo_suite, indent=2, ensure_ascii=False), encoding="utf-8")
 
     summary = {
         "total_cases": len(records),
         "by_step_number": dict(sorted(Counter(r["step_number"] for r in records if r["step_number"]).items())),
         "by_chat_success": dict(sorted(Counter(r["chat_success"] for r in records if r["chat_success"]).items())),
-        "has_reference_response": sum(1 for r in records if r["chat_response"]),
+        "has_response_text": sum(1 for r in records if r["chat_response"]),
         "avg_response_chars": round(
             sum(len(r["chat_response"]) for r in records if r["chat_response"]) / max(1, sum(1 for r in records if r["chat_response"])),
             2,
@@ -242,55 +380,16 @@ def build(xlsx_path: Path, outdir: Path) -> None:
     }
     (outdir / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
 
-    print(f"Wrote {len(records)} cases:")
+    print(f"Wrote {len(records)} cases and Promptfoo suite:")
     print(f"  {jsonl}")
-    print(f"  {outdir / 'golden_tests.yaml'}")
-    print(f"  {outdir / 'summary.json'}")
+    print(f"  {yaml_path}")
+    print(f"  {json_path}")
     print(json.dumps(summary, indent=2))
 
 
-def _yaml_scalar(value: Any) -> str:
-    if value is None:
-        return "null"
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    if isinstance(value, (int, float)):
-        return str(value)
-    s = str(value).replace("\\", "\\\\").replace('"', '\\"').replace("\n", " ")
-    return '"' + s + '"'
-
-
-def _dump_yaml(tests: list[dict[str, Any]], path: Path) -> None:
-    lines: list[str] = [
-        "# Auto-generated by build_golden.py from WaterPermit.xlsx",
-        "",
-    ]
-
-    for test in tests:
-        lines.append(f"- description: {_yaml_scalar(test['description'])}")
-        lines.append("  vars:")
-        for key, value in test["vars"].items():
-            if isinstance(value, dict):
-                lines.append(f"    {key}:")
-                for inner_key, inner_value in value.items():
-                    lines.append(f"      {inner_key}: {_yaml_scalar(inner_value)}")
-            else:
-                lines.append(f"    {key}: {_yaml_scalar(value)}")
-        lines.append("  assert:")
-        for item in test["assert"]:
-            lines.append(f"    - type: {_yaml_scalar(item['type'])}")
-            lines.append(f"      value: {_yaml_scalar(item['value'])}")
-        lines.append("  metadata:")
-        for key, value in test["metadata"].items():
-            lines.append(f"    {key}: {_yaml_scalar(value)}")
-        lines.append("")
-
-    path.write_text("\n".join(lines), encoding="utf-8")
-
-
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser(description="Convert the WaterPermit telemetry workbook into Promptfoo gold data.")
+    ap = argparse.ArgumentParser(description="Convert the WaterPermit telemetry workbook into Promptfoo gold data grounded by Azure AI Search.")
     ap.add_argument("--xlsx", default="WaterPermit.xlsx", help="Path to the workbook to convert.")
-    ap.add_argument("--outdir", default=str(Path(__file__).parent), help="Directory to write golden.jsonl and golden_tests.yaml.")
+    ap.add_argument("--outdir", default=str(Path(__file__).parent), help="Directory to write the generated Promptfoo suite.")
     args = ap.parse_args()
     build(Path(args.xlsx), Path(args.outdir))
