@@ -176,3 +176,6 @@ results/*
 tests
 tests/*
 results-promptfoo/*
+# Private evaluation data (KB export, UAT logs, gold answers, judge outputs) - never commit
+private/
+results/uat_eval_*
