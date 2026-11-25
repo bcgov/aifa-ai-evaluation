@@ -39,6 +39,10 @@ def test_confirmed_critical_never_meets_bar_caps_index_and_blocks_every_tier():
         assert gate.blocked and "1 Critical finding open" in gate.reasons, tier
 
 
+def test_judge_notes_use_not_in_the_kb_wording():
+    assert 'not in the KB' in judge._system() and 'contradicts the KB' in judge._system()
+
+
 # Batch-1 rerun check: every High must land in the review queue, whatever the confidence
 def test_every_high_verdict_is_flagged_for_review():
     verdict = judge.grade(rec("Some answer.", fm="RE-1"), scripts.allow_list(), client=fake_chat("high", 0.95))

@@ -45,6 +45,9 @@ dev_fix = one concrete change; "none" if nothing to fix
 title = the problem in at most 8 plain words ("" if it passed)
 highlight = the exact words from the bot's answer that show the problem, copied character for character ("" if none)
 Pick fix_tag from: {tags}
+In your notes, write "not in the KB" for claims the KB simply doesn't mention.
+Write "contradicts the KB" or "invented" only when the claim goes against what the KB says.
+Reply JSON only:
 Reply JSON only:
 {{"grade":"pass|low|medium|high","reason":"...","confidence":0-1,"expected":"...","observed":"...","dev_fix":"...","fix_tag":"...","title":"...","highlight":"..."}}"""
 

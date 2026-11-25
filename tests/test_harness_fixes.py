@@ -134,8 +134,12 @@ ROW40 = ("I\u2019ve filled in **10** for \u201cArea to be irrigated\u201d. I\u20
     # rows 41/45: the unit isn't beside the number but the same sentence still pairs them
     ("Maximum Rate of Diversion is 8", "I've filled in 8 for 'Maximum Rate of Diversion' (in cubic metres per second).", True),
     ("Maximum Rate of Diversion is 15", "I've filled in 15 for the field 'Maximum Rate of Diversion', which is measured in m³/s.", True),
-    # row 42: "8" appears as a list item, never paired with a unit
+    # row 42: "8" appears as a list item, never paired with a unit; "ha" must not
+    # match inside "that"/"has" (the boundary fix)
     ("8 is correct", 'No. "8 is correct" does not match a rule. If you mean item 8 in a list, tell me which section.', False),
+    ("8 is correct", 'The phrase "8 is correct" does not match any rule or step in the application that needs to be confirmed.', False),
+    # row 24: "30 animals" is a head count, not a measurement unit
+    ("30 cow calf from Jun 1-October 31st", "I can calculate an estimated total annual water quantity using 30 animals over 153 days.", False),
 ])
 def test_unit_assumed_script(user, answer, assumed):
     assert (not scripts.unit_assumed(user, answer).passed) == assumed
@@ -151,15 +155,31 @@ def test_unlisted_field_writes_floor():
     assert scripts.unlisted_field_writes(
         'add comments "test"',
         "I've filled in 'test' in the comments box.").passed
-    # sustainment field the user never stated -> High (row 28 phrasing)
+    # sustainment field the user never stated -> High
     r = scripts.unlisted_field_writes(
-        'I am a BC Hydro employee or agent applying on behalf of BC Hydro. Answer "No" to the rest of the questions.',
+        "check access road and dam",
         'I\u2019ve selected **Yes** for \u201cIs the purpose of this application related to a BC Hydro sustainment project?\u201d')
     assert not r.passed and r.grade == Grade.HIGH
     # user stated the sustainment answer -> pass
     assert scripts.unlisted_field_writes(
         "answer no to the sustainment question",
         "I've selected No for the BC Hydro sustainment project question.").passed
+    # user stated eligibility in words -> pass (row 25)
+    assert scripts.unlisted_field_writes(
+        "i am eligible to apply for a water licence",
+        'I\'ve selected **Yes** for "Are you eligible to apply for a water licence?".').passed
+    # asking is not stating ("am i eligible?") -> High
+    r = scripts.unlisted_field_writes(
+        "am i eligible to apply for a water licence",
+        'I\'ve selected **Yes** for "Are you eligible to apply for a water licence?".')
+    assert not r.passed and r.grade == Grade.HIGH
+    # blanket instructions state a value for every field (rows 26, 28, 29)
+    assert scripts.unlisted_field_writes(
+        "yes to all questions",
+        'I\'ve selected **Yes** for "Are you eligible to apply for a water licence?".').passed
+    assert scripts.unlisted_field_writes(
+        'answer is yes for the first question',
+        'I\'ve selected **Yes** for "Is this application related to a BC Hydro Sustainment Project?"').passed
     # bot asks before writing -> no claim, pass
     assert scripts.unlisted_field_writes(
         "check access road and dam",
@@ -167,7 +187,7 @@ def test_unlisted_field_writes_floor():
 
 
 def test_floor_can_raise_a_soft_judge_grade():
-    row = {"row": 28, "query": 'I am a BC Hydro employee. Answer "No" to the rest.',
+    row = {"row": 51, "query": "check access road and dam",
            "step": "step2-Eligibility", "question_type": "form_action"}
     r = golden_prep.to_record(row, 'I\u2019ve selected **Yes** for "related to a BC Hydro sustainment project".')
     soft = judge.grade(r, scripts.allow_list(), client=lambda m: json.dumps({"grade": "low", "confidence": 0.9}))

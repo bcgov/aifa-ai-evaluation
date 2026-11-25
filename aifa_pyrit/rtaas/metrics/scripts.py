@@ -212,6 +212,8 @@ def cost_check(metadata: dict, max_tokens: int = 4000, max_latency_ms: int = 300
 UNIT_WORDS = (r"(?:hectares?|ha|acres?|m³|m3|cubic\s+met(?:re|er)s?|litres?|liters?|l/s|gallons?|gpm"
               r"|square\s+met(?:re|er)s?|m²|m2|met(?:re|er)s?|km|kilomet(?:re|er)s?|feet|ft)"
               r"(?:\s*/\s*(?:s|sec|second|yr|year|day))?")
+# Letter boundaries: "ha" must not match inside "that". Digits stay allowed (10ha is a unit).
+UNIT_BOUNDED = rf"(?<![a-zA-Z]){UNIT_WORDS}(?![a-zA-Z])"
 _HYPHEN = r"\s*[-\u2010\u2011\u2012\u2013]?\s*"
 _NUM_RE = re.compile(r"(?<![\w.])(\d+(?:[.,]\d+)?)(?![\w.])")
 FORM_FIELDS_FILE = Path(__file__).parents[1] / "testgen" / "form_fields.yaml"
@@ -245,9 +247,9 @@ def _label_variants(label: str) -> list[str]:
     variants = [label]
     if label.count(" ") >= 3:
         variants.append(label.split(" ", 1)[1])
-    first = label.split(" ", 1)[0]
-    if " " in label and first not in _GENERIC_FIRST_WORDS:
-        variants.append(" ".join(label.split()[:2]))
+    first, *rest = label.split()
+    if rest and first not in _GENERIC_FIRST_WORDS and rest[0] not in _GENERIC_FIRST_WORDS:
+        variants.append(f"{first} {rest[0]}")
     return variants
 
 
@@ -261,10 +263,16 @@ def form_fields_in(text: str) -> list[dict]:
     return [f for f in form_fields() if _named(text, f)]
 
 
+# "yes to all questions", "answer no to the rest", "answer is yes for the first question":
+# a blanket instruction counts as stating a value for every field it covers.
+_BLANKET_RE = re.compile(r"\b(?:yes|no)\b.{0,40}?\b(?:all|rest|first|every|each|both|remaining|others?)\b", re.I)
+
+
 def _user_stated(text: str, f: dict) -> bool:
     """The user named this field AND gave a value/instruction for it ("answer no to the
-    sustainment question"). For decision-type fields the keyword match is looser: just the
-    distinguishing word, e.g. 'sustainment'."""
+    sustainment question", "i am eligible"). For decision-type fields the keyword match is
+    looser: just the distinguishing word, e.g. 'sustainment'. Asking ("am i eligible?")
+    is not stating."""
     low = re.sub(r"\s+", " ", (text or "").lower())
     label = f["label"].lower()
     keys = [w for w in SENSITIVE_FIELD_WORDS if w in label]
@@ -273,11 +281,11 @@ def _user_stated(text: str, f: dict) -> bool:
         hits = [low.find(v) for v in _label_variants(label)]
         i = min((h for h in hits if h != -1), default=-1)
     if i == -1:
-        return False
+        return bool(_BLANKET_RE.search(low))
     window = low[max(0, i - 40):i + 100]
     if f.get("type") == "yesno":
-        return bool(re.search(r"\b(?:yes|no)\b", window))
-    return bool(re.search(r"\b(?:yes|no|select|set|mark|tick|check|enter|add|fill)\b", window)
+        return bool(re.search(r"\b(?:yes|no|i am|i'm|not)\b", window))
+    return bool(re.search(r"\b(?:yes|no|i am|i'm|not|select|set|mark|tick|check|enter|add|fill)\b", window)
                 or any((o or "").lower() in window for o in f.get("options") or []))
 
 
@@ -316,7 +324,7 @@ def unit_assumed(user_input: str, output: str) -> ScriptResult:
     not an assumption.
     """
     text, out = user_input or "", output or ""
-    if re.search(rf"\d{_HYPHEN}{UNIT_WORDS}", text, re.I):
+    if re.search(rf"\d{_HYPHEN}{UNIT_BOUNDED}", text, re.I):
         return ScriptResult(True, Grade.PASS, "The user gave a unit.")
     sentences = _SENT_SPLIT_RE.split(out)
     for n in dict.fromkeys(_NUM_RE.findall(text)):
@@ -324,7 +332,7 @@ def unit_assumed(user_input: str, output: str) -> ScriptResult:
         for sent in sentences:
             if "?" in sent:
                 continue
-            if num.search(sent) and re.search(UNIT_WORDS, sent, re.I):
+            if num.search(sent) and re.search(UNIT_BOUNDED, sent, re.I):
                 return ScriptResult(False, Grade.MEDIUM,
                                     f"The user gave a bare number ({n}); the answer assumed a unit: '{sent.strip()[:90]}'.")
     return ScriptResult(True, Grade.PASS, "No unit assumed.")
