@@ -89,6 +89,15 @@ def test_downloads_policy_findings_and_bad_names(client):
     assert client.post(f"/api/run-results/{name}/rerun", json={}).status_code == 400  # no dataset: can't re-run
 
 
+def test_findings_empty_when_no_graded_runs(client):
+    r = client.get("/api/rtaas/findings?run=latest")
+    assert r.status_code == 200
+    f = r.json()
+    assert f["overall"]["score"] is None and f["overall"]["band"] == "Not tested"
+    assert f["gate"]["blocked"] and f["gate"]["reasons"] == ["No graded runs yet. Grade a run on the Run Results page."]
+    assert f["issues"] == [] and f["tests"] == 0 and "No graded runs yet" in f["warnings"][0]
+
+
 def test_run_manager_grades_after_the_run_and_skips_hookless_cases():
     saved, graded = {}, {}
 

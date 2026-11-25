@@ -778,7 +778,9 @@ async def rtaas_findings(run: str = "latest") -> dict[str, Any]:
         if run == "latest":
             names = await _graded_names()
             if not names:
-                raise HTTPException(status_code=404, detail="No graded runs yet. Grade a run on the Run Results page.")
+                from aifa_pyrit.rtaas import findings as rtaas_findings
+
+                return rtaas_findings.empty_findings().model_dump(mode="json")
             run = names[0]
         f, _ = _findings(await _graded(run))
     return f.model_dump(mode="json")

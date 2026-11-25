@@ -9,7 +9,9 @@ from __future__ import annotations
 from typing import Optional
 
 from .metrics import registry
-from .models import FindingsResponse, Headline, IndexScore, Issue, MetricResult, OverallScore, Verdict
+from .models import (
+    FindingsResponse, Headline, IndexScore, Issue, MetricResult, OverallScore, ReleaseGate, Verdict,
+)
 from .policy import loader
 from .scoring import (
     count_by_failure_mode, failure_mode_stats, headline, index, release_gate, run_health, score, unmapped,
@@ -109,6 +111,24 @@ def build_findings(
         review_queue=[v for v in verdicts if v.valid and v.needs_review and not v.reviewed],
         unmapped=stray,
         warnings=warnings,
+    )
+
+
+EMPTY_MESSAGE = "No graded runs yet. Grade a run on the Run Results page."
+
+
+def empty_findings() -> FindingsResponse:
+    """Served with 200 when /api/rtaas/findings is asked for the latest run but none exist.
+
+    Same shape as a real response so the page renders it: empty gauge, gate
+    'blocked' with the empty message, no issues.
+    """
+    return FindingsResponse(
+        run_id="", target_name="", run_date="", tests=0,
+        overall=OverallScore(score=None, raw=None, band="Not tested"),
+        gate=ReleaseGate(tier="low", blocked=True, reasons=[EMPTY_MESSAGE]),
+        tabs=registry.spec()["tabs"], metrics=[], issues=[],
+        run_health=run_health([], 0), warnings=[EMPTY_MESSAGE],
     )
 
 
