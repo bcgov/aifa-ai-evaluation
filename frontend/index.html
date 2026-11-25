@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="css/export.css">
   <link rel="stylesheet" href="css/promptfoo.css">
   <link rel="stylesheet" href="css/findings.css">
+  <link rel="stylesheet" href="css/run-results.css">
 </head>
 <body>
 <div class="shell">
@@ -26,9 +27,15 @@
     <a href="#/pyrit-results" class="nav-item" data-view="pyrit-results" data-short="R">
       <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>
       <span class="nav-text">PyRIT results</span></a>
+    <a href="#/run-results" class="nav-item" data-view="run-results" data-short="G">
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+      <span class="nav-text">Run Results</span></a>
     <a href="#/findings" class="nav-item" data-view="findings" data-short="F">
       <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>
       <span class="nav-text">Findings</span></a>
+    <a href="#/policy" class="nav-item" data-view="policy" data-short="P">
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h9l3 3v13H6zM9 10h6M9 14h6"/></svg>
+      <span class="nav-text">Policy Mapping</span></a>
     <a href="#/export" class="nav-item" data-view="export" data-short="E">
       <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
       <span class="nav-text">Export</span></a>
@@ -218,43 +225,16 @@
     </section>
 
     <!-- ============ FINDINGS / QUALITY ============ -->
+    <section id="view-run-results" class="view wrap-wide" hidden>
+      <div id="rr-root"></div>
+    </section>
+
     <section id="view-findings" class="view wrap-wide" hidden>
-      <header class="top">
-        <div>
-          <h1>Findings</h1>
-          <p id="findings-sub" class="sub">Automated judge: verdicts, quality rings, and risk breakdown across evaluated reports.</p>
-        </div>
-        <div class="row-gap center">
-          <button type="button" id="findings-refresh" class="btn-secondary">Refresh</button>
-          <button type="button" id="findings-export" class="add-btn">Export findings (CSV)</button>
-        </div>
-      </header>
+      <div id="rtf-root"></div>
+    </section>
 
-      <div class="stats" id="findings-rings"></div>
-
-      <div class="g2">
-        <section class="card c">
-          <div class="c-head"><h2>Verdicts</h2><span class="tag cat">per turn</span></div>
-          <div id="findings-verdicts"></div>
-        </section>
-        <section class="card c">
-          <div class="c-head"><h2>Risk classes</h2><span class="tag cat">failed turns</span></div>
-          <div id="findings-risks"></div>
-        </section>
-      </div>
-
-      <section class="card">
-        <div class="exp-toolbar">
-          <div id="findings-filter" class="seg">
-            <button type="button" data-v="all" class="on">All</button>
-            <button type="button" data-v="FAIL">Fail</button>
-            <button type="button" data-v="REFUSED">Refused</button>
-          </div>
-          <input id="findings-search" class="text-in" type="search" placeholder="Search findings" aria-label="Search findings">
-          <span id="findings-count" class="note nomargin"></span>
-        </div>
-        <div id="findings-list"><p class="empty">No evaluated reports yet. Run a scan or evaluate a report first.</p></div>
-      </section>
+    <section id="view-policy" class="view wrap-wide" hidden>
+      <div id="policy-root"></div>
     </section>
 
     <!-- ============ EXPORT ============ -->

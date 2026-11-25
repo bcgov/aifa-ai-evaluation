@@ -8,8 +8,10 @@ import { initPfRun, showPfRun, stopPfRun } from './pf-run.js';
 import { initPfResults, showPfResults } from './pf-results.js';
 import { initPyritResults, showPyritResults } from './pyrit-results.js';
 import { initFindings, showFindings } from './findings.js';
+import { initRunResults, showRunResults } from './run-results.js';
+import { showPolicy } from './policy.js';
 
-const VIEWS = ['new', 'live', 'pyrit-results', 'findings', 'export', 'pf-commands', 'pf-run', 'pf-results'];
+const VIEWS = ['new', 'live', 'pyrit-results', 'run-results', 'findings', 'policy', 'export', 'pf-commands', 'pf-run', 'pf-results'];
 
 // Hash routes:  #/new  #/live[/<runId>]  #/pyrit-results[/<reportName>]  #/export  #/pf-commands  #/pf-run/<jobId>  #/pf-results[/<name>]
 function route() {
@@ -21,7 +23,9 @@ function route() {
   if (view === 'live') showRun(param); else stopPolling();
   if (view === 'pf-run') showPfRun(param); else stopPfRun();
   if (view === 'pyrit-results') showPyritResults(param);
+  if (view === 'run-results') showRunResults();
   if (view === 'findings') showFindings();
+  if (view === 'policy') showPolicy();
   if (view === 'export') showExport();
   if (view === 'pf-commands') showPfCommands();
   if (view === 'pf-results') showPfResults(param);

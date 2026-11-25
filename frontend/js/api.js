@@ -60,6 +60,18 @@ export const getGoldenCases = (search = '', limit = 50, offset = 0) =>
 export const evaluateReport = (name, useLlm = true) => post('/reports/' + encodeURIComponent(name) + '/evaluate', { use_llm: useLlm, save_copy: true });
 export const generateTestCases = (payload) => post('/generate-test-cases', payload);
 
+// RTaaS: graded runs (Run Results), findings, policy
+const enc = encodeURIComponent;
+export const getRunResults = () => request('/run-results');                         // { runs, ungraded }
+export const gradeReport = (name, useLlm = true) => post('/run-results/' + enc(name) + '/grade', { use_llm: useLlm });
+export const reviewCase = (name, body) => post('/run-results/' + enc(name) + '/review', body);
+export const rerunCases = (name, body) => post('/run-results/' + enc(name) + '/rerun', body);
+export const runResultsDownloadUrl = (name, format, kind = 'exec') =>
+  API_BASE + '/run-results/' + enc(name) + '/download?format=' + enc(format) + '&kind=' + enc(kind);
+export const getPolicy = () => request('/policy');                                  // { catalog, crosswalk, tiers, failure_modes }
+export const getRtaasFindings = (run = 'latest') => request('/rtaas/findings?run=' + enc(run));
+export const rtaasReportUrl = (run, kind) => API_BASE + '/rtaas/report?run=' + enc(run) + '&kind=' + enc(kind);
+
 // payload: { reports: [names] } or { all: true }. Downloads a single CSV file.
 export async function exportCsv(payload) {
   const res = await send('/export/csv', { method: 'POST', body: JSON.stringify(payload) });
