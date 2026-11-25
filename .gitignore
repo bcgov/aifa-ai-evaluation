@@ -184,6 +184,7 @@ tests/*
 !/tests/test_testgen.py
 !/tests/test_review_fixes.py
 !/tests/test_rtaas_api.py
+!/tests/test_reports.py
 results-promptfoo/*
 # Private evaluation data (KB export, UAT logs, gold answers, judge outputs) - never commit
 private/

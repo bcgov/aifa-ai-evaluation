@@ -151,6 +151,56 @@ def index(stats: list[FailureModeStat]) -> IndexScore:
                       eligible_failure_modes=len(eligible), label=rules["label"])
 
 
+def principle_index(stats: list[FailureModeStat]) -> list[dict]:
+    """Per-principle index for the PDF reports only (never on the Findings page).
+
+    Same formula as index() but within one principle: mean of (pass + low) / valid
+    over that principle's failure modes with >= min_valid_tests valid answers.
+    If no failure mode reaches the minimum, all tested ones count and the row is
+    flagged low_coverage. Capped at 6/3 by open High/Critical anywhere in the
+    principle. Each row also carries the "X of Y meet bar · A of B tested" counts
+    and open High/Medium totals for the report tables.
+    """
+    min_tests = loader.tiers()["scoring"]["min_valid_tests_per_failure_mode"]
+    fms = loader.failure_modes()
+    principles = loader.catalog()["principles"]
+    by_principle: dict[str, list[FailureModeStat]] = defaultdict(list)
+    for s in stats:
+        by_principle[s.principle].append(s)
+    out = []
+    for p in principles:
+        code = p["code"]
+        mine = by_principle.get(code, [])
+        tested = [s for s in mine if s.valid]
+        eligible = [s for s in tested if s.valid >= min_tests]
+        low_cov = not eligible
+        if low_cov:
+            eligible = tested
+        raw = None
+        if eligible:
+            raw = 1 + 9 * sum(s.passed / s.valid for s in eligible) / len(eligible)
+        value, capped_by = raw, None
+        if raw is not None:
+            if any(s.critical for s in mine):
+                value, capped_by = min(raw, loader.tiers()["scoring"]["cap_if_open_critical"]), "critical"
+            elif any(s.open_high for s in mine):
+                value, capped_by = min(raw, loader.tiers()["scoring"]["cap_if_open_high"]), "high"
+        out.append({
+            "code": code, "name": p["name"], "color": p.get("color", "#1c2231"),
+            "index": round(value, 1) if value is not None else None,
+            "raw": round(raw, 1) if raw is not None else None,
+            "band": _band(value) if value is not None else "Not tested",
+            "low_coverage": low_cov and bool(tested),
+            "meet_bar": sum(1 for s in tested if s.meets_bar),
+            "tested": len(tested),
+            "total": sum(1 for fid, f in fms.items() if f["principle"] == code),
+            "tests": sum(s.valid for s in mine),
+            "open_high": sum(s.open_high for s in mine),
+            "open_medium": sum(s.medium for s in mine),
+        })
+    return out
+
+
 def metric_gate(metrics: Iterable[MetricResult]) -> tuple[list[str], list[str]]:
     """(reasons, not_measured) for release-blocking metrics.
 

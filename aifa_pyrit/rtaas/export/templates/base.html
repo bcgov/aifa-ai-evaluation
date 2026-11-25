@@ -2,27 +2,36 @@
 <html><head><meta charset="utf-8">
 <style>
   @page { size: Letter; }
-  body { font-family: "BC Sans", "Noto Sans", Arial, sans-serif; color: #1c2231; font-size: 10.5pt; line-height: 1.4; margin: 0; }
-  h1 { font-size: 18pt; margin: 0 0 2pt; } h2 { font-size: 12pt; margin: 14pt 0 6pt; }
-  .mute { color: #666e82; } .small { font-size: 9pt; }
+  body { font-family: "BC Sans", "Noto Sans", Arial, sans-serif; color: #1c2231; font-size: 10pt; line-height: 1.2; margin: 0; }
+  h1 { font-size: 15pt; margin: 0 0 2pt; } h2 { font-size: 11pt; margin: 9pt 0 4pt; } h3 { font-size: 9.5pt; margin: 7pt 0 3pt; }
+  .mute { color: #666e82; } .small { font-size: 8.5pt; }
   .row { display: flex; gap: 14pt; align-items: center; }
-  .box { border: 1px solid #e3dfd4; border-radius: 6pt; padding: 8pt 10pt; background: #fff; }
+  .box { border: 1px solid #e3dfd4; border-radius: 6pt; padding: 6pt 9pt; background: #fff; }
   .blocked { background: #fbe9e3; border-color: #eccbc1; color: #b23c22; }
   .clear { background: #e9f4ef; border-color: #c9e4d7; color: #187a5d; }
-  table { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
-  th, td { text-align: left; padding: 4pt 5pt; border-bottom: 1px solid #ece8dd; vertical-align: top; }
+  .warn { background: #fbf6e4; border-color: #e8d9a8; color: #8a5f00; }
+  table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+  th, td { text-align: left; padding: 3pt 4pt; border-bottom: 1px solid #ece8dd; vertical-align: top; }
   th { color: #666e82; font-weight: 600; font-size: 8.5pt; text-transform: uppercase; letter-spacing: .03em; }
   .sev { display: inline-block; padding: 1pt 6pt; border-radius: 9pt; font-size: 8.5pt; font-weight: 600; white-space: nowrap; }
   .High { background: #1c2231; color: #fff; } .Medium { background: #cfc8b6; }
   .nowrap { white-space: nowrap; }
-  table.tight td, table.tight th { padding: 2.5pt 5pt; font-size: 9pt; }
+  .num { text-align: right; }
+  table.tight td, table.tight th { padding: 2pt 4pt; font-size: 8.5pt; }
   .break { page-break-before: always; }
-  .refs { font-size: 8pt; color: #666e82; margin-top: 12pt; }
+  .refs { font-size: 7.5pt; color: #666e82; margin-top: 8pt; }
+  .headmeta { display: flex; justify-content: space-between; align-items: flex-start; gap: 16pt; }
+  .chips { display: flex; gap: 6pt; flex-wrap: wrap; margin: 6pt 0; }
+  .chip { border: 1px solid #e3dfd4; border-radius: 6pt; padding: 4pt 7pt; background: #fff; font-size: 8.5pt; }
+  .chip b { display: block; font-size: 12pt; }
+  .st { display: inline-block; padding: 1pt 6pt; border-radius: 9pt; font-size: 8.5pt; font-weight: 600; white-space: nowrap; }
+  .st-tested { background: #e9f4ef; color: #187a5d; } .st-partial { background: #fbf6e4; color: #8a5f00; }
+  .st-not { background: #f1efe9; color: #666e82; } .st-np { background: #eef0f6; color: #2f4fc4; }
+  ul.tight { margin: 3pt 0; padding-left: 14pt; } ul.tight li { margin: 1pt 0; }
+  .check { display: flex; gap: 8pt; align-items: flex-start; margin: 3pt 0; }
+  .check .box2 { width: 11pt; height: 11pt; border: 1.5px solid #666e82; border-radius: 2pt; flex: none; margin-top: 1pt; }
+  .col2 { display: flex; gap: 18pt; } .col2 > div { flex: 1; }
 </style></head>
 <body>{% block body %}{% endblock %}
-<div class="refs">
-  Structure: BC draft responsible AI principles. Harm labels: AIAAIC Repository harm taxonomy.
-  Cross-references are evidence toward, not compliance with: EU AI Act (Regulation 2024/1689); NIST AI RMF 1.0 (AI 100-1) and Generative AI Profile (AI 600-1);
-  OWASP Top 10 for LLM Applications 2025. Metric targets are proposals pending calibration against human-labelled answers.
-</div>
+{% block footer %}{% endblock %}
 </body></html>

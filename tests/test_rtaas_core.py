@@ -140,6 +140,7 @@ def test_runner_on_deterministic_metrics():
 def test_pdf_html_renders():
     from aifa_pyrit.rtaas.export.pdf import render_html
     f, verdicts = findings_for("demo")
-    for kind in ("exec", "dev"):
-        html = render_html(kind, f, verdicts)
-        assert "Fake approvals and receipts" in html or kind == "dev"
+    exec_html = render_html("exec", f, verdicts)
+    assert f.target_name in exec_html and "Release gate" in exec_html
+    dev_html = render_html("dev", f, verdicts)
+    assert "High findings: fix these before release" in dev_html

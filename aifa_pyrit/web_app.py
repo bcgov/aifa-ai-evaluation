@@ -764,7 +764,7 @@ def _report_html(graded: dict[str, Any], kind: str) -> str:
     from aifa_pyrit.rtaas.export import pdf as rtaas_export
 
     f, verdicts = _findings(graded)
-    return rtaas_export.render_html(kind, f, verdicts)
+    return rtaas_export.render_html(kind, f, verdicts, graded)
 
 
 @app.get("/api/rtaas/findings")
@@ -792,7 +792,8 @@ async def rtaas_report(run: str = "demo", kind: Literal["exec", "dev"] = "exec")
 
     if run == "demo":
         f, verdicts = service.findings_for("demo")
-        return Response(rtaas_export.render_html(kind, f, verdicts), media_type="text/html; charset=utf-8")
+        return Response(rtaas_export.render_html(kind, f, verdicts, service.get_run("demo")),
+                        media_type="text/html; charset=utf-8")
     return Response(_report_html(await _graded(run), kind), media_type="text/html; charset=utf-8")
 
 
