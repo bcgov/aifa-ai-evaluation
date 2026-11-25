@@ -16,8 +16,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import re
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timezone
 from functools import lru_cache
 from pathlib import Path
@@ -27,6 +29,8 @@ from . import devfix, judge
 from .metrics import registry, runner, scripts
 from .models import TestRecord, TurnRecord
 from .policy import loader
+
+log = logging.getLogger(__name__)
 
 BENIGN_KINDS = {"gold_answer", "over_refusal", "contradiction_in_kb", "outdated_source", "missing_fact",
                 "citation", "matched_pair", "human_route", "identity"}
@@ -50,15 +54,23 @@ def infer_failure_mode(name: str) -> str:
 
 @lru_cache
 def _kb():
-    from aifa_pyrit.evaluators.uat_judge import KB
+    """Loaded once. A failure is cached too (None), so a machine without the KB doesn't retry per record."""
+    try:
+        from aifa_pyrit.evaluators.uat_judge import KB
 
-    return KB()
+        return KB()
+    except Exception as exc:  # noqa: BLE001
+        log.warning("KB unavailable, grading without KB passages: %s", exc)
+        return None
 
 
 def kb_passages(query: str, answer: str = "", k: int = 4) -> list[str]:
+    kb = _kb()
+    if kb is None:
+        return []
     try:
-        return [chunk for _, chunk in _kb().top(f"{query} {answer[:300]}", k=k)]
-    except Exception:  # noqa: BLE001  (no KB on this machine)
+        return [chunk for _, chunk in kb.top(f"{query} {answer[:300]}", k=k)]
+    except Exception:  # noqa: BLE001
         return []
 
 
@@ -66,10 +78,6 @@ def _turns(result: dict) -> list[dict]:
     inner = result.get("results")
     turns = inner.get("turns", []) if isinstance(inner, dict) else inner if isinstance(inner, list) else []
     return [t for t in turns if isinstance(t, dict)]
-
-
-def _bad(text: str) -> bool:
-    return not text.strip() or text.startswith("INFRA_ERROR")
 
 
 def records_from_report(report: dict, app: Optional[registry.AppConfig] = None) -> list[TestRecord]:
@@ -83,17 +91,27 @@ def records_from_report(report: dict, app: Optional[registry.AppConfig] = None) 
         name = res.get("case_name") or meta.get("name") or f"case_{i}"
         turns_raw = _turns(res)
         turns: list[TurnRecord] = []
-        for t in turns_raw:
+        errored: list[int] = []
+        turn_error = None
+        for n, t in enumerate(turns_raw, 1):
             prompt = str(t.get("original_prompt") or t.get("prompt") or "")
             reply = str(t.get("response") or "")
+            failed = scripts.is_infra_error(reply) or t.get("error") or t.get("transport_error")
             if prompt:
                 turns.append(TurnRecord(role="user", content=prompt))
-            if reply:
+            if failed:  # an errored turn is not something the bot said
+                errored.append(n)
+                turn_error = turn_error or t.get("error") or t.get("transport_error") or reply or "empty reply"
+            else:
                 turns.append(TurnRecord(role="assistant", content=reply))
-        last_user = next((t.content for t in reversed(turns) if t.role == "user"), res.get("query", ""))
-        last_reply = next((t.content for t in reversed(turns) if t.role == "assistant"), "")
-        error = res.get("error") or next((t.get("error") for t in turns_raw if t.get("error") or t.get("transport_error")), None)
-        valid = not error and not _bad(last_reply)
+        answered_pairs = [(u, a) for u, a in zip(turns, turns[1:]) if u.role == "user" and a.role == "assistant"]
+        last_user, last_reply = (answered_pairs[-1][0].content, answered_pairs[-1][1].content) if answered_pairs \
+            else (res.get("query", ""), "")
+        # A case is "not run" only when the bot never answered any turn.
+        error = res.get("error") if not answered_pairs else None
+        if not answered_pairs and not error:
+            error = turn_error or "empty or INFRA_ERROR reply"
+        valid = bool(answered_pairs) and not res.get("error")
         kind = meta.get("test_kind")
         gold = meta.get("gold_answer")
         fm = meta.get("failure_mode") or infer_failure_mode(name)
@@ -119,9 +137,9 @@ def records_from_report(report: dict, app: Optional[registry.AppConfig] = None) 
                  | ({"must_not_contain": res.get("must_not_contain")} if res.get("must_not_contain") and "must_not_contain" not in meta else {}),
             metadata={"pair_group": meta.get("pair_group"), "failure_mode_inferred": not meta.get("failure_mode"),
                       "attempt": res.get("attempt", 1), "question_type": meta.get("question_type") or kind,
-                      "step_number": meta.get("step") or res.get("step_number")},
+                      "step_number": meta.get("step") or res.get("step_number"), "errored_turns": errored},
             valid=valid,
-            error=str(error)[:300] if error else (None if valid else "empty or INFRA_ERROR reply"),
+            error=str(error)[:300] if error else None,
         )
         records.append(rec)
 
@@ -161,19 +179,44 @@ def not_run_rows(not_run: list[TestRecord]) -> list[dict[str, Any]]:
              "error": (r.error or _last_output(r) or "empty reply")[:120]} for r in not_run]
 
 
+def split_unmapped(records: list[TestRecord]) -> tuple[list[TestRecord], list[dict[str, Any]]]:
+    """Records whose failure_mode isn't in the catalog can't be graded (no ladder). Set them aside."""
+    known = loader.failure_modes()
+    keep = [r for r in records if r.failure_mode in known]
+    stray = [{"test_id": r.test_id, "case_name": r.case_name, "failure_mode": r.failure_mode}
+             for r in records if r.failure_mode not in known]
+    return keep, stray
+
+
+def default_metric_ids() -> list[str]:
+    """Release-blocking metrics plus the free script checks. Diagnostics are opt-in (token cost)."""
+    return [m["id"] for m in registry.spec()["metrics"] if registry.blocks(m) or m["kind"] == "script"]
+
+
+SCRIPT_METRICS = ["link_safety", "no_over_refusal", "calc_sanity", "exact_values"]
+JUDGE_WORKERS = 4  # concurrent judge calls; keeps a 300-row batch to minutes without hitting rate limits
+
+
 def grade_records(records: list[TestRecord], app: registry.AppConfig, use_llm: bool = True,
-                  metric_ids: Optional[list[str]] = None, run_metrics: bool = True, client=None) -> dict[str, Any]:
-    canary = registry.target_config().get("checks", {}).get("canary", {}).get("value", "")
+                  metric_ids: Optional[list[str]] = None, run_metrics: bool = True, client=None,
+                  workers: int = JUDGE_WORKERS, canary: Optional[str] = None) -> dict[str, Any]:
+    canary = canary or registry.target_config().get("checks", {}).get("canary", {}).get("value", "")
     canary = None if not canary or canary.startswith("<FILL") else canary
-    answered, not_run = split_not_run(records)
-    verdicts = [judge.grade(r, app.allow_list, canary, client=client, kb_passages=r.context, use_llm=use_llm)
-                for r in answered]
-    metrics = runner.run_all(answered, app, metric_ids=metric_ids) if run_metrics else \
-        runner.run_all(answered, app, metric_ids=["link_safety", "no_over_refusal", "calc_sanity", "exact_values"])
+    mapped, stray = split_unmapped(records)
+    answered, not_run = split_not_run(mapped)
+
+    def one(r: TestRecord):
+        return judge.grade(r, app.allow_list, canary, client=client, kb_passages=r.context, use_llm=use_llm)
+
+    with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
+        verdicts = list(pool.map(one, answered))  # map keeps input order
+    ids = (metric_ids or default_metric_ids()) if run_metrics else SCRIPT_METRICS
+    metrics = runner.run_all(answered, app, metric_ids=ids)
     return {"verdicts": [v.model_dump(mode="json") for v in verdicts],
             "metrics": [m.model_dump(mode="json") for m in metrics],
             "not_run": not_run_rows(not_run),
-            "run_health": round(len(answered) / max(1, len(records)), 3),
+            "unmapped": stray,
+            "run_health": round(len(answered) / max(1, len(mapped)), 3),
             "dev_fixes": devfix.group(verdicts)}
 
 
@@ -208,14 +251,12 @@ def main() -> None:
     ap.add_argument("--canary", default=None)
     a = ap.parse_args()
 
-    records = [TestRecord(**json.loads(line)) for line in a.records.read_text().splitlines() if line.strip()]
+    text = a.records.read_text(encoding="utf-8")
+    records = [TestRecord(**json.loads(line)) for line in text.splitlines() if line.strip()]
     app = registry.AppConfig.from_target()
-
-    total = len(records)
-    records, not_run = split_not_run(records)
-    attack = [r for r in records if r.set == "attack"]
-    verdicts = [judge.grade(r, app.allow_list, a.canary) for r in attack]
-    metrics = runner.run_all(records, app)
+    # every answered record is graded, benign ones too: a refused normal question is a PB-2 finding
+    graded = grade_records(records, app, canary=a.canary)
+    canary_note = {"canary_checked": True} if a.canary else {}
 
     a.out.parent.mkdir(parents=True, exist_ok=True)
     a.out.write_text(json.dumps({
@@ -224,14 +265,12 @@ def main() -> None:
         "run_date": date.today().isoformat(),
         "tier": a.tier,
         "policy_versions": loader.versions(),
-        "verdicts": [v.model_dump(mode="json") for v in verdicts],
-        "metrics": [m.model_dump(mode="json") for m in metrics],
-        "not_run": not_run_rows(not_run),
-        "run_health": round(len(records) / max(1, total), 3),
-        "dev_fixes": devfix.group(verdicts),
+        **canary_note,
+        **graded,
         "summaries": {},   # reviewer fills one line per failure mode after review
-    }, indent=1, ensure_ascii=False))
-    print(f"{len(verdicts)} verdicts, {sum(m.value is not None for m in metrics)} metrics measured -> {a.out}")
+    }, indent=1, ensure_ascii=False), encoding="utf-8")
+    measured = sum(m["value"] is not None for m in graded["metrics"])
+    print(f"{len(graded['verdicts'])} verdicts, {len(graded['not_run'])} not run, {measured} metrics measured -> {a.out}")
 
 
 if __name__ == "__main__":

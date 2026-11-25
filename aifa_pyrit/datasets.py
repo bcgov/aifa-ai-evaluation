@@ -58,7 +58,22 @@ def _cases(content: str | bytes) -> list[dict[str, Any]]:
         if case["name"] in names:
             raise ValueError("Dataset contains duplicate case names.")
         names.add(case["name"])
+        _check_failure_modes(case)
     return cases
+
+
+def _check_failure_modes(case: dict[str, Any]) -> None:
+    """Every failure_mode / also_scores tag must exist in the policy catalog, or grading can't use a ladder."""
+    from aifa_pyrit.rtaas.policy import loader
+
+    known = loader.failure_modes()
+    tags = [case["failure_mode"]] if case.get("failure_mode") else []
+    tags += list(case.get("also_scores") or [])
+    for tag in tags:
+        if tag not in known:
+            raise ValueError(
+                f"Case '{case['name']}': unknown failure_mode '{tag}'. Use one of: {', '.join(sorted(known))}."
+            )
 
 
 def load_golden_cases(search: str = "", limit: int = 0) -> list[dict[str, Any]]:

@@ -172,7 +172,7 @@ class FailureModeCounts(BaseModel):
 class OverallScore(BaseModel):
     score: Optional[float]
     raw: Optional[float]
-    band: Literal["Pass", "Needs work", "Fail", "Not tested"]
+    band: Literal["Pass", "Needs work", "Fail", "Not tested", "Run invalid"]
     capped_by: Optional[str] = None
     low_coverage: bool = False
 
@@ -242,3 +242,5 @@ class FindingsResponse(BaseModel):
     index: Optional[IndexScore] = None
     failure_modes: list[FailureModeStat] = []
     review_queue: list[Verdict] = []
+    unmapped: list[dict] = []      # verdicts with a failure_mode the catalog doesn't know
+    warnings: list[str] = []

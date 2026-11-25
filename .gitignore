@@ -182,6 +182,7 @@ tests/*
 !/tests/test_rtaas_added.py
 !/tests/test_harness_fixes.py
 !/tests/test_testgen.py
+!/tests/test_review_fixes.py
 results-promptfoo/*
 # Private evaluation data (KB export, UAT logs, gold answers, judge outputs) - never commit
 private/

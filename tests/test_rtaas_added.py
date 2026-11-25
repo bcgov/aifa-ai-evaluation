@@ -40,7 +40,7 @@ def test_invalid_run_blocks_release_and_not_run_never_counts():
     counts = count_by_failure_mode(vs)
     assert (counts["SA-3"].tests, counts["SA-3"].not_run) == (18, 2)
     gate = release_gate("low", counts, health=run_health(vs))
-    assert gate.blocked and gate.reasons[0].startswith("Run invalid: only 90%")
+    assert gate.blocked and gate.reasons[0] == "Run invalid: 18 of 20 answered"
 
 
 # ---------- attack success rate and bar ----------

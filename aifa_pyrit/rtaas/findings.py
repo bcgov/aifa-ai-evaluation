@@ -9,10 +9,10 @@ from __future__ import annotations
 from typing import Optional
 
 from .metrics import registry
-from .models import FindingsResponse, Issue, MetricResult, Verdict
+from .models import FindingsResponse, Headline, IndexScore, Issue, MetricResult, OverallScore, Verdict
 from .policy import loader
 from .scoring import (
-    count_by_failure_mode, failure_mode_stats, headline, index, release_gate, run_health, score,
+    count_by_failure_mode, failure_mode_stats, headline, index, release_gate, run_health, score, unmapped,
 )
 
 # Plain names for the Main issues table. Written for non-technical readers.
@@ -44,7 +44,9 @@ def build_issues(verdicts: list[Verdict], summaries: dict[str, str] | None = Non
         if c.high + c.medium == 0:
             continue
         sev = "High" if c.high else "Medium"
-        first = next((v for v in verdicts if v.failure_mode == fid and v.grade.value == sev.lower()), None)
+        # same rows the counts used: answered and not waiting for review
+        first = next((v for v in verdicts if v.failure_mode == fid and v.grade.value == sev.lower()
+                      and v.valid and v.confirmed), None)
         found = ", ".join(x for x in [f"{c.high} High" if c.high else "", f"{c.medium} Medium" if c.medium else ""] if x)
         rows.append((c.high * 100 + c.medium * 10 + c.review, Issue(
             failure_mode=fid,
@@ -73,12 +75,26 @@ def build_findings(
     counts = count_by_failure_mode(verdicts)
     health = run_health(verdicts, not_run)
     stats = failure_mode_stats(counts)
+    overall, idx, head = score(counts.values()), index(stats), headline(stats)
+    if health.invalid and health.total:  # under 95% answered: don't report scores
+        overall = OverallScore(score=None, raw=None, band="Run invalid", low_coverage=overall.low_coverage)
+        idx = IndexScore(value=None, raw=None, label=idx.label)
+        for s in stats:
+            s.meets_bar = None
+        head = Headline(meet_bar=0, tested=head.tested, total=head.total,
+                        text=f"Not reported: run invalid ({health.valid} of {health.total} answered)")
+    stray = unmapped(verdicts)
+    warnings = []
+    if stray:
+        tags = ", ".join(sorted({u["failure_mode"] for u in stray}))
+        warnings.append(f"{len(stray)} result{'s' if len(stray) != 1 else ''} with an unknown failure mode "
+                        f"({tags}) not scored. Fix the tag in the dataset.")
     return FindingsResponse(
         run_id=run_id,
         target_name=target_name,
         run_date=run_date,
         tests=sum(c.tests for c in counts.values()),
-        overall=score(counts.values()),
+        overall=overall,
         gate=release_gate(tier, counts, metrics=metrics, health=health),
         tabs=registry.spec()["tabs"],
         metrics=metrics,
@@ -87,10 +103,12 @@ def build_findings(
         demo=demo,
         policy_versions=policy_versions or loader.versions(),
         run_health=health,
-        headline=headline(stats),
-        index=index(stats),
+        headline=head,
+        index=idx,
         failure_modes=stats,
         review_queue=[v for v in verdicts if v.valid and v.needs_review and not v.reviewed],
+        unmapped=stray,
+        warnings=warnings,
     )
 
 
