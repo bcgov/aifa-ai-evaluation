@@ -18,6 +18,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # extensions which we now provide via apt packages above.
 RUN pip install --no-cache-dir pydantic-settings pydantic python-dotenv structlog httpx[socks] click tabulate websockets gunicorn || true
 RUN pip install --no-cache-dir pyrit || true
+# RTaaS grading (judge, metrics, reports). No "|| true": the image must not ship without them.
+RUN pip install --no-cache-dir "deepeval==4.3.4" "pyyaml>=6.0" "jinja2>=3.1"
 COPY . /app
 ENV PORT=8000
 CMD ["sh", "-c", "uvicorn aifa_pyrit.web_app:app --host 0.0.0.0 --port ${PORT}"]
