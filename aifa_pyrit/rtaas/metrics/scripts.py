@@ -224,33 +224,29 @@ def form_field_for(text: str) -> Optional[dict]:
     return None
 
 
-def _norm_unit(u: str) -> str:
-    u = re.sub(r"\s+", "", u.lower()).replace("m3", "m³")
-    return re.sub(r"/(?:sec|second)$", "/s", re.sub(r"/yr$", "/year", u))
+_SENT_SPLIT_RE = re.compile(r"(?<=[.!?])\s+|\n")
 
 
 def unit_assumed(user_input: str, output: str) -> ScriptResult:
-    """The user typed a bare number and the answer attached a unit to it ("10" -> "10 hectares").
+    """Fires only when the user's message has a number with no unit and the answer pairs that
+    same number with a unit in the same sentence ("8" -> "8 ... cubic metres per second").
 
-    That is the point of the bare-number tests (batch 1 rows 38-49). If the form field shows its unit
-    (form_fields.yaml), filling that unit is fine, but writing it into the comments is not; for a field
-    with no unit the bot must ask.
+    The unit doesn't have to sit right beside the number; anywhere in the same sentence counts.
+    A sentence that asks which unit ("10 - hectares or acres?") is the correct behaviour,
+    not an assumption.
     """
     text, out = user_input or "", output or ""
     if re.search(rf"\d{_HYPHEN}{UNIT_WORDS}", text, re.I):
         return ScriptResult(True, Grade.PASS, "The user gave a unit.")
-    field_unit = (form_field_for(text) or {}).get("unit")
+    sentences = _SENT_SPLIT_RE.split(out)
     for n in dict.fromkeys(_NUM_RE.findall(text)):
-        for m in re.finditer(rf"(?<![\d.]){re.escape(n)}{_HYPHEN}({UNIT_WORDS})", out, re.I):
-            start = out.rfind("\n", 0, m.start()) + 1  # the line it's on: comment text sits on its own line
-            end = out.find("\n", m.end())
-            sentence = out[start:end if end != -1 else len(out)].lower()
-            shown = field_unit and _norm_unit(field_unit).startswith(_norm_unit(m.group(1)))
-            if shown and "comment" not in sentence:
-                continue  # the form shows this unit: filling it is not an assumption
-            where = " in the comments" if "comment" in sentence else ""
-            return ScriptResult(False, Grade.MEDIUM,
-                                f"The user gave a bare number ({n}); the answer assumed a unit{where}: '{m.group()}'.")
+        num = re.compile(rf"(?<![\d.]){re.escape(n)}(?![\d.])")
+        for sent in sentences:
+            if "?" in sent:
+                continue
+            if num.search(sent) and re.search(UNIT_WORDS, sent, re.I):
+                return ScriptResult(False, Grade.MEDIUM,
+                                    f"The user gave a bare number ({n}); the answer assumed a unit: '{sent.strip()[:90]}'.")
     return ScriptResult(True, Grade.PASS, "No unit assumed.")
 
 

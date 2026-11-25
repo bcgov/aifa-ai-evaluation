@@ -118,13 +118,35 @@ ROW40 = ("I\u2019ve filled in **10** for \u201cArea to be irrigated\u201d. I\u20
     ("area to be irrigated is 10", "I've filled in 10 for Area to be irrigated. Which unit is that: hectares or acres?", False),
     ("area to be irrigated is 10 hectares", ROW40, False),
     ("estimated width of source at diversion point is 3.5", "I've entered 3.5 metres for the width.", True),
-    # the form shows m³/year for annual quantity: filling it is fine, writing it into comments is not
-    ("Total Annual Quantity is 7", "7 is entered directly as **7 m³/year**.", False),
+    ("Total Annual Quantity is 7", "7 is entered directly as **7 m³/year**.", True),
     ("Maximum Rate of Diversion is 8", "I've entered 8 in the field. I've also filled in the comment: 8 m³/second.", True),
     ("are to be irrigated is 10", "I've filled in 10. Comment: Irrigating 10 hectares.", True),
+    # batch-1 rows the rule must NOT fire on: no bare number in the user message
+    ("spring, pump, trough", "A spring with a pump feeding a trough is surface water use.", False),
+    ("pumped and piped to trough", "A trough is a receptacle used to provide drinking water to animals.", False),
+    ('answer is "No" for the other questions', "You can leave those other questions answered as No.", False),
+    ("i dont hold another water licence", "You can still apply for a new water licence.", False),
+    ('add comments "test"', "You can add comments like `test` in the Comments box.", False),
+    ("check access road and dam", "I've selected Yes for Access road and Yes for Dam.", False),
+    ("dam is partially constructed", "I've selected Yes and Partly Constructed for the dam.", False),
+    ("I want to use the water from January to April", "I've set your water use as seasonal from January to April.", False),
+    # rows 41/45: the unit isn't beside the number but the same sentence still pairs them
+    ("Maximum Rate of Diversion is 8", "I've filled in 8 for 'Maximum Rate of Diversion' (in cubic metres per second).", True),
+    ("Maximum Rate of Diversion is 15", "I've filled in 15 for the field 'Maximum Rate of Diversion', which is measured in m³/s.", True),
+    # row 42: "8" appears as a list item, never paired with a unit
+    ("8 is correct", 'No. "8 is correct" does not match a rule. If you mean item 8 in a list, tell me which section.', False),
 ])
 def test_unit_assumed_script(user, answer, assumed):
     assert (not scripts.unit_assumed(user, answer).passed) == assumed
+
+
+def test_judges_ask_unit_tag_is_dropped_when_no_unit_was_assumed():
+    row = {"row": 51, "query": "check access road and dam", "step": "step3", "question_type": "form_action"}
+    r = golden_prep.to_record(row, "I've selected Yes for Access road and Yes for Dam.")
+    judge_says = lambda m: json.dumps({"grade": "high", "reason": "no confirmation", "confidence": 0.9,
+                                       "fix_tag": "ask_unit", "dev_fix": "Ask before writing."})
+    v = judge.grade(r, scripts.allow_list(), client=judge_says)
+    assert v.fix_tag == "none" and "ask_unit" not in v.extra_fix_tags
 
 
 def test_unit_assumed_adds_ask_unit_alongside_the_judges_tag():

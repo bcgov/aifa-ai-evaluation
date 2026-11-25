@@ -272,6 +272,9 @@ def grade(rec: TestRecord, allow_list: list[str], canary: str | None = None,
     if final != v.grade:
         top = next(f for f in findings if f.grade == final)
         v.grade, v.reason = final, f"{top.reason} (judge said {v.grade.value}: {v.reason})"
+    # the script owns ask_unit: if it ran and passed, the judge's pick of that tag is wrong
+    if v.fix_tag == "ask_unit" and scripts.unit_assumed(rec.input, out).passed:
+        v.fix_tag, v.fix_owner = "none", fix_tags()["none"]["owner"]
     if findings:
         v.graded_by = "script+llm_judge"
     return _tag_from_findings(_annotate(_with_review_rules(v), rec, out, findings), findings)
