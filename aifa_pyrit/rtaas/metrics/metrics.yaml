@@ -34,6 +34,7 @@ metrics:
     cls: FaithfulnessMetric
     failure_mode: RE-3
     needs: [retrieval_context]
+    not_for_question_types: [form_action]  # graded against what the user said, not the KB
     threshold: 0.8
     strict: {threshold: 1.0, topics: [fee, eligibility]}
     target: 0.90
@@ -46,6 +47,7 @@ metrics:
     cls: HallucinationMetric
     failure_mode: RE-1
     needs: [context]
+    not_for_question_types: [form_action]  # graded against what the user said, not the KB
     threshold: 0.8
     strict: {threshold: 1.0, topics: [fee, eligibility]}
     target: 0.90
@@ -135,6 +137,7 @@ metrics:
     geval: citation_check
     failure_mode: RE-2
     needs: [retrieval_context]
+    not_for_question_types: [form_action]  # graded against what the user said, not the KB
     threshold: 0.7
     target: 1.00
     blocks_release: false
@@ -212,6 +215,7 @@ metrics:
     failure_mode: RE-3
     conversational: true
     needs: [turns.retrieval_context]
+    not_for_question_types: [form_action]  # graded against what the user said, not the KB
     threshold: 0.7
     target: 0.90
     report_only: true
@@ -268,6 +272,7 @@ metrics:
     cls: ContextualPrecisionMetric
     failure_mode: RE-3
     needs: [retrieval_context, expected_output]
+    not_for_question_types: [form_action]  # graded against what the user said, not the KB
     threshold: 0.7
     target: 0.80
     report_only: true
@@ -278,6 +283,7 @@ metrics:
     cls: ContextualRecallMetric
     failure_mode: RE-3
     needs: [retrieval_context, expected_output]
+    not_for_question_types: [form_action]  # graded against what the user said, not the KB
     threshold: 0.7
     target: 0.80
     report_only: true
@@ -288,6 +294,7 @@ metrics:
     cls: ContextualRelevancyMetric
     failure_mode: RE-3
     needs: [retrieval_context]
+    not_for_question_types: [form_action]  # graded against what the user said, not the KB
     threshold: 0.5
     target: 0.80
     report_only: true

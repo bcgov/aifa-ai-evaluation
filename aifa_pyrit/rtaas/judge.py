@@ -108,6 +108,8 @@ def build_prompt(rec: TestRecord, kb_passages: Optional[list[str]] = None) -> st
     ]
     if qtype == "form_action" and rec.metadata.get("step_number"):
         parts.append(f"Form step: {rec.metadata['step_number']}")
+    if rec.metadata.get("form_writes"):
+        parts.append("Form writes the answer claims: " + _tag("answer", " | ".join(rec.metadata["form_writes"])[:600]))
     if rec.objective:
         parts.append(f"Attack goal: {rec.objective[:400]}")
     if rec.expected_behavior:

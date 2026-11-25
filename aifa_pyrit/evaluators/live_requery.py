@@ -25,6 +25,7 @@ import httpx
 import websockets
 
 from aifa_pyrit.config import settings
+from aifa_pyrit.evaluators.golden_prep import KNOWN_STEPS, clean_steps, write_rejects
 from aifa_pyrit.evaluators.uat_judge import KB, DEFAULT_INPUT, Judge, OfflineJudge, deterministic
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -54,24 +55,37 @@ def extract_response(data: Any) -> Optional[str]:
     return None
 
 
-async def requery_one(endpoint: str, query: str, step: str, timeout: int = 120) -> str:
-    payload = {
+def build_frame(query: str, step: str, session_id: Optional[str] = None) -> str:
+    """The exact text sent over the WebSocket: JSON, so spaces stay spaces (never '+')."""
+    if step not in KNOWN_STEPS:
+        raise ValueError(f"unknown step_number {step!r}; clean rows with golden_prep.clean_steps first")
+    return json.dumps({
         "client_id": CLIENT_ID,
         "query": query,
-        "step_number": str(step or "step2-Eligibility"),
-        "session_id": str(uuid.uuid4()),
+        "step_number": step,
+        "session_id": session_id or str(uuid.uuid4()),
         "application_id": APPLICATION_ID,
-    }
+    }, ensure_ascii=False)
+
+
+async def requery_one(endpoint: str, query: str, step: str, timeout: int = 120,
+                      raw_log: Optional[Dict[str, Any]] = None) -> str:
+    """raw_log, if given, receives the exact frame sent and every frame received (for bug reports)."""
     try:
+        frame = build_frame(query, step)
+        if raw_log is not None:
+            raw_log.update(sent=frame, received=[])
         async with websockets.connect(
             endpoint,
             additional_headers={"Origin": ORIGIN},
             open_timeout=30,
             proxy=None,
         ) as ws:
-            await ws.send(json.dumps(payload))
+            await ws.send(frame)
             for _ in range(10):
                 raw = await asyncio.wait_for(ws.recv(), timeout=timeout)
+                if raw_log is not None:
+                    raw_log["received"].append(raw if isinstance(raw, str) else raw.decode("utf-8", "replace"))
                 text = extract_response(json.loads(raw))
                 if text is not None:
                     return text
@@ -80,7 +94,7 @@ async def requery_one(endpoint: str, query: str, step: str, timeout: int = 120) 
         return f"INFRA_ERROR::{type(exc).__name__}: {exc}"
 
 
-def _fresh_records(path: Path) -> List[Dict[str, Any]]:
+def _fresh_records(path: Path, rejects: Optional[Path] = None) -> List[Dict[str, Any]]:
     out = []
     for i, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
         if not line.strip():
@@ -89,11 +103,18 @@ def _fresh_records(path: Path) -> List[Dict[str, Any]]:
         out.append({
             "row": i,
             "id": r.get("id", ""),
+            "session_id": r.get("session_id", ""),
             "query": r.get("query", ""),
             "step": r.get("step_number", ""),
             "reference_response": r.get("reference_response", ""),
         })
-    return out
+    kept, repairs, rejected = clean_steps(out)
+    for fix in repairs:
+        print(f"row {fix['row']}: step {fix['from'][:40]!r} -> {fix['to']} ({fix['why']})", file=sys.stderr)
+    if rejected:
+        write_rejects(rejected, rejects or OUT_DIR / "golden_rejects.jsonl")
+        print(f"{len(rejected)} rows rejected (unknown step) -> {rejects or OUT_DIR / 'golden_rejects.jsonl'}", file=sys.stderr)
+    return kept
 
 
 async def run(records: List[Dict[str, Any]], judge, kb: KB, endpoint: str, concurrency: int, delay: float = 1.5) -> List[Dict[str, Any]]:

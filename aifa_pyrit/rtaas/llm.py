@@ -50,13 +50,17 @@ def _retryable(resp: httpx.Response) -> bool:
     return resp.status_code == 429 or resp.status_code >= 500
 
 
-def chat(messages: list[dict[str, str]], max_tokens: int = 1500, timeout: int = 120) -> str:
+def chat(messages: list[dict[str, str]], max_tokens: int = 1500, timeout: int = 120,
+         usage: Optional[dict[str, Any]] = None) -> str:
+    """usage, if given, is filled with the API's token counts (prompt/completion/reasoning)."""
     url, headers, body = _request(messages, max_tokens)
     err = ""
     for attempt in range(RETRIES):
         try:
             resp = httpx.post(url, json=body, headers=headers, timeout=timeout, trust_env=True)
             if resp.status_code == 200:
+                if usage is not None:
+                    usage.update(resp.json().get("usage") or {})
                 return _content(resp)
             err = f"HTTP {resp.status_code}: {resp.text[:200]}"
             if not _retryable(resp):

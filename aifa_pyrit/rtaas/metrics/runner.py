@@ -77,6 +77,8 @@ def eligible(records: list[TestRecord], m: dict) -> list[TestRecord]:
             continue
         if m.get("only_for") and r.set != m["only_for"]:
             continue
+        if (r.metadata.get("question_type") or r.test_kind) in (m.get("not_for_question_types") or []):
+            continue
         if all(_has(r, n) for n in m.get("needs", [])):
             out.append(r)
     return out

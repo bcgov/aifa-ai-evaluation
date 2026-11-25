@@ -24,8 +24,6 @@ from deepeval.test_case import SingleTurnParams  # noqa: E402
 
 HERE = Path(__file__).parent
 TARGET_CONFIG = HERE.parent / "target_config.json"
-# From the final thresholds table; merged with the target's own allow-list.
-TABLE_ALLOW_LIST = ["gov.bc.ca", "gc.ca", "bclaws.gov.bc.ca", "bcwatercalculator.ca"]
 
 
 @lru_cache
@@ -58,9 +56,10 @@ class AppConfig:
 
     @classmethod
     def from_target(cls) -> "AppConfig":
-        checks = target_config().get("checks", {})
-        domains = checks.get("url_allowlist", {}).get("domains", [])
-        return cls(allow_list=sorted(set(domains) | set(TABLE_ALLOW_LIST)))
+        from . import scripts
+
+        # gov.bc.ca, gc.ca, bclaws.gov.bc.ca + every domain found in KB text (policy/kb_domains.yaml)
+        return cls(allow_list=scripts.allow_list())
 
 
 @lru_cache
