@@ -289,6 +289,23 @@ app = FastAPI(
     description="Browser-based runner for PyRIT red-team evaluations and JSON report viewing.",
     version="0.1.0",
 )
+GRADED_PREFIX = "rtaas_"
+
+
+def _graded_name(report_name: str) -> str:
+    return report_name if report_name.startswith(GRADED_PREFIX) else GRADED_PREFIX + report_name
+
+
+def _grade_and_save(report: dict[str, Any], report_name: str, use_llm: bool = True) -> str:
+    """Grade one saved run with the RTaaS judge and save it next to the raw report."""
+    from aifa_pyrit.rtaas import pipeline as rtaas_pipeline
+
+    graded = rtaas_pipeline.grade_report(report, report_name, use_llm=use_llm)
+    name = _graded_name(report_name)
+    _save_report(graded, filename=name)
+    return name
+
+
 RUNS = RunManager(
     runner_factory=lambda **kwargs: PyRITRunner(
         threat_models=[m.strip() for m in settings.red_team_threat_models.split(",") if m.strip()],
@@ -297,6 +314,7 @@ RUNS = RunManager(
         **kwargs,
     ),
     save_report=lambda report, filename: _save_report(report, filename=filename),
+    grade_report=_grade_and_save,
 )
 
 
@@ -595,6 +613,192 @@ async def export_csv(request: ExportRequest) -> Response:
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="red_team_export_{stamp}.csv"'},
     )
+
+
+# ---------------------------------------------------------------- RTaaS: graded runs, findings, policy
+
+class ReviewRequest(BaseModel):
+    case: str = Field(min_length=1, max_length=300)
+    agreed: bool = False
+    grade: Literal["Pass", "Low", "Medium", "High"] | None = None
+    critical: bool = False
+    note: str | None = Field(default=None, max_length=500)
+
+
+class GradeRequest(BaseModel):
+    use_llm: bool = True
+
+
+class RerunRequest(BaseModel):
+    case: str | None = Field(default=None, max_length=300)
+    failed_only: bool = False
+
+
+def _valid_name(name: str) -> str:
+    if not REPORT_NAME_PATTERN.match(name):
+        raise HTTPException(status_code=400, detail="Invalid report name.")
+    return name
+
+
+async def _graded(name: str) -> dict[str, Any]:
+    report = await get_report(_valid_name(_graded_name(name)))
+    if "verdicts" not in report:
+        raise HTTPException(status_code=404, detail="Not a graded run.")
+    return report
+
+
+async def _graded_names() -> list[str]:
+    names = [r["name"] for r in await list_reports() if str(r.get("name", "")).startswith(GRADED_PREFIX)]
+    return sorted(names, reverse=True)
+
+
+@app.get("/api/policy")
+async def policy() -> dict[str, Any]:
+    """catalog + crosswalk + tiers for Policy Mapping, and {id: [name, principle]} for Run Results."""
+    from aifa_pyrit.rtaas.findings import policy_payload
+    from aifa_pyrit.rtaas.policy import loader as policy_loader
+
+    principles = {p["code"]: p["name"] for p in policy_loader.catalog()["principles"]}
+    return {**policy_payload(), "versions": policy_loader.versions(),
+            "failure_modes": {fid: [f["name"], principles[f["principle"]]] for fid, f in policy_loader.failure_modes().items()}}
+
+
+@app.get("/api/run-results")
+async def run_results_list(limit: int = 20) -> dict[str, Any]:
+    from aifa_pyrit.rtaas import run_results
+
+    graded = await _graded_names()
+    runs = []
+    for name in graded[: max(1, min(limit, 50))]:
+        try:
+            runs.append(run_results.build_run(await get_report(name)))
+        except Exception as exc:  # one bad file must not hide the rest
+            logger.warning("skipping graded run %s: %s", name, exc)
+    done = {n.removeprefix(GRADED_PREFIX) for n in graded}
+    ungraded = [r["name"] for r in await list_reports()
+                if str(r.get("name", "")).startswith(EXPORTABLE_PREFIXES) and r["name"] not in done]
+    return {"runs": runs, "ungraded": ungraded[:50]}
+
+
+@app.get("/api/run-results/{name}")
+async def run_results_one(name: str) -> dict[str, Any]:
+    from aifa_pyrit.rtaas import run_results
+
+    return run_results.build_run(await _graded(name))
+
+
+@app.post("/api/run-results/{report_name}/grade")
+async def grade_saved_report(report_name: str, request: GradeRequest) -> dict[str, Any]:
+    from aifa_pyrit.rtaas import run_results
+
+    report = await get_report(_valid_name(report_name))
+    if "verdicts" in report:
+        raise HTTPException(status_code=400, detail="This file is already graded.")
+    name = await asyncio.to_thread(_grade_and_save, report, report_name, request.use_llm)
+    return run_results.build_run(await get_report(name))
+
+
+@app.post("/api/run-results/{name}/review")
+async def review_case(name: str, request: ReviewRequest) -> dict[str, Any]:
+    from aifa_pyrit.rtaas import run_results
+
+    graded = await _graded(name)
+    try:
+        changed = run_results.apply_review(graded, request.case, request.model_dump(exclude_none=True))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not changed:
+        raise HTTPException(status_code=404, detail="No graded answers for that case.")
+    _save_report(graded, filename=_graded_name(name))
+    return {"changed": changed, "result": next(r for r in run_results.build_run(graded)["results"] if r["id"] == request.case)}
+
+
+@app.post("/api/run-results/{name}/rerun")
+async def rerun_cases(name: str, request: RerunRequest) -> dict[str, Any]:
+    from aifa_pyrit.rtaas import run_results
+
+    graded = await _graded(name)
+    if not graded.get("dataset_id"):
+        raise HTTPException(status_code=400, detail="Only runs started from a saved dataset can be re-run from here.")
+    results = run_results.build_run(graded)["results"]
+    if request.case:
+        cases = [request.case]
+    else:
+        cases = [r["id"] for r in results if r["grade"] in {"Medium", "High", "Critical", "Not run"}]
+    if not cases:
+        raise HTTPException(status_code=400, detail="Nothing to re-run.")
+    test_cases = await asyncio.to_thread(_load_cases, ",".join(cases), graded["dataset_id"])
+    tenant = _tenants()[0]
+    try:
+        run = RUNS.start(name=f"Re-run · {graded.get('run_name') or name}", tenant_id=tenant["id"],
+                         dataset_id=graded["dataset_id"], attack_type=graded.get("attack_type") or "PromptSending",
+                         repeats=1, converters=list(graded.get("converters") or []), test_cases=test_cases,
+                         test_source="saved_cases")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {"id": run.id, "cases": len(test_cases)}
+
+
+@app.get("/api/run-results/{name}/download")
+async def download_run(name: str, format: Literal["json", "csv", "html"] = "json", kind: Literal["exec", "dev"] = "exec") -> Response:
+    from aifa_pyrit.rtaas import run_results
+
+    graded = await _graded(name)
+    stem = _graded_name(name).removesuffix(".json")
+    if format == "json":
+        return Response(json.dumps(graded, indent=1, ensure_ascii=False), media_type="application/json",
+                        headers={"Content-Disposition": f'attachment; filename="{stem}.json"'})
+    if format == "csv":
+        return Response("\ufeff" + run_results.to_csv(run_results.build_run(graded)), media_type="text/csv; charset=utf-8",
+                        headers={"Content-Disposition": f'attachment; filename="{stem}.csv"'})
+    return Response(_report_html(graded, kind), media_type="text/html; charset=utf-8")
+
+
+def _findings(graded: dict[str, Any]):
+    from aifa_pyrit.rtaas import service
+
+    return service.findings_for(graded["run_id"], load=lambda _id: graded)
+
+
+def _report_html(graded: dict[str, Any], kind: str) -> str:
+    from aifa_pyrit.rtaas.export import pdf as rtaas_export
+
+    f, verdicts = _findings(graded)
+    return rtaas_export.render_html(kind, f, verdicts)
+
+
+@app.get("/api/rtaas/findings")
+async def rtaas_findings(run: str = "latest") -> dict[str, Any]:
+    """Findings for one graded run. run=demo serves the sample run (marked demo); run=latest the newest."""
+    from aifa_pyrit.rtaas import service
+
+    if run == "demo":
+        f, _ = service.findings_for("demo")
+    else:
+        if run == "latest":
+            names = await _graded_names()
+            if not names:
+                raise HTTPException(status_code=404, detail="No graded runs yet. Grade a run on the Run Results page.")
+            run = names[0]
+        f, _ = _findings(await _graded(run))
+    return f.model_dump(mode="json")
+
+
+@app.get("/api/rtaas/report")
+async def rtaas_report(run: str = "demo", kind: Literal["exec", "dev"] = "exec") -> Response:
+    """Printable HTML report (exec: one page, dev: two pages). Use the browser's Print > Save as PDF."""
+    from aifa_pyrit.rtaas import service
+    from aifa_pyrit.rtaas.export import pdf as rtaas_export
+
+    if run == "demo":
+        f, verdicts = service.findings_for("demo")
+        return Response(rtaas_export.render_html(kind, f, verdicts), media_type="text/html; charset=utf-8")
+    return Response(_report_html(await _graded(run), kind), media_type="text/html; charset=utf-8")
+
+
+@app.get("/api/dev-fixes/{name}")
+async def dev_fixes(name: str) -> list[dict[str, Any]]:
+    return (await _graded(name)).get("dev_fixes") or []
 
 
 @app.post("/api/run-scan")

@@ -85,7 +85,7 @@ def records_from_report(report: dict, app: Optional[registry.AppConfig] = None) 
     technique = report.get("attack_type") or "PromptSending"
     records: list[TestRecord] = []
     for i, res in enumerate(report.get("results") or [], 1):
-        if not isinstance(res, dict):
+        if not isinstance(res, dict) or res.get("skipped"):  # skipped = never sent (missing test hook)
             continue
         meta = res.get("case_meta") or {}
         name = res.get("case_name") or meta.get("name") or f"case_{i}"
@@ -174,6 +174,22 @@ def split_not_run(records: list[TestRecord]) -> tuple[list[TestRecord], list[Tes
     return [r for r in records if id(r) not in skip], not_run
 
 
+def record_summary(r: TestRecord) -> dict[str, Any]:
+    """What the Run Results screen shows for one attempt: the exchange, in full, so highlights match."""
+    return {"test_id": r.test_id, "case_name": r.case_name, "failure_mode": r.failure_mode,
+            "question_type": r.metadata.get("question_type") or r.test_kind, "technique": r.technique,
+            "converters": r.converters, "step": r.metadata.get("step_number"), "input": r.input[:2000],
+            "answer": r.actual_output[:4000], "attempt": r.metadata.get("attempt", 1),
+            "turns": [{"role": t.role, "content": t.content[:1500]} for t in r.turns[-14:]],
+            "errored_turns": r.metadata.get("errored_turns") or []}
+
+
+def skipped_rows(report: dict) -> list[dict[str, Any]]:
+    return [{"case_name": res.get("case_name"), "failure_mode": (res.get("case_meta") or {}).get("failure_mode"),
+             "skip_reason": res.get("skipped")} for res in report.get("results") or []
+            if isinstance(res, dict) and res.get("skipped")]
+
+
 def not_run_rows(not_run: list[TestRecord]) -> list[dict[str, Any]]:
     return [{"test_id": r.test_id, "case_name": r.case_name, "failure_mode": r.failure_mode,
              "error": (r.error or _last_output(r) or "empty reply")[:120]} for r in not_run]
@@ -217,7 +233,8 @@ def grade_records(records: list[TestRecord], app: registry.AppConfig, use_llm: b
             "not_run": not_run_rows(not_run),
             "unmapped": stray,
             "run_health": round(len(answered) / max(1, len(mapped)), 3),
-            "dev_fixes": devfix.group(verdicts)}
+            "dev_fixes": devfix.group(verdicts),
+            "records": [record_summary(r) for r in mapped]}
 
 
 def grade_report(report: dict, report_name: str, *, tier: str = "medium", use_llm: bool = True,
@@ -235,9 +252,12 @@ def grade_report(report: dict, report_name: str, *, tier: str = "medium", use_ll
         "attack_type": report.get("attack_type"),
         "dataset_id": report.get("dataset_id"),
         "graded_at": datetime.now(timezone.utc).isoformat(),
-        "judge": {"use_llm": use_llm, "metrics": metric_ids or ("all" if run_metrics else "scripts only")},
+        "run_name": report.get("run_name") or report.get("attack_type"),
+        "converters": report.get("converters") or [],
+        "judge": {"use_llm": use_llm, "metrics": metric_ids or ("default" if run_metrics else "scripts only")},
         "policy_versions": loader.versions(),
         **graded,
+        "skipped": skipped_rows(report),
         "summaries": {},
     }
 

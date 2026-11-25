@@ -12,6 +12,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 FINAL_STATES = {"done", "stopped", "failed"}
 ATTEMPT_DELAY_SECONDS = 1.0
+CASE_CORE_FIELDS = {"name", "query", "expected_behavior", "must_not_contain"}
 
 
 def _now() -> str:
@@ -30,6 +31,8 @@ def turn_verdict(turn: Dict[str, Any]) -> str:
 
 def attempt_status(result: Dict[str, Any]) -> str:
     """fail = attack worked or judge failed it, refused = safely refused, pass = passed, review = unscored."""
+    if result.get("skipped"):
+        return "skipped"
     turns = result_turns(result)
     if result.get("error") or not turns or any(t.get("transport_error") or t.get("error") for t in turns):
         return "error"
@@ -52,6 +55,8 @@ def case_status(statuses: List[str], running: bool) -> str:
         return "running"
     if not statuses:
         return "queued"
+    if all(s == "skipped" for s in statuses):
+        return "skipped"
     return next((state for state in ("fail", "error", "review") if state in statuses), "pass")
 
 
@@ -100,6 +105,8 @@ class CaseState:
     must_not_contain: Optional[List[str]] = None
     attempts: List[Dict[str, Any]] = field(default_factory=list)
     running: bool = False
+    meta: Dict[str, Any] = field(default_factory=dict)   # failure_mode, test_kind, checks, ... from the dataset
+    skip_reason: Optional[str] = None                     # missing test hook: never sent, reported as Skipped
 
 
 @dataclass
@@ -118,6 +125,8 @@ class Run:
     started_at: Optional[str] = None
     finished_at: Optional[str] = None
     report_name: Optional[str] = None
+    graded_name: Optional[str] = None
+    grading: bool = False
     error: Optional[str] = None
     stop_requested: bool = False
     resume: threading.Event = field(default_factory=threading.Event)
@@ -149,6 +158,8 @@ class Run:
             "started_at": self.started_at,
             "finished_at": self.finished_at,
             "report_name": self.report_name,
+            "graded_name": self.graded_name,
+            "grading": self.grading,
             "error": self.error,
             "counts": {
                 "total": len(self.cases),
@@ -160,6 +171,7 @@ class Run:
                 "review": attempts.count("review"),
                 "error": attempts.count("error"),
                 "refused": attempts.count("refused"),
+                "skipped": attempts.count("skipped"),
             },
             "cases": cases,
         }
@@ -171,6 +183,8 @@ class Run:
                 "case_name": case.name,
                 "query": attempt["result"].get("query", case.query),
                 "expected_behavior": case.expected_behavior,
+                "must_not_contain": case.must_not_contain,
+                "case_meta": case.meta,
                 "attempt": attempt["attempt"],
                 "status": attempt["status"],
             }
@@ -224,9 +238,12 @@ class Run:
 class RunManager:
     """Runs one attack run at a time on a worker thread and exposes thread-safe snapshots."""
 
-    def __init__(self, runner_factory: Callable[..., Any], save_report: Callable[[Dict[str, Any], str], Any]):
+    def __init__(self, runner_factory: Callable[..., Any], save_report: Callable[[Dict[str, Any], str], Any],
+                 grade_report: Optional[Callable[[Dict[str, Any], str], Optional[str]]] = None):
+        """grade_report(report, report_name) grades a finished run and returns the graded file name."""
         self._runner_factory = runner_factory
         self._save_report = save_report
+        self._grade_report = grade_report
         self._runs: Dict[str, Run] = {}
         self._lock = threading.Lock()
 
@@ -260,6 +277,8 @@ class RunManager:
                     query=str(c.get("query") or ""),
                     expected_behavior=c.get("expected_behavior"),
                     must_not_contain=c.get("must_not_contain"),
+                    meta={k: v for k, v in c.items() if k not in CASE_CORE_FIELDS},
+                    skip_reason=c.get("skip_reason"),
                 )
                 for i, c in enumerate(test_cases, 1)
             ]
@@ -340,17 +359,16 @@ class RunManager:
             await asyncio.sleep(0.3)
 
     async def _execute(self, run: Run, runner: Any) -> None:
-        from aifa_pyrit.evaluators.pipeline import EvaluationPipeline
-
-        try:
-            pipeline: Optional[EvaluationPipeline] = EvaluationPipeline()
-        except Exception:
-            pipeline = None
         with self._lock:
             run.status = "running"
             run.started_at = _now()
         try:
             for case in run.cases:
+                if case.skip_reason:  # missing test hook: never sent, reported as Skipped (not a pass)
+                    with self._lock:
+                        case.attempts.append({"attempt": 1, "status": "skipped",
+                                              "result": {"query": case.query, "skipped": case.skip_reason}})
+                    continue
                 test_case = {
                     "name": case.name,
                     "query": case.query,
@@ -364,10 +382,8 @@ class RunManager:
                     with self._lock:
                         case.running = True
                     try:
+                        # graded once per answer after the run (rtaas judge), not per turn here
                         result = await runner.run_single_case(test_case, run.attack_type)
-                        if pipeline is not None and not result.get("error"):
-                            result["must_not_contain"] = case.must_not_contain
-                            await pipeline.stamp_report({"results": [result]})
                     except Exception as exc:  # one failing attempt must not end the whole run
                         result = {"query": case.query, "error": str(exc)}
                     with self._lock:
@@ -388,7 +404,22 @@ class RunManager:
                 case.running = False
         try:
             filename = run.report_filename()
-            self._save_report(run.report(), filename)
+            report = run.report()
+            self._save_report(report, filename)
             run.report_name = filename
         except Exception as exc:
             run.error = run.error or f"Run finished but the report could not be saved: {exc}"
+            return
+        if self._grade_report is None:
+            return
+        with self._lock:
+            run.grading = True
+        try:
+            graded = await asyncio.to_thread(self._grade_report, report, filename)
+            with self._lock:
+                run.graded_name = graded
+        except Exception as exc:  # the raw report is saved; grading can be re-run from Run Results
+            run.error = run.error or f"Run saved but grading failed: {exc}"
+        finally:
+            with self._lock:
+                run.grading = False

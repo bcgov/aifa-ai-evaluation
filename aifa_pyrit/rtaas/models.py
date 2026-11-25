@@ -108,6 +108,7 @@ class Verdict(BaseModel):
     # added for the AIFA harness
     valid: bool = True
     reviewer_note: Optional[str] = None
+    judge_grade: Optional[Grade] = None   # the judge's grade, kept when a person changes it
     case_name: Optional[str] = None
     technique: Optional[str] = None
     input: Optional[str] = None

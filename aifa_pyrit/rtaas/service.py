@@ -18,8 +18,10 @@ RunLoader = Callable[[str], dict]
 
 
 def get_run(run_id: str, load: Optional[RunLoader] = None) -> dict:
-    if run_id == "demo" or load is None:
+    if run_id == "demo":
         return json.loads(SAMPLE.read_text(encoding="utf-8"))
+    if load is None:  # never fall back to demo data for a real run id
+        raise KeyError(f"no loader for run {run_id!r}")
     return load(run_id)
 
 
