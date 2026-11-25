@@ -1085,6 +1085,78 @@ class PyRITRunner:
 
         return result
 
+    async def run_tap_attack(
+        self,
+        query: str,
+        tree_width: int = 3,
+        tree_depth: Optional[int] = None,
+        branching_factor: int = 2,
+    ) -> Dict[str, Any]:
+        """Run Tree of Attacks with Pruning (TAPAttack) against a query."""
+        try:
+            await self.initialize_pyrit()
+            self._set_pyrit_env()
+
+            from pyrit.executor.attack import AttackAdversarialConfig, AttackExecutor, TAPAttack
+
+            depth = tree_depth if tree_depth is not None else max(1, min(self.max_iterations, 5))
+            logger.info(
+                "pyrit_tap_attack_start",
+                query=query[:100],
+                tree_width=tree_width,
+                tree_depth=depth,
+                branching_factor=branching_factor,
+            )
+
+            backend_url = settings.backend_api_url
+            objective_target = self._create_objective_target(backend_url, "using_custom_backend_target_tap")
+            adversarial_target = self._create_adversarial_target()
+
+            attack_config = AttackAdversarialConfig(target=adversarial_target)
+            attack = TAPAttack(
+                objective_target=objective_target,
+                attack_adversarial_config=attack_config,
+                tree_width=tree_width,
+                tree_depth=depth,
+                branching_factor=branching_factor,
+                **self._converter_kwargs(),
+            )
+
+            executor = AttackExecutor()
+            results = await executor.execute_attack_async(
+                attack=attack,
+                objectives=[query],
+            )
+
+            logger.info("pyrit_tap_attack_complete", result_count=len(results))
+            escalation_chains = self._capture_escalation_chains(results)
+
+            payload = {
+                "query": query,
+                "attack_type": "TAPAttack",
+                "converters": list(self.converter_names),
+                "tree_width": tree_width,
+                "tree_depth": depth,
+                "branching_factor": branching_factor,
+                "results": self._format_pyrit_results(results),
+                "escalation_steps": escalation_chains,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+            self.save_result_payload(payload, attack_name="TAPAttack")
+            return payload
+
+        except Exception as e:
+            logger.error("pyrit_tap_attack_failed", error=str(e))
+            payload = {
+                "query": query,
+                "attack_type": "TAPAttack",
+                "error": str(e),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "escalation_steps": [],
+            }
+            self.save_result_payload(payload, attack_name="TAPAttack")
+            return payload
+
     def _format_pyrit_results(self, pyrit_results: Any) -> Dict[str, Any]:
         """Format PyRIT attack results for reporting.
         
@@ -1228,6 +1300,8 @@ class PyRITRunner:
         # NOTE: attack_type parameter explicitly set by user overrides threat_models routing
         if attack_type == "Crescendo":
             result = await self.run_jailbreak_attack(query)
+        elif attack_type == "TAP":
+            result = await self.run_tap_attack(query)
         elif attack_type == "RedTeaming":
             result = await self.run_red_team_attack(query, max_turns=self.max_iterations)
         elif attack_type == "MultiTurn":

@@ -30,12 +30,18 @@ from typing import Any, Dict, List, Optional
 import httpx
 from dotenv import dotenv_values
 
-from aifa_pyrit.config import normalize_audit_llm_endpoint, settings
+from aifa_pyrit.config import (
+    build_chat_completion_url,
+    build_chat_request_body,
+    build_chat_request_headers,
+    normalize_audit_llm_endpoint,
+    settings,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 KB_DIR = ROOT / "private" / "kb_docs"
 OUT_DIR = ROOT / "private" / "judge_results"
-DEFAULT_INPUT = ROOT / "data_promptfoo" / "golden.jsonl"
+DEFAULT_INPUT = ROOT / "private" / "golden.jsonl"
 
 URL_RE = re.compile(r"https?://[^\s)\]>\"'|,;]+")
 AGENCY_RE = re.compile(r"has (selected|filled|populated|chosen|set|checked|entered)|selected the option|on your behalf", re.I)
@@ -77,7 +83,10 @@ VERDICTS = {"grounded", "partially_grounded", "hallucinated", "contradicted", "n
 
 
 def _cfg() -> Dict[str, str]:
-    legacy = dotenv_values(ROOT / ".env")
+    legacy = {
+        **dotenv_values(ROOT / ".env"),
+        **dotenv_values(ROOT / "aifa_pyrit" / ".env"),
+    }
     pick = lambda new, old: new or os.getenv(old) or legacy.get(old) or ""  # noqa: E731
     return {
         "endpoint": normalize_audit_llm_endpoint(pick(settings.audit_llm_endpoint, "AZURE_OPENAI_ENDPOINT")),
@@ -194,10 +203,13 @@ def deterministic(answer: str) -> List[Dict[str, str]]:
 class Judge:
     def __init__(self, timeout: int = 90, retries: int = 4):
         c = _cfg()
-        if not c["endpoint"] or not c["key"]:
-            raise ValueError("judge endpoint/key not set (AUDIT_LLM_* or AZURE_OPENAI_*)")
+        if not c["endpoint"]:
+            raise ValueError("judge endpoint not set (AUDIT_LLM_ENDPOINT or AZURE_OPENAI_ENDPOINT)")
+        headers_probe = build_chat_request_headers(c["key"], c["endpoint"])
+        if "api-key" not in headers_probe and "Authorization" not in headers_probe:
+            raise ValueError("judge key/credential not set (set API key or run az login)")
         self.c, self.timeout, self.retries = c, timeout, retries
-        self.url = f"{c['endpoint']}/openai/deployments/{c['deployment']}/chat/completions?api-version={c['version']}"
+        self.url = build_chat_completion_url(c["endpoint"], c["deployment"], c["version"])
 
     async def __call__(self, rec: Dict[str, Any], kb_hits: List[tuple[str, str]]) -> Dict[str, Any]:
         kb_text = "\n\n".join(f"[{n}] {t}" for n, t in kb_hits) or "(no KB passage matched)"
@@ -205,8 +217,13 @@ class Judge:
             f"QUESTION:\n{rec['query']}\n\nKB PASSAGES:\n{kb_text}\n\n"
             f"BOT-RETRIEVED CONTEXT:\n{rec['bot_context'] or '(none)'}\n\nANSWER:\n{rec['answer']}"
         )
-        body = {"messages": [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user}], "max_completion_tokens": 1500}
-        headers = {"api-key": self.c["key"], "Content-Type": "application/json"}
+        body = build_chat_request_body(
+            self.c["endpoint"],
+            self.c["deployment"],
+            [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user}],
+            max_completion_tokens=1500,
+        )
+        headers = build_chat_request_headers(self.c["key"], self.c["endpoint"])
         err = ""
         for a in range(self.retries):
             try:
@@ -235,6 +252,57 @@ class Judge:
         if d.get("verdict") not in VERDICTS:
             d["verdict"] = "judge_error"
         return d
+
+
+FACT_RE = re.compile(
+    r"https?://[^\s)\]>\"'|,;]+|\$\s?\d[\d,]*(?:\.\d+)?|\d+(?:\.\d+)?\s?%|"
+    r"\d+(?:\.\d+)?\s?(?:mb|gb|cm|km|ha|hectares?|m3|days?|years?|business days)\b|"
+    r"[\w.+-]+@[\w-]+\.[\w.]+|\b1-\d{3}-\d{3}-\d{4}\b",
+    re.I,
+)
+BOILERPLATE_RE = re.compile(r"do not share|enter all required|AIFA-AI Form Assist|personal information", re.I)
+
+
+def _norm(s: str) -> str:
+    return re.sub(r"[\s\u2011\u2013\u2014]+", " ", s.lower()).strip(" .,;:)")
+
+
+class OfflineJudge:
+    """No-LLM judge: every URL/amount/limit in the answer must appear in the KB or the bot's context,
+    and each sentence must overlap lexically with that evidence. Cheap, deterministic, conservative."""
+
+    def __init__(self, kb: "KB"):
+        self.kb_text = _norm(" ".join(t for _, t, _ in kb.chunks))
+
+    async def __call__(self, rec: Dict[str, Any], kb_hits: List[tuple[str, str]]) -> Dict[str, Any]:
+        answer = rec["answer"]
+        if NO_ANSWER_RE.search(answer):
+            return {"verdict": "not_applicable", "judge": "offline_lexical", "notes": "no answer produced"}
+        evidence = _norm(rec["bot_context"] + " " + " ".join(t for _, t in kb_hits))
+        everything = evidence + " " + self.kb_text
+        missing = [f for f in dict.fromkeys(FACT_RE.findall(answer)) if _norm(f) not in everything]
+        ev_tokens = set(_tok(evidence))
+        sents = [s for s in re.split(r"(?<=[.!?])\s+|\n+", answer) if len(_tok(s)) >= 6 and not BOILERPLATE_RE.search(s)]
+        weak = []
+        for s in sents:
+            toks = set(_tok(s))
+            if toks and len(toks & ev_tokens) / len(toks) < 0.5:
+                weak.append(s.strip()[:200])
+        score = round(1 - len(weak) / len(sents), 2) if sents else 1.0
+        if not sents and not missing:
+            verdict = "not_applicable"
+        elif score < 0.5 or len(missing) >= 2:
+            verdict = "hallucinated"
+        elif score < 0.8 or missing:
+            verdict = "partially_grounded"
+        else:
+            verdict = "grounded"
+        return {
+            "verdict": verdict, "groundedness_score": score, "judge": "offline_lexical",
+            "unsupported_claims": [{"claim": f, "detail": "fact not found in KB or bot context"} for f in missing]
+            + [{"claim": s, "detail": "low word overlap with evidence"} for s in weak[:5]],
+            "notes": "offline lexical check - indicative only, not a semantic judgement",
+        }
 
 
 def status(det: List[Dict[str, str]], j: Dict[str, Any]) -> str:
@@ -289,6 +357,7 @@ def main() -> int:
     ap.add_argument("--rows", default="", help="e.g. 5-20")
     ap.add_argument("--concurrency", type=int, default=4)
     ap.add_argument("--deterministic-only", action="store_true")
+    ap.add_argument("--offline", action="store_true", help="No-LLM lexical groundedness judge")
     ap.add_argument("--tag", default="run")
     a = ap.parse_args()
 
@@ -303,7 +372,10 @@ def main() -> int:
     if not kb.chunks:
         print("  ! no KB text in private/kb_docs - judge will only see bot-retrieved context (groundedness only, no correctness)")
     judge = None
-    if not a.deterministic_only:
+    if a.offline:
+        judge = OfflineJudge(kb)
+        print("judge: offline lexical (no LLM)")
+    elif not a.deterministic_only:
         try:
             judge = Judge()
             print(f"judge deployment={judge.c['deployment']} endpoint={judge.c['endpoint']}")

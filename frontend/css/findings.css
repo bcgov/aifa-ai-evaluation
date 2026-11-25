@@ -1,0 +1,30 @@
+/* Findings / quality dashboard */
+
+.ring-card { display: flex; align-items: center; gap: 12px; padding: 10px 12px; }
+.ring { position: relative; width: 64px; height: 64px; flex: 0 0 auto; }
+.ring svg { transform: rotate(-90deg); }
+.ring .ring-bg { fill: none; stroke: var(--line, #26303a); stroke-width: 7; }
+.ring .ring-val { fill: none; stroke: var(--accent, #3b82f6); stroke-width: 7; stroke-linecap: round; transition: stroke-dasharray .3s; }
+.ring .ring-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; }
+.ring-val.ok { stroke: #22c55e; }
+.ring-val.warn { stroke: #eab308; }
+.ring-val.bad { stroke: #ef4444; }
+
+.findings-verdict { display: flex; justify-content: space-between; padding: 6px 2px; border-bottom: 1px solid var(--line, #26303a); }
+.findings-verdict:last-child { border-bottom: none; }
+.fv-name { font-weight: 600; }
+.fv-num { font-variant-numeric: tabular-nums; }
+
+.finding-row { display: grid; grid-template-columns: 90px 90px 110px 1fr; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--line, #26303a); align-items: start; }
+.finding-row:last-child { border-bottom: none; }
+.finding-sev-high { color: #ef4444; font-weight: 600; }
+.finding-sev-medium { color: #eab308; font-weight: 600; }
+.finding-sev-low { color: #22c55e; font-weight: 600; }
+.finding-verdict-FAIL { color: #ef4444; font-weight: 700; }
+.finding-verdict-REFUSED { color: #60a5fa; font-weight: 700; }
+.finding-verdict-PASS { color: #22c55e; font-weight: 700; }
+.finding-risk { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; opacity: .85; }
+.finding-body { min-width: 0; }
+.finding-query { color: var(--muted, #8b98a5); font-size: 12px; margin: 2px 0; overflow-wrap: anywhere; }
+.finding-resp { overflow-wrap: anywhere; }
+.finding-expl { margin-top: 2px; }

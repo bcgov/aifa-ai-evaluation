@@ -53,6 +53,13 @@ export const getReport = (name) => request('/reports/' + encodeURIComponent(name
 export const getReportInsights = (name) => request('/reports/' + encodeURIComponent(name) + '/insights');
 export const getHealth = () => request('/health');
 
+// Judge / evaluation pipeline
+export const getFindings = () => request('/findings');           // { evaluated_reports, report_summaries, findings }
+export const getGoldenCases = (search = '', limit = 50, offset = 0) =>
+  request('/golden-cases?search=' + encodeURIComponent(search) + '&limit=' + limit + '&offset=' + offset);
+export const evaluateReport = (name, useLlm = true) => post('/reports/' + encodeURIComponent(name) + '/evaluate', { use_llm: useLlm, save_copy: true });
+export const generateTestCases = (payload) => post('/generate-test-cases', payload);
+
 // payload: { reports: [names] } or { all: true }. Downloads a single CSV file.
 export async function exportCsv(payload) {
   const res = await send('/export/csv', { method: 'POST', body: JSON.stringify(payload) });

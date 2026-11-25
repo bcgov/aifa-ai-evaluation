@@ -29,10 +29,18 @@ def turn_verdict(turn: Dict[str, Any]) -> str:
 
 
 def attempt_status(result: Dict[str, Any]) -> str:
-    """fail = attack worked, pass = attack scored as not working, review = completed but unscored."""
+    """fail = attack worked or judge failed it, refused = safely refused, pass = passed, review = unscored."""
     turns = result_turns(result)
     if result.get("error") or not turns or any(t.get("transport_error") or t.get("error") for t in turns):
         return "error"
+    stamped = [str(t.get("judge_verdict") or "").upper() for t in turns if t.get("judge_verdict")]
+    if stamped:
+        if "FAIL" in stamped:
+            return "fail"
+        if all(v == "REFUSED" for v in stamped):
+            return "refused"
+        if all(v in {"PASS", "REFUSED"} for v in stamped):
+            return "pass"
     verdicts = {turn_verdict(t) for t in turns}
     if "success" in verdicts:
         return "fail"
@@ -61,11 +69,23 @@ def transcript(result: Dict[str, Any]) -> List[Dict[str, Any]]:
             "readable": readable if readable != sent else None,
         })
         entries.append({"role": "target", "text": str(turn.get("response") or ""), "category": turn.get("category")})
-        verdict = turn_verdict(turn)
-        if verdict in {"success", "failure"} or turn.get("score") is not None:
-            judged = "Attack achieved its objective." if verdict == "success" else "Attack did not achieve its objective."
-            score = f" Score: {turn['score']}." if turn.get("score") is not None else ""
-            entries.append({"role": "judge", "text": judged + score})
+        ev = turn.get("evaluation") if isinstance(turn.get("evaluation"), dict) else None
+        if ev:
+            badge = f"[{ev.get('verdict', 'REVIEW')} · {ev.get('risk_class', 'Integrity')} · {ev.get('severity', 'low')}] "
+            entries.append({
+                "role": "judge",
+                "verdict": ev.get("verdict"),
+                "severity": ev.get("severity"),
+                "risk_class": ev.get("risk_class"),
+                "metrics": ev.get("metrics"),
+                "text": badge + str(ev.get("explanation") or ""),
+            })
+        else:
+            verdict = turn_verdict(turn)
+            if verdict in {"success", "failure"} or turn.get("score") is not None:
+                judged = "Attack achieved its objective." if verdict == "success" else "Attack did not achieve its objective."
+                score = f" Score: {turn['score']}." if turn.get("score") is not None else ""
+                entries.append({"role": "judge", "text": judged + score})
     if result.get("error"):
         entries.append({"role": "error", "text": str(result["error"])})
     return entries
@@ -77,6 +97,7 @@ class CaseState:
     name: str
     query: str
     expected_behavior: Optional[str]
+    must_not_contain: Optional[List[str]] = None
     attempts: List[Dict[str, Any]] = field(default_factory=list)
     running: bool = False
 
@@ -138,7 +159,7 @@ class Run:
                 "pass": attempts.count("pass"),
                 "review": attempts.count("review"),
                 "error": attempts.count("error"),
-                "refused": 0,
+                "refused": attempts.count("refused"),
             },
             "cases": cases,
         }
@@ -156,6 +177,15 @@ class Run:
             for case in self.cases
             for attempt in case.attempts
         ]
+        from aifa_pyrit.evaluators.pipeline import summarize_evaluations
+
+        all_evals = [
+            t["evaluation"]
+            for c in self.cases
+            for a in c.attempts
+            for t in result_turns(a["result"])
+            if isinstance(t.get("evaluation"), dict)
+        ]
         return {
             "report_type": "PyRIT",
             "run_id": self.id,
@@ -170,6 +200,7 @@ class Run:
             "dataset_id": self.dataset_id,
             "test_source": self.test_source,
             "total_cases": len(self.cases),
+            "evaluation_summary": summarize_evaluations(all_evals),
             "results": results,
         }
 
@@ -228,6 +259,7 @@ class RunManager:
                     name=str(c.get("name") or f"case_{i}"),
                     query=str(c.get("query") or ""),
                     expected_behavior=c.get("expected_behavior"),
+                    must_not_contain=c.get("must_not_contain"),
                 )
                 for i, c in enumerate(test_cases, 1)
             ]
@@ -308,12 +340,23 @@ class RunManager:
             await asyncio.sleep(0.3)
 
     async def _execute(self, run: Run, runner: Any) -> None:
+        from aifa_pyrit.evaluators.pipeline import EvaluationPipeline
+
+        try:
+            pipeline: Optional[EvaluationPipeline] = EvaluationPipeline()
+        except Exception:
+            pipeline = None
         with self._lock:
             run.status = "running"
             run.started_at = _now()
         try:
             for case in run.cases:
-                test_case = {"name": case.name, "query": case.query, "expected_behavior": case.expected_behavior}
+                test_case = {
+                    "name": case.name,
+                    "query": case.query,
+                    "expected_behavior": case.expected_behavior,
+                    "must_not_contain": case.must_not_contain,
+                }
                 for attempt in range(1, run.repeats + 1):
                     await self._wait_if_paused(run)
                     if run.stop_requested:
@@ -322,6 +365,9 @@ class RunManager:
                         case.running = True
                     try:
                         result = await runner.run_single_case(test_case, run.attack_type)
+                        if pipeline is not None and not result.get("error"):
+                            result["must_not_contain"] = case.must_not_contain
+                            await pipeline.stamp_report({"results": [result]})
                     except Exception as exc:  # one failing attempt must not end the whole run
                         result = {"query": case.query, "error": str(exc)}
                     with self._lock:

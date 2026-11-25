@@ -8,6 +8,7 @@ const ATTACKS = [
   { id: 'PromptSending', name: 'Prompt sending' },
   { id: 'Crescendo', name: 'Crescendo', llm: true },
   { id: 'MultiTurn', name: 'Multi-turn', llm: true },
+  { id: 'TAP', name: 'TAP (Tree of Attacks)', llm: true },
   { id: 'RedTeaming', name: 'Red teaming', llm: true },
 ];
 const LLM_NOTE = ' needs the Azure OpenAI attacker/judge model. It only works where that endpoint is reachable (e.g. the deployed environment).';

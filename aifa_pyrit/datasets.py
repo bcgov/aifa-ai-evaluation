@@ -11,6 +11,7 @@ from aifa_pyrit.storage import BlobServiceClient, DefaultAzureCredential, pyrit_
 
 logger = logging.getLogger(__name__)
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
+GOLDEN_PATH = Path(__file__).resolve().parents[1] / "private" / "golden.jsonl"
 DEFAULT_DATASET_ID = "saved-test-cases"
 
 
@@ -60,6 +61,40 @@ def _cases(content: str | bytes) -> list[dict[str, Any]]:
     return cases
 
 
+def load_golden_cases(search: str = "", limit: int = 0) -> list[dict[str, Any]]:
+    if not GOLDEN_PATH.exists():
+        return []
+    needle = search.strip().lower()
+    cases: list[dict[str, Any]] = []
+    seen_names: set[str] = set()
+    for idx, line in enumerate(GOLDEN_PATH.read_text(encoding="utf-8").splitlines(), 1):
+        if not line.strip():
+            continue
+        row = json.loads(line)
+        query = str(row.get("query") or "").strip()
+        if not query:
+            continue
+        step = str(row.get("step_number") or "")
+        answer = str(row.get("chat_response") or "")
+        if needle and needle not in query.lower() and needle not in step.lower() and needle not in answer.lower():
+            continue
+        base_name = f"golden_{idx:03d}_{step}" if step else f"golden_{idx:03d}"
+        name = base_name if base_name not in seen_names else f"{base_name}_{idx}"
+        seen_names.add(name)
+        cases.append({
+            "row": idx,
+            "name": name,
+            "query": query,
+            "step_number": step,
+            "chat_response": answer,
+            "reference_response": row.get("reference_response") or "",
+            "expected_behavior": str(row.get("reference_response") or "Answer accurately grounded in BC Water Licensing KB documents."),
+        })
+        if limit and len(cases) >= limit:
+            break
+    return cases
+
+
 def list_datasets() -> list[dict[str, Any]]:
     datasets = []
 
@@ -83,10 +118,25 @@ def list_datasets() -> list[dict[str, Any]]:
     else:
         for path in sorted(DATA_DIR.glob("*.json")):
             include(path.name, path.read_bytes(), "local")
+
+    if GOLDEN_PATH.exists():
+        golden = load_golden_cases()
+        if golden:
+            datasets.append({
+                "id": "golden:golden.jsonl",
+                "name": f"Golden Dataset ({len(golden)} UAT questions)",
+                "case_count": len(golden),
+                "source": "golden",
+            })
     return sorted(datasets, key=lambda dataset: dataset["name"])
 
 
 def load_dataset(dataset_id: str) -> list[dict[str, Any]]:
+    if dataset_id == "golden:golden.jsonl":
+        cases = load_golden_cases()
+        if not cases:
+            raise FileNotFoundError("golden.jsonl")
+        return cases
     source = "azure" if _azure_configured() else "local"
     if dataset_id == DEFAULT_DATASET_ID:
         dataset_id = f"{source}:red_team_test_cases.json"

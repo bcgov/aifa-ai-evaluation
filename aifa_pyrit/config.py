@@ -3,8 +3,13 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 from typing import Optional
+
+_venv_scripts = str(Path(sys.executable).resolve().parent)
+if _venv_scripts and _venv_scripts not in os.environ.get("PATH", ""):
+    os.environ["PATH"] = _venv_scripts + os.pathsep + os.environ.get("PATH", "")
 
 from urllib.parse import urlparse
 
@@ -80,14 +85,34 @@ def build_chat_completion_url(endpoint: str, deployment: str, api_version: str) 
     return f"{base.rstrip('/')}/openai/deployments/{deployment}/chat/completions?api-version={api_version}"
 
 
+def build_chat_request_body(
+    endpoint: str,
+    deployment: str,
+    messages: list[dict[str, str]],
+    **kwargs: object,
+) -> dict[str, object]:
+    """Return a chat-completions body, adding the `model` field for Foundry v1 endpoints."""
+    body: dict[str, object] = {"messages": messages, **kwargs}
+    if is_foundry_openai_endpoint(endpoint) and deployment:
+        body["model"] = deployment
+    return body
+
+
 def build_chat_request_headers(api_key: str, endpoint: str) -> dict[str, str]:
-    """Return the correct auth headers for the configured endpoint contract."""
+    """Return the correct auth headers for the configured endpoint contract (API key first, Azure CLI token fallback)."""
     sanitized_api_key = (api_key or "").strip()
     headers = {"Content-Type": "application/json"}
-    if is_foundry_openai_endpoint(endpoint):
-        headers["Authorization"] = f"Bearer {sanitized_api_key}"
+    if sanitized_api_key:
+        # Foundry model-inference endpoints accept api-key for key-based auth (the same
+        # contract the deployed container uses). Only fall back to Bearer for token auth.
+        headers["api-key"] = sanitized_api_key
         return headers
-    headers["api-key"] = sanitized_api_key
+    try:
+        from azure.identity import DefaultAzureCredential
+        token = DefaultAzureCredential().get_token("https://cognitiveservices.azure.com/.default")
+        headers["Authorization"] = f"Bearer {token.token}"
+    except Exception:
+        pass
     return headers
 
 
@@ -104,22 +129,45 @@ def ensure_audit_llm_v1_endpoint(endpoint: str) -> str:
 class Settings(BaseSettings):
     """Application settings loaded from environment variables"""
 
-    # Azure OpenAI Configuration
-    audit_llm_api_key: str = Field(default="", validation_alias="AUDIT_LLM_API_KEY")
-    audit_llm_endpoint: str = Field(default="", validation_alias="AUDIT_LLM_ENDPOINT")
-    audit_llm_api_version: str = Field(
-        default="2024-02-15-preview",
-        validation_alias="AUDIT_LLM_API_VERSION",
+    # Azure OpenAI / Audit LLM Configuration (shared across Judge, Attacker, and Evaluators)
+    audit_llm_api_key: str = Field(
+        default="",
+        validation_alias=AliasChoices("AUDIT_LLM_API_KEY", "AZURE_OPENAI_API_KEY", "ADVERSARIAL_OPENAI_API_KEY"),
     )
-    # Accept both env names:
-    # - AUDIT_LLM_DEPLOYMENT (our .env.example)
-    # - AUDIT_LLM_chat_deployment_name (common in Azure AI SDK samples)
+    audit_llm_endpoint: str = Field(
+        default="",
+        validation_alias=AliasChoices("AUDIT_LLM_ENDPOINT", "AZURE_OPENAI_ENDPOINT", "ADVERSARIAL_OPENAI_ENDPOINT"),
+    )
+    audit_llm_api_version: str = Field(
+        default="2025-01-01-preview",
+        validation_alias=AliasChoices("AUDIT_LLM_API_VERSION", "AZURE_OPENAI_API_VERSION", "ADVERSARIAL_OPENAI_API_VERSION"),
+    )
     audit_llm_deployment: str = Field(
         default="gpt-4",
         validation_alias=AliasChoices(
-            "AUDIT_LLM_DEPLOYMENT", "audit_llm_chat_deployment_name"
+            "AUDIT_LLM_DEPLOYMENT",
+            "AZURE_OPENAI_DEPLOYMENT",
+            "ADVERSARIAL_OPENAI_DEPLOYMENT",
+            "audit_llm_chat_deployment_name",
+            "azure_openai_chat_deployment_name",
         ),
     )
+
+    @property
+    def azure_openai_api_key(self) -> str:
+        return self.audit_llm_api_key
+
+    @property
+    def azure_openai_endpoint(self) -> str:
+        return self.audit_llm_endpoint
+
+    @property
+    def azure_openai_api_version(self) -> str:
+        return self.audit_llm_api_version
+
+    @property
+    def azure_openai_deployment(self) -> str:
+        return self.audit_llm_deployment
 
     # Azure OpenAI Adversarial Endpoint Configuration (for attack generation)
     # Support both legacy names and the explicit adversarial-openai names used by the red-team setup.

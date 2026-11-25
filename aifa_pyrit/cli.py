@@ -42,7 +42,7 @@ def main():
 @click.option(
     "--attack-type",
     "-a",
-    type=click.Choice(["PromptSending", "Crescendo", "MultiTurn", "RedTeaming", "PromptSeed"]),
+    type=click.Choice(["PromptSending", "Crescendo", "MultiTurn", "RedTeaming", "TAP", "PromptSeed"]),
     default="PromptSending",
     help="Type of PyRIT attack to execute",
 )
@@ -174,7 +174,7 @@ def scan(
 @click.option(
     "--attack-type",
     "-a",
-    type=click.Choice(["PromptSending", "Crescendo", "MultiTurn", "RedTeaming", "PromptSeed"]),
+    type=click.Choice(["PromptSending", "Crescendo", "MultiTurn", "RedTeaming", "TAP", "PromptSeed"]),
     default="PromptSending",
     help="Type of PyRIT attack",
 )
@@ -194,6 +194,8 @@ def test_query(query: str, attack_type: str):
         # Run attack
         if attack_type == "Crescendo":
             result = asyncio.run(runner.run_jailbreak_attack(query))
+        elif attack_type == "TAP":
+            result = asyncio.run(runner.run_tap_attack(query))
         elif attack_type == "MultiTurn":
             result = asyncio.run(runner.run_multi_turn_attack(query))
         elif attack_type == "RedTeaming":

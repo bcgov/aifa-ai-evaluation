@@ -34,7 +34,7 @@ PROMPTFOO_RESULT = BASE_DIR / "results-promptfoo" / "promptfoo-report.json"
 PROMPTFOO_RUN_TOKEN = os.getenv("PROMPTFOO_RUN_TOKEN")
 PROMPTFOO_LOCK = asyncio.Lock()
 
-AttackType = Literal["PromptSending", "Crescendo", "MultiTurn", "RedTeaming", "PromptSeed"]
+AttackType = Literal["PromptSending", "Crescendo", "MultiTurn", "RedTeaming", "TAP", "PromptSeed"]
 
 
 def resolve_runtime_port() -> int:
@@ -54,6 +54,8 @@ class RunScanRequest(BaseModel):
     threat_models: str | None = None
     converters: list[str] | None = None
     max_iterations: int = Field(default_factory=lambda: settings.red_team_max_iterations)
+    evaluate: bool = True
+    evaluate_llm: bool = True
 
 
 class RunSeedAttackRequest(BaseModel):
@@ -77,6 +79,18 @@ class StartRunRequest(BaseModel):
 class ExportRequest(BaseModel):
     reports: list[str] = Field(default_factory=list, max_length=1000)
     all: bool = False
+
+
+class GenerateTestCasesRequest(BaseModel):
+    count: int = Field(default=12, ge=1, le=60)
+    categories: list[str] | None = None
+    use_llm: bool = True
+    save_to_data: bool = True
+
+
+class EvaluateReportRequest(BaseModel):
+    use_llm: bool = True
+    save_copy: bool = True
 
 
 DEFAULT_DATASET_ID = datasets.DEFAULT_DATASET_ID
@@ -177,6 +191,7 @@ def _summarize_report(report: dict[str, Any]) -> dict[str, Any]:
             successful_turns += int(verdict == "success")
             unscored_turns += int(verdict not in {"success", "failure"})
 
+    eval_summary = report.get("evaluation_summary") or {}
     return {
         "attack_type": report.get("attack_type"),
         "seed_datasets": report.get("seed_datasets", []),
@@ -189,6 +204,8 @@ def _summarize_report(report: dict[str, Any]) -> dict[str, Any]:
         "error_count": error_count,
         "total_cases": case_count,
         "outcome_counts": outcome_counts,
+        "evaluated": bool(eval_summary),
+        "judge_verdicts": eval_summary.get("verdict_counts", {}),
         "status": "error" if error_count else "ok",
     }
 
@@ -396,6 +413,86 @@ async def list_datasets() -> list[dict[str, Any]]:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
+@app.get("/api/golden-cases")
+async def golden_cases(search: str = "", limit: int = 50, offset: int = 0) -> dict[str, Any]:
+    rows = datasets.load_golden_cases(search=search)
+    return {"total": len(rows), "offset": offset, "cases": rows[offset : offset + limit]}
+
+
+@app.post("/api/generate-test-cases")
+async def generate_test_cases(request: GenerateTestCasesRequest) -> dict[str, Any]:
+    from aifa_pyrit.test_generator import generate_kb_test_cases
+
+    try:
+        payload = await generate_kb_test_cases(
+            count=request.count,
+            categories=request.categories,
+            use_llm=request.use_llm,
+            save_to_data=request.save_to_data,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"status": "success", **payload}
+
+
+@app.post("/api/reports/{report_name}/evaluate")
+async def evaluate_report(report_name: str, request: EvaluateReportRequest) -> dict[str, Any]:
+    report = await get_report(report_name)
+    from aifa_pyrit.evaluators.pipeline import EvaluationPipeline
+
+    stamped = await EvaluationPipeline(use_llm=request.use_llm).stamp_report(report)
+    saved_name = report_name
+    if request.save_copy:
+        saved_name = f"eval_{report_name}"
+        _save_report(stamped, filename=saved_name)
+    return {
+        "status": "success",
+        "report_name": saved_name,
+        "evaluation_summary": stamped.get("evaluation_summary", {}),
+    }
+
+
+@app.get("/api/findings")
+async def findings(limit: int = 100) -> dict[str, Any]:
+    items: list[dict[str, Any]] = []
+    report_summaries: list[dict[str, Any]] = []
+    for meta in await list_reports():
+        try:
+            report = await get_report(meta["name"])
+        except Exception:
+            continue
+        eval_summary = report.get("evaluation_summary")
+        if not eval_summary:
+            continue
+        report_summaries.append({"report": meta["name"], **eval_summary})
+        results = report.get("results")
+        cases = results if isinstance(results, list) else [report]
+        for case in cases:
+            if not isinstance(case, dict):
+                continue
+            inner = case.get("results") if isinstance(case.get("results"), dict) else {}
+            for turn in _normalized_turns(inner):
+                ev = turn.get("evaluation") or {}
+                verdict = ev.get("verdict") or turn.get("judge_verdict")
+                if verdict and verdict != "PASS":
+                    items.append({
+                        "report": meta["name"],
+                        "case": case.get("case_name") or case.get("name") or "",
+                        "verdict": verdict,
+                        "severity": ev.get("severity") or turn.get("severity"),
+                        "risk_class": ev.get("risk_class") or turn.get("risk_class"),
+                        "explanation": ev.get("explanation") or turn.get("judge_explanation"),
+                        "query": str(turn.get("original_prompt") or turn.get("prompt") or case.get("query") or "")[:300],
+                        "response": str(turn.get("response") or "")[:300],
+                        "presidio": ev.get("presidio"),
+                    })
+    return {
+        "evaluated_reports": len(report_summaries),
+        "report_summaries": report_summaries,
+        "findings": items[:limit],
+    }
+
+
 def _previous_failed_cases(dataset_id: str | None) -> list[str]:
     failed = RUNS.previous_failures(dataset_id)
     if failed is None:
@@ -539,6 +636,13 @@ async def run_scan(request: RunScanRequest) -> dict[str, Any]:
         "expected_behavior": request.expected_behavior,
         **runner.results,
     }
+    if request.evaluate:
+        try:
+            from aifa_pyrit.evaluators.pipeline import EvaluationPipeline
+
+            report = await EvaluationPipeline(use_llm=request.evaluate_llm).stamp_report(report)
+        except Exception:
+            logger.exception("auto_evaluation_failed")
     report_path = _save_report(report, filename=f"scan_{request.attack_type.lower()}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.json")
 
     summary = _summarize_report(report)

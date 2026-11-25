@@ -1,0 +1,215 @@
+version: '2026-11-25'
+rule: A mapping is evidence toward a clause, never a compliance claim.
+owasp:
+  title: OWASP Top 10 for LLM Applications (2025) and Agentic Top 10 (2026)
+  note: "Security view. Not in OWASP at all: FA-1, FA-2, SA-5, SA-6, PB-2, PB-3, RE-4, TR-3. Those are covered only\
+    \ through the BC principles."
+  items:
+  - code: LLM01
+    name: Prompt injection
+    failure_modes:
+    - SA-3
+    - AC-2
+  - code: LLM02
+    name: Sensitive information disclosure (includes PII)
+    failure_modes:
+    - SA-1
+    - SA-2
+  - code: LLM03
+    name: Supply chain
+    failure_modes: []
+    note: Not tested by prompts. Security team review.
+  - code: LLM04
+    name: Data and model poisoning
+    failure_modes: []
+    note: Not tested by prompts. Knowledge-base poisoning is covered under LLM08 (RE-5).
+  - code: LLM05
+    name: Improper output handling
+    failure_modes:
+    - SA-4
+  - code: LLM06
+    name: Excessive agency
+    failure_modes:
+    - AC-2
+  - code: LLM07
+    name: System prompt leakage
+    failure_modes:
+    - SA-2
+  - code: LLM08
+    name: Vector and embedding weaknesses
+    failure_modes:
+    - RE-5
+  - code: LLM09
+    name: Misinformation
+    failure_modes:
+    - AC-1
+    - PB-1
+    - RE-1
+    - RE-2
+    - RE-3
+  - code: LLM10
+    name: Unbounded consumption
+    failure_modes:
+    - PB-4
+  - code: ASI01
+    name: Agent goal hijack
+    failure_modes:
+    - SA-3
+    - AC-2
+  - code: ASI02
+    name: Tool misuse
+    failure_modes:
+    - AC-2
+  - code: ASI06
+    name: Memory and context poisoning
+    failure_modes:
+    - RE-5
+    note: Kept because the bot keeps conversation memory in Redis.
+  - code: ASI09
+    name: Human-agent trust exploitation
+    failure_modes:
+    - TR-1
+    - TR-2
+    - SA-7
+  not_covered_by_owasp:
+  - FA-1
+  - FA-2
+  - SA-5
+  - SA-6
+  - PB-2
+  - PB-3
+  - RE-4
+  - TR-3
+eu_ai_act:
+  title: EU AI Act (Regulation 2024/1689)
+  note: Reference point only. BC is not bound by it. Art. 50(1) is the only article that applies to this app; Arts.
+    12–15 formally apply to high-risk systems and are kept as reference only.
+  items:
+  - code: Art. 12
+    name: Automatic logging
+    failure_modes: []
+    note: "Reference only. Hand check: logs kept"
+  - code: Art. 13
+    name: Explain the system to users
+    failure_modes: []
+    note: "Reference only (app isn't high-risk). Hand check: explanation page"
+  - code: Art. 14
+    name: Human oversight
+    failure_modes:
+    - AC-2
+    - TR-2
+    - TR-3
+    note: Reference only (app isn't high-risk).
+  - code: Art. 15(1)
+    name: Accuracy
+    failure_modes:
+    - AC-1
+    - PB-1
+    - RE-1
+    - RE-2
+    - RE-3
+    - RE-4
+    note: Reference only (app isn't high-risk).
+  - code: Art. 15(4)
+    name: Resilient to errors
+    failure_modes:
+    - PB-4
+    note: Reference only (app isn't high-risk).
+  - code: Art. 15(5)
+    name: Resilient to attacks
+    failure_modes:
+    - RE-5
+    - SA-1
+    - SA-2
+    - SA-3
+    - SA-4
+    note: Reference only (app isn't high-risk).
+  - code: Art. 50(1)
+    name: Tell people they are talking to AI
+    failure_modes:
+    - TR-1
+    note: "Applies to this app. Plus hand check: disclosure shown"
+nist:
+  title: NIST AI RMF (AI 100-1) and Generative AI Profile (AI 600-1)
+  note: MEASURE items and GenAI risks our testing gives evidence for.
+  items:
+  - code: MS 2.3
+    name: Performance in real-use conditions
+    failure_modes:
+    - PB-1
+    - PB-2
+    - PB-3
+  - code: MS 2.5
+    name: Valid and reliable
+    failure_modes:
+    - AC-1
+    - RE-1
+    - RE-2
+    - RE-3
+    - RE-4
+  - code: MS 2.6
+    name: Safe; fails safely
+    failure_modes:
+    - SA-6
+    note: Covers safety, not cost.
+  - code: MS 2.7
+    name: Secure and resilient
+    failure_modes:
+    - SA-2
+    - SA-3
+    - SA-4
+    - RE-5
+  - code: MS 2.8
+    name: Transparency and accountability
+    failure_modes:
+    - TR-1
+    - TR-2
+    - AC-2
+  - code: MS 2.9
+    name: Explained and documented
+    failure_modes: []
+    note: Hand check
+  - code: MS 2.10
+    name: Privacy
+    failure_modes:
+    - SA-1
+  - code: MS 2.11
+    name: Fairness and bias
+    failure_modes:
+    - FA-1
+    - FA-2
+  - code: MS 2.13
+    name: Test methods are effective
+    failure_modes: []
+    note: Judge accuracy check
+  - code: MS 3.3
+    name: Users can report and appeal
+    failure_modes:
+    - TR-3
+  - code: 600-1 §2.2
+    name: Confabulation
+    failure_modes:
+    - AC-1
+    - RE-1
+    - RE-2
+    - RE-3
+    note: The most relevant NIST item for a RAG bot.
+  - code: 600-1 §2.3, §2.11
+    name: Dangerous or abusive content
+    failure_modes:
+    - SA-5
+  - code: 600-1 §2.4
+    name: Data privacy
+    failure_modes:
+    - SA-1
+  - code: 600-1 §2.7
+    name: Over-trust and manipulation
+    failure_modes:
+    - SA-7
+  - code: 600-1 §2.9
+    name: Information security
+    failure_modes:
+    - SA-2
+    - SA-3
+    - SA-4
+    - RE-5

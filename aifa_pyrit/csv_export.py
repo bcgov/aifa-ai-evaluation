@@ -10,7 +10,10 @@ from aifa_pyrit.run_manager import attempt_status, result_turns
 
 COLUMNS = [
     "report", "run_id", "timestamp", "attack_type", "converters", "case_name", "attempt", "turn",
-    "status", "outcome", "category", "transport_error", "expected_behavior", "original_prompt",
+    "status", "judge_verdict", "severity", "risk_class", "judge_explanation",
+    "groundedness", "faithfulness", "hallucination", "toxicity", "bias", "policy_drift",
+    "presidio_entities", "kb_sources",
+    "outcome", "category", "transport_error", "expected_behavior", "original_prompt",
     "sent_prompt", "prompt_readable", "response", "error",
 ]
 FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
@@ -53,9 +56,25 @@ def report_rows(name: str, report: Dict[str, Any]) -> Iterable[Dict[str, Any]]:
         if not turns:
             yield {**shared, "original_prompt": case.get("query")}
         for index, turn in enumerate(turns, 1):
+            ev = turn.get("evaluation") if isinstance(turn.get("evaluation"), dict) else {}
+            metrics = ev.get("metrics") if isinstance(ev.get("metrics"), dict) else {}
+            presidio = ev.get("presidio") if isinstance(ev.get("presidio"), dict) else {}
+            p_entities = [f"{f.get('entity_type')}:{f.get('matched_text')}" for f in presidio.get("findings") or []]
             yield {
                 **shared,
                 "turn": turn.get("turn", index),
+                "judge_verdict": turn.get("judge_verdict") or ev.get("verdict"),
+                "severity": turn.get("severity") or ev.get("severity"),
+                "risk_class": turn.get("risk_class") or ev.get("risk_class"),
+                "judge_explanation": turn.get("judge_explanation") or ev.get("explanation"),
+                "groundedness": metrics.get("groundedness"),
+                "faithfulness": metrics.get("faithfulness"),
+                "hallucination": metrics.get("hallucination"),
+                "toxicity": metrics.get("toxicity"),
+                "bias": metrics.get("bias"),
+                "policy_drift": metrics.get("policy_drift"),
+                "presidio_entities": p_entities,
+                "kb_sources": ev.get("kb_sources"),
                 "outcome": turn.get("outcome"),
                 "category": turn.get("category"),
                 "transport_error": bool(turn.get("transport_error")),
