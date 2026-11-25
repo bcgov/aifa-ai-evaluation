@@ -16,8 +16,9 @@ RANK = {g: i for i, g in enumerate(SEVERITY_ORDER)}
 def group(verdicts: list[Verdict]) -> list[dict]:
     buckets: dict[str, list[Verdict]] = defaultdict(list)
     for v in verdicts:
-        if v.fix_tag != "none":
-            buckets[v.fix_tag].append(v)
+        for tag in dict.fromkeys([v.fix_tag, *v.extra_fix_tags]):  # a row can need more than one fix
+            if tag != "none" and tag in fix_tags():
+                buckets[tag].append(v)
 
     out = []
     for tag, vs in buckets.items():

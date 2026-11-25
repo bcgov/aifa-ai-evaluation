@@ -69,7 +69,7 @@ def kb_passages(query: str, answer: str = "", k: int = 4) -> list[str]:
     if kb is None:
         return []
     try:
-        return [chunk for _, chunk in kb.top(f"{query} {answer[:300]}", k=k)]
+        return [f"[{src}] {chunk}" for src, chunk in kb.top(f"{query} {answer[:300]}", k=k)]
     except Exception:  # noqa: BLE001
         return []
 

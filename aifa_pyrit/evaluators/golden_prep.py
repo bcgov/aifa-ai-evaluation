@@ -97,6 +97,12 @@ CALC_RE = re.compile(
     r"|\bhow many (?:litres|liters|cubic|m3|m³)\b|\bconvert\b.*\b(?:acres?|hectares?|gallons?|litres?|m3|m³)\b",
     re.I,
 )
+# Statements about paying or fees ("i am paying by credit card online") depend on whether that option
+# exists, so they are checked against the KB (payment guideline), not just against what the user said.
+PAYMENT_RE = re.compile(
+    r"\b(?:pay|paying|paid|payment|credit card|debit card|visa|mastercard|cheque|e-?transfer|invoice|fees?|rental)\b",
+    re.I,
+)
 QUESTION_START_RE = re.compile(
     r"^(?:what|what's|how|why|when|where|who|whom|which|do|does|did|is|are|was|were|can|could|should|would|will"
     r"|may|might|must|tell me|explain|define|describe|help)\b",
@@ -111,6 +117,14 @@ FORM_ACTION_RE = re.compile(
 )
 
 
+def _field_value_statement(q: str) -> bool:
+    from aifa_pyrit.rtaas.metrics import scripts
+
+    if q.endswith("?") or not scripts.form_field_for(q):
+        return False
+    return bool(re.search(r"\b(?:is|are|as|=)\s+[\"'“]?[\w$.-]", q, re.I))
+
+
 def question_type_rule(query: str) -> tuple[Optional[str], str]:
     """(type, source). type None = no rule decided; send to the LLM."""
     q = (query or "").strip()
@@ -118,10 +132,14 @@ def question_type_rule(query: str) -> tuple[Optional[str], str]:
         return None, "empty"
     if OFF_TOPIC_RE.search(q):
         return "off_topic", "rule:off_topic"
+    if _field_value_statement(q):  # "Total Annual Quantity is 7" gives a value; it doesn't ask for a sum
+        return "form_action", "rule:field_value"
     if CALC_RE.search(q):
         return "calculation", "rule:calculation"
     if q.endswith("?") or QUESTION_START_RE.search(q):
         return "kb_question", "rule:question_form"
+    if PAYMENT_RE.search(q):
+        return "kb_question", "rule:payment_or_fee"
     if FORM_ACTION_RE.search(q):
         return "form_action", "rule:form_statement"
     return None, "no_rule"

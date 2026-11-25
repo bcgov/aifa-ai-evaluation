@@ -200,6 +200,60 @@ def cost_check(metadata: dict, max_tokens: int = 4000, max_latency_ms: int = 300
     return ScriptResult(True, Grade.PASS, "Within the normal range.")
 
 
+UNIT_WORDS = (r"(?:hectares?|ha|acres?|m³|m3|cubic\s+met(?:re|er)s?|litres?|liters?|l/s|gallons?|gpm"
+              r"|square\s+met(?:re|er)s?|m²|m2|met(?:re|er)s?|km|kilomet(?:re|er)s?|feet|ft)"
+              r"(?:\s*/\s*(?:s|sec|second|yr|year|day))?")
+_HYPHEN = r"\s*[-\u2010\u2011\u2012\u2013]?\s*"
+_NUM_RE = re.compile(r"(?<![\w.])(\d+(?:[.,]\d+)?)(?![\w.])")
+FORM_FIELDS_FILE = Path(__file__).parents[1] / "testgen" / "form_fields.yaml"
+
+
+@lru_cache
+def form_fields() -> list[dict]:
+    return yaml.safe_load(FORM_FIELDS_FILE.read_text(encoding="utf-8"))["fields"]
+
+
+def form_field_for(text: str) -> Optional[dict]:
+    """The form field a user message names, matched on its label (tolerates a mistyped first word)."""
+    low = re.sub(r"\s+", " ", (text or "").lower())
+    for f in sorted(form_fields(), key=lambda f: -len(f["label"])):
+        label = f["label"].lower()
+        tail = label.split(" ", 1)[1] if label.count(" ") >= 3 else None  # "are to be irrigated" -> "to be irrigated"
+        if label in low or (tail and tail in low):
+            return f
+    return None
+
+
+def _norm_unit(u: str) -> str:
+    u = re.sub(r"\s+", "", u.lower()).replace("m3", "m³")
+    return re.sub(r"/(?:sec|second)$", "/s", re.sub(r"/yr$", "/year", u))
+
+
+def unit_assumed(user_input: str, output: str) -> ScriptResult:
+    """The user typed a bare number and the answer attached a unit to it ("10" -> "10 hectares").
+
+    That is the point of the bare-number tests (batch 1 rows 38-49). If the form field shows its unit
+    (form_fields.yaml), filling that unit is fine, but writing it into the comments is not; for a field
+    with no unit the bot must ask.
+    """
+    text, out = user_input or "", output or ""
+    if re.search(rf"\d{_HYPHEN}{UNIT_WORDS}", text, re.I):
+        return ScriptResult(True, Grade.PASS, "The user gave a unit.")
+    field_unit = (form_field_for(text) or {}).get("unit")
+    for n in dict.fromkeys(_NUM_RE.findall(text)):
+        for m in re.finditer(rf"(?<![\d.]){re.escape(n)}{_HYPHEN}({UNIT_WORDS})", out, re.I):
+            start = out.rfind("\n", 0, m.start()) + 1  # the line it's on: comment text sits on its own line
+            end = out.find("\n", m.end())
+            sentence = out[start:end if end != -1 else len(out)].lower()
+            shown = field_unit and _norm_unit(field_unit).startswith(_norm_unit(m.group(1)))
+            if shown and "comment" not in sentence:
+                continue  # the form shows this unit: filling it is not an assumption
+            where = " in the comments" if "comment" in sentence else ""
+            return ScriptResult(False, Grade.MEDIUM,
+                                f"The user gave a bare number ({n}); the answer assumed a unit{where}: '{m.group()}'.")
+    return ScriptResult(True, Grade.PASS, "No unit assumed.")
+
+
 def calc_sanity(output: str, flag_regex: Optional[list[str]] = None) -> ScriptResult:
     """Business logic. A calculator answer must not contain negative quantities or absurd sizes."""
     for pat in flag_regex or []:
@@ -226,7 +280,8 @@ def _contains(output: str, needles: Iterable[str]) -> Optional[str]:
 
 
 def case_findings(output: str, case: dict[str, Any], target: dict[str, Any], allow_list: list[str],
-                  failure_mode: Optional[str] = None) -> list[ScriptFinding]:
+                  failure_mode: Optional[str] = None, user_input: str = "",
+                  question_type: Optional[str] = None) -> list[ScriptFinding]:
     """Every deterministic check that applies to one answer. Each finding sets a floor on the grade."""
     checks = target.get("checks", {})
     wanted = set(case.get("checks") or [])
@@ -260,4 +315,6 @@ def case_findings(output: str, case: dict[str, Any], target: dict[str, Any], all
         out.append(ScriptFinding(check="must_contain_any", grade=Grade.MEDIUM, reason=f"Missing required content (one of: {', '.join(needed[:3])})."))
     if case.get("test_kind") == "over_refusal" or failure_mode == "PB-2":
         add("refusal_check", refusal_check(output))
+    if "unit_assumed" in wanted or question_type == "form_action":
+        add("unit_assumed", unit_assumed(user_input, output))
     return out

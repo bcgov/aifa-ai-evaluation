@@ -100,6 +100,7 @@ class Verdict(BaseModel):
     dev_fix: str = ""         # one concrete change for the owner below
     fix_tag: str = "none"     # from policy/fix_tags.yaml; used to group fixes without extra LLM calls
     fix_owner: Literal["bot", "kb", "harness", "judge", "none"] = "none"
+    extra_fix_tags: list[str] = []   # added by script checks (e.g. unit_assumed -> ask_unit)
     # Run Results screen
     title: str = ""           # <= 8 words, plain language
     highlight: str = ""       # exact substring of the bot answer, or ""
