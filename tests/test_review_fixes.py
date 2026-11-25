@@ -7,7 +7,7 @@ import pytest
 from aifa_pyrit import datasets
 from aifa_pyrit.rtaas import judge, llm, pipeline
 from aifa_pyrit.rtaas.findings import build_findings, build_issues
-from aifa_pyrit.rtaas.metrics import registry, runner
+from aifa_pyrit.rtaas.metrics import registry, runner, scripts
 from aifa_pyrit.rtaas.models import Grade, MetricResult, TestRecord, Verdict
 from aifa_pyrit.rtaas.scoring import count_by_failure_mode, failure_mode_stats, index, metric_gate, release_gate
 
@@ -37,6 +37,12 @@ def test_confirmed_critical_never_meets_bar_caps_index_and_blocks_every_tier():
     for tier in ("low", "medium", "high"):
         gate = release_gate(tier, counts)
         assert gate.blocked and "1 Critical finding open" in gate.reasons, tier
+
+
+# Batch-1 rerun check: every High must land in the review queue, whatever the confidence
+def test_every_high_verdict_is_flagged_for_review():
+    verdict = judge.grade(rec("Some answer.", fm="RE-1"), scripts.allow_list(), client=fake_chat("high", 0.95))
+    assert verdict.grade == Grade.HIGH and verdict.needs_review
 
 
 # 2. Unknown failure-mode tag
