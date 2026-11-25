@@ -23,8 +23,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Optional
 
-from . import judge
-from .metrics import registry, runner
+from . import devfix, judge
+from .metrics import registry, runner, scripts
 from .models import TestRecord, TurnRecord
 from .policy import loader
 
@@ -118,7 +118,8 @@ def records_from_report(report: dict, app: Optional[registry.AppConfig] = None) 
             case={k: meta[k] for k in ("checks", "flag_regex", "must_not_contain", "must_contain_any", "success_hint", "test_kind") if k in meta}
                  | ({"must_not_contain": res.get("must_not_contain")} if res.get("must_not_contain") and "must_not_contain" not in meta else {}),
             metadata={"pair_group": meta.get("pair_group"), "failure_mode_inferred": not meta.get("failure_mode"),
-                      "attempt": res.get("attempt", 1)},
+                      "attempt": res.get("attempt", 1), "question_type": meta.get("question_type") or kind,
+                      "step_number": meta.get("step") or res.get("step_number")},
             valid=valid,
             error=str(error)[:300] if error else (None if valid else "empty or INFRA_ERROR reply"),
         )
@@ -144,16 +145,36 @@ def records_from_report(report: dict, app: Optional[registry.AppConfig] = None) 
     return records
 
 
+def _last_output(r: TestRecord) -> str:
+    return r.actual_output or (r.turns[-1].content if r.turns else "")
+
+
+def split_not_run(records: list[TestRecord]) -> tuple[list[TestRecord], list[TestRecord]]:
+    """(answered, not_run). Infra errors and empty replies are never graded."""
+    not_run = [r for r in records if not r.valid or scripts.is_infra_error(_last_output(r))]
+    skip = {id(r) for r in not_run}
+    return [r for r in records if id(r) not in skip], not_run
+
+
+def not_run_rows(not_run: list[TestRecord]) -> list[dict[str, Any]]:
+    return [{"test_id": r.test_id, "case_name": r.case_name, "failure_mode": r.failure_mode,
+             "error": (r.error or _last_output(r) or "empty reply")[:120]} for r in not_run]
+
+
 def grade_records(records: list[TestRecord], app: registry.AppConfig, use_llm: bool = True,
                   metric_ids: Optional[list[str]] = None, run_metrics: bool = True, client=None) -> dict[str, Any]:
     canary = registry.target_config().get("checks", {}).get("canary", {}).get("value", "")
     canary = None if not canary or canary.startswith("<FILL") else canary
+    answered, not_run = split_not_run(records)
     verdicts = [judge.grade(r, app.allow_list, canary, client=client, kb_passages=r.context, use_llm=use_llm)
-                for r in records]
-    metrics = runner.run_all(records, app, metric_ids=metric_ids) if run_metrics else \
-        runner.run_all(records, app, metric_ids=["link_safety", "no_over_refusal", "calc_sanity", "exact_values"])
+                for r in answered]
+    metrics = runner.run_all(answered, app, metric_ids=metric_ids) if run_metrics else \
+        runner.run_all(answered, app, metric_ids=["link_safety", "no_over_refusal", "calc_sanity", "exact_values"])
     return {"verdicts": [v.model_dump(mode="json") for v in verdicts],
-            "metrics": [m.model_dump(mode="json") for m in metrics]}
+            "metrics": [m.model_dump(mode="json") for m in metrics],
+            "not_run": not_run_rows(not_run),
+            "run_health": round(len(answered) / max(1, len(records)), 3),
+            "dev_fixes": devfix.group(verdicts)}
 
 
 def grade_report(report: dict, report_name: str, *, tier: str = "medium", use_llm: bool = True,
@@ -190,6 +211,8 @@ def main() -> None:
     records = [TestRecord(**json.loads(line)) for line in a.records.read_text().splitlines() if line.strip()]
     app = registry.AppConfig.from_target()
 
+    total = len(records)
+    records, not_run = split_not_run(records)
     attack = [r for r in records if r.set == "attack"]
     verdicts = [judge.grade(r, app.allow_list, a.canary) for r in attack]
     metrics = runner.run_all(records, app)
@@ -203,6 +226,9 @@ def main() -> None:
         "policy_versions": loader.versions(),
         "verdicts": [v.model_dump(mode="json") for v in verdicts],
         "metrics": [m.model_dump(mode="json") for m in metrics],
+        "not_run": not_run_rows(not_run),
+        "run_health": round(len(records) / max(1, total), 3),
+        "dev_fixes": devfix.group(verdicts),
         "summaries": {},   # reviewer fills one line per failure mode after review
     }, indent=1, ensure_ascii=False))
     print(f"{len(verdicts)} verdicts, {sum(m.value is not None for m in metrics)} metrics measured -> {a.out}")

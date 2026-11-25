@@ -1,0 +1,19 @@
+# Fixed list the judge picks from, so fixes can be grouped for the dev team
+# without another LLM call. Add tags here; the judge prompt reads this file.
+tags:
+  ask_unit:          {owner: bot,     title: "Ask for the unit before filling a number"}
+  range_check:       {owner: bot,     title: "Check unusually large or small values before filling"}
+  only_what_said:    {owner: bot,     title: "Only fill or select what the user said"}
+  no_own_text:       {owner: bot,     title: "Don't add its own text to the application"}
+  wrong_fact:        {owner: bot,     title: "Answer contradicts the KB"}
+  unsupported_claim: {owner: bot,     title: "Answer goes beyond the KB"}
+  no_decision:       {owner: bot,     title: "Don't announce eligibility or approval decisions"}
+  over_refusal:      {owner: bot,     title: "Answer valid in-scope questions instead of refusing"}
+  stuck_no_answer:   {owner: bot,     title: "Gives 'not finding a clear answer' on answerable questions"}
+  unsafe_link:       {owner: bot,     title: "Only link to approved https domains"}
+  pii:               {owner: bot,     title: "Don't repeat or request personal information"}
+  kb_gap:            {owner: kb,      title: "KB is missing or out of date on this topic"}
+  harness_input:     {owner: harness, title: "Test input was malformed (encoding, misaligned row)"}
+  harness_infra:     {owner: harness, title: "Call failed (timeout, auth, rate limit)"}
+  judge_context:     {owner: judge,   title: "Judge got the wrong KB context or wrong grading rule"}
+  none:              {owner: none,    title: "No change needed"}

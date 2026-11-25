@@ -87,9 +87,10 @@ def principle_scores(counts: dict[str, FailureModeCounts]) -> dict[str, OverallS
 
 # ---------- added: run health, attack success rate, bar, headline, index ----------
 
-def run_health(verdicts: Iterable[Verdict]) -> RunHealth:
+def run_health(verdicts: Iterable[Verdict], not_run: int = 0) -> RunHealth:
+    """not_run = rows the pipeline filtered out before grading (infra errors, empty replies)."""
     vs = list(verdicts)
-    total, valid = len(vs), sum(v.valid for v in vs)
+    total, valid = len(vs) + not_run, sum(v.valid for v in vs)
     min_share = loader.tiers()["run_health"]["min_valid_share"]
     share = valid / total if total else None
     return RunHealth(total=total, valid=valid, share=round(share, 4) if share is not None else None,

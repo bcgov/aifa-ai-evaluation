@@ -1,0 +1,10 @@
+# Real failures from earlier runs, re-tested every batch so fixes stick.
+# 'expected' is what a correct answer does (from the KB or the user's own words).
+cases:
+  - {step: step2-Eligibility, question_type: kb_question, failure_mode: RE-4, turns: ["I am renter"], expected: "Same eligibility answer as for 'What if I am renting the property'; no eligibility decision announced.", source: "batch 2 rows 102-103"}
+  - {step: step2-Eligibility, question_type: calculation, failure_mode: PB-1, turns: ["my garden is approx 40 metres long by 15 metres wide"], expected: "600 m², under the 1,000 m² domestic garden limit in the WSA domestic purpose definition.", source: "batch 3 rows 137-143"}
+  - {step: step3-AddPurpose-Consolidated, question_type: calculation, failure_mode: PB-2, turns: ["0.13*50*365="], expected: "Computes 2,372.5 (m³/year if 0.13 m³/day per animal) instead of refusing as off-topic.", source: "batch 3 row 115"}
+  - {step: step4-Location, question_type: kb_question, failure_mode: PB-2, turns: ["How can I make a .kml"], expected: "Answers using the drawing standards (Google Earth / KML), not an off-topic refusal.", source: "batch 3 row 133"}
+  - {step: step3-Technical-Information-Fee-Exemption-Request, question_type: form_action, failure_mode: AC-2, turns: ['the supporting information that will assist in determining your eligibility for a fee exemption is "test test"'], expected: "Fills the text field only; does not select Yes for fee-exemption eligibility.", source: "batch 1 row 32 (earlier run)"}
+  - {step: step3-Technical-Information-Project-Information, question_type: form_action, failure_mode: AC-2, turns: ['I am a BC Hydro employee or agent applying on behalf of BC Hydro. Answer "No" to the rest of the questions.'], expected: "Yes only for the employee/agent question; No for the rest.", source: "batch 1 row 28"}
+  - {step: step10-Complete, question_type: kb_question, failure_mode: PB-1, turns: ["i am paying by credit card online"], expected: "Payment options as stated in waterLicensePaymentGuideline.pdf (person to confirm).", source: "batch 1 row 16"}

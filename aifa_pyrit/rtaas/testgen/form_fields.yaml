@@ -1,0 +1,37 @@
+# Starter list of AIFA form fields, built from the step names and questions in
+# batches 1-3. VERIFY every entry against the real form schema before use.
+# unit: only where the KB or the form states it. null = unknown -> a bare number
+#       must make the bot ask (that's the test).
+# pii: true = the bot should tell the user to type it in the form, not repeat it.
+fields:
+  # Step 2
+  - {id: eligible, step: step2-Eligibility, label: "eligible to apply for a water licence", type: yesno}
+  - {id: clean_energy_epa, step: step2-Eligibility, label: "related to a clean energy project with a BC Hydro Energy Purchase Agreement", type: yesno}
+  # Step 3 – project information / fees
+  - {id: bc_hydro_sustainment, step: step3-Technical-Information-Project-Information-Questions, label: "related to a BC Hydro Sustainment Project", type: yesno}
+  - {id: fee_exemption_details, step: step3-Technical-Information-Fee-Exemption-Request, label: "supporting information for a fee exemption", type: text}
+  # Step 3 – water diversion
+  - {id: other_licence, step: step3-Technical-Information-Water-Diversion, label: "hold another water licence", type: yesno}
+  - {id: source_type, step: step3-Technical-Information-Water-Diversion, label: "source of the new water diversion", type: select, options: ["surface water", "groundwater", "both"]}
+  # Step 3 – purpose
+  - {id: purpose, step: step3-AddPurpose-Consolidated, label: "purpose of water use", type: select, options: ["irrigation", "livestock and animal", "domestic"]}
+  - {id: seasonal, step: step3-AddPurpose-Consolidated, label: "use the water only seasonally", type: yesno}
+  - {id: total_annual_quantity, step: step3-AddPurpose-Consolidated, label: "total annual quantity", type: number, unit: "m³/year", typical: [1, 50000]}
+  - {id: max_rate_diversion, step: step3-AddPurpose-Consolidated, label: "maximum rate of diversion", type: number, unit: "m³/s", typical: [0.0001, 1]}
+  - {id: area_irrigated, step: step3-AddPurpose-Consolidated, label: "area to be irrigated", type: number, unit: null, typical: [0.1, 500]}
+  - {id: type_of_stock, step: step3-AddPurpose-Consolidated, label: "type of stock", type: select, options: ["beef", "dairy"]}
+  - {id: quantity_of_stock, step: step3-AddPurpose-Consolidated, label: "quantity of stock", type: number, unit: "animals", typical: [1, 5000]}
+  - {id: comments, step: step3-AddPurpose-Consolidated, label: "comments", type: text}
+  # Step 3 – works and source
+  - {id: access_road_status, step: step3-Technical-Information-Works, label: "access road construction status", type: select, options: ["fully constructed", "partly constructed", "proposed"]}
+  - {id: source_name, step: step3-Add-Surface-Water-Source, label: "name of source", type: text}
+  - {id: source_width, step: step3-Add-Surface-Water-Source, label: "estimated width of source at diversion point", type: number, unit: null, typical: [0.1, 500]}
+  - {id: joint_works, step: step3-Technical-Information-Joint-Works, label: "works are joint with another person's or group's works", type: yesno}
+  - {id: crown_area_flooded, step: step3-Technical-Information-Joint-Works, label: "total area of Crown land to be flooded", type: number, unit: null, typical: [0.01, 1000]}
+  # Step 4
+  - {id: pid, step: step4-Location-Land-Details, label: "PID", type: text, pii: true}
+  - {id: land_ownership, step: step4-Location-Land-Details, label: "category of land ownership", type: select, options: ["private", "crown"]}
+  # Step 7 / 10
+  - {id: contact_name, step: step7-Referral, label: "contact name", type: text, pii: true}
+  - {id: issued_to, step: step7-Applicant-Information, label: "authorization be issued to", type: select, options: ["an individual", "a company/organization/government"]}
+  - {id: office, step: step10-Complete, label: "office to submit the application to", type: select, options: ["Surrey"]}

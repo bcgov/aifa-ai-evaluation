@@ -68,9 +68,10 @@ def build_findings(
     report_name: Optional[str] = None,
     demo: bool = False,
     policy_versions: Optional[dict[str, str]] = None,
+    not_run: int = 0,
 ) -> FindingsResponse:
     counts = count_by_failure_mode(verdicts)
-    health = run_health(verdicts)
+    health = run_health(verdicts, not_run)
     stats = failure_mode_stats(counts)
     return FindingsResponse(
         run_id=run_id,

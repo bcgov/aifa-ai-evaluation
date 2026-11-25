@@ -46,5 +46,5 @@ def findings_for(run_id: str, load: Optional[RunLoader] = None) -> tuple[Finding
                        tier=run["tier"], verdicts=verdicts, metrics=metrics_for(run),
                        summaries=run.get("summaries"), report_name=run.get("report_name"),
                        demo=run_id == "demo" or "preview_metric_values" in run,
-                       policy_versions=run.get("policy_versions"))
+                       policy_versions=run.get("policy_versions"), not_run=len(run.get("not_run") or []))
     return f, verdicts

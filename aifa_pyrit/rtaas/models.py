@@ -94,6 +94,15 @@ class Verdict(BaseModel):
     graded_by: Literal["script", "classifier", "llm_judge", "script+llm_judge", "human", "unjudged"]
     needs_review: bool = False
     reviewed: bool = False
+    # Short notes for the dev team (one sentence each, <= 30 words)
+    expected: str = ""        # what a correct answer would say/do, with the KB doc name if any
+    observed: str = ""        # what the bot actually said/did
+    dev_fix: str = ""         # one concrete change for the owner below
+    fix_tag: str = "none"     # from policy/fix_tags.yaml; used to group fixes without extra LLM calls
+    fix_owner: Literal["bot", "kb", "harness", "judge", "none"] = "none"
+    # Run Results screen
+    title: str = ""           # <= 8 words, plain language
+    highlight: str = ""       # exact substring of the bot answer, or ""
 
     # added for the AIFA harness
     valid: bool = True

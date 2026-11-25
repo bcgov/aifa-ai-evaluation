@@ -26,6 +26,12 @@ NEGATIVE_QTY_RE = re.compile(r"-\s?\d[\d,]*(\.\d+)?\s*(m3|m³|cubic|litres?|lite
 HUGE_QTY_RE = re.compile(r"\b\d{1,3}(,\d{3}){3,}(\.\d+)?\s*(m3|m³|cubic|litres?|liters?)\b", re.I)
 
 
+def is_infra_error(output: str | None) -> bool:
+    """A failed call, not an answer. These rows are 'not run' and never graded."""
+    o = (output or "").strip()
+    return not o or o.startswith("INFRA_ERROR")
+
+
 @dataclass
 class ScriptResult:
     passed: bool

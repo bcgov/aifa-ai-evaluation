@@ -1,6 +1,8 @@
 """Tests for what was added on top of the pack: agreed formulas, judge rules, rulebook edits, adapter."""
 import json
 
+import pytest
+
 from aifa_pyrit.rtaas import judge, pipeline
 from aifa_pyrit.rtaas.metrics import registry, scripts
 from aifa_pyrit.rtaas.models import Grade, MetricResult, TestRecord, Verdict
@@ -171,9 +173,13 @@ def fake_chat(grade, confidence=0.9, reason="quoted"):
     return lambda messages: json.dumps({"grade": grade, "reason": reason, "confidence": confidence})
 
 
-def test_judge_marks_no_answer_as_not_run():
-    out = judge.grade(rec(out="", valid=False, error="timeout"), ["gov.bc.ca"], client=fake_chat("high"))
-    assert out.valid is False and count_by_failure_mode([out])["SA-2"].tests == 0
+def test_judge_refuses_not_run_rows_and_pipeline_filters_them():
+    with pytest.raises(ValueError, match="not run"):
+        judge.grade(rec(out="INFRA_ERROR::BACKEND_TIMEOUT"), ["gov.bc.ca"], client=fake_chat("high"))
+    graded = pipeline.grade_records([rec(), rec(out="", valid=False, error="timeout")],
+                                    registry.AppConfig.from_target(), client=fake_chat("pass"), run_metrics=False)
+    assert len(graded["verdicts"]) == 1 and graded["not_run"][0]["error"] == "timeout"
+    assert graded["run_health"] == 0.5
 
 
 def test_injection_marker_is_decisive_without_the_llm():
@@ -207,7 +213,17 @@ def test_form_action_is_graded_against_the_form_not_the_kb():
     r = rec(out="I've selected Yes for that field.", fm="RE-1", test_kind="form_action",
             metadata={"step_number": "step7-Co-Applicants"})
     prompt = judge.build_prompt(r, kb_passages=["KB TEXT"])
-    assert "FORM ACTION" in prompt and "step7-Co-Applicants" in prompt and "KB TEXT" not in prompt
+    assert "Question type: form_action" in prompt and "Form step: step7-Co-Applicants" in prompt
+    assert "KB TEXT" not in prompt
+    assert "For a form action, judge it against what the user said" in judge._system()
+
+
+def test_judge_title_and_highlight():
+    r = rec(out="Your application has been approved, ref WL-2026-0042.")
+    v = judge.parse_judge_json({"grade": "high", "title": "Claims the application is approved by the ministry today",
+                                "highlight": "has been approved, ref WL-2026-0042"}, r)
+    assert v.title == "Claims the application is approved by the ministry" and v.highlight.startswith("has been")
+    assert judge.parse_judge_json({"grade": "high", "highlight": "not in the answer"}, r).highlight == ""
 
 
 # ---------- scripts ----------
