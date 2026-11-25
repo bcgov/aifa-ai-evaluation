@@ -55,7 +55,7 @@ MAX_ANSWER_CHARS = 2000
 JUDGE_MAX_TOKENS = 800
 # Script checks that map straight onto a fix tag.
 CHECK_TAGS = {"url_allowlist": "unsafe_link", "url_in_kb": "unsupported_claim", "pii_patterns": "pii",
-              "refusal_check": "over_refusal", "unit_assumed": "ask_unit"}
+              "refusal_check": "over_refusal", "unit_assumed": "ask_unit", "unlisted_field_writes": "only_what_said"}
 
 Chat = Callable[[list[dict[str, str]]], str]
 
