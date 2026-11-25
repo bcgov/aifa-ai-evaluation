@@ -1,8 +1,8 @@
-"""Shared data shapes for grading runs. Mirrored by frontend/js/rtaas-*.js."""
+"""Shared data shapes. The frontend (frontend/js/rtaas-*.js) reads these."""
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -12,11 +12,11 @@ class Grade(str, Enum):
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
-    CRITICAL = "critical"  # set only by a person
+    CRITICAL = "critical"  # set by a person only, never by the judge
 
 
-RANK = {Grade.PASS: 0, Grade.LOW: 1, Grade.MEDIUM: 2, Grade.HIGH: 3, Grade.CRITICAL: 4}
-PASSED = {Grade.PASS, Grade.LOW}
+SEVERITY_ORDER = [Grade.PASS, Grade.LOW, Grade.MEDIUM, Grade.HIGH, Grade.CRITICAL]
+RANK = {g: i for i, g in enumerate(SEVERITY_ORDER)}
 
 
 def worst(*grades: Optional[Grade]) -> Optional[Grade]:
@@ -24,45 +24,56 @@ def worst(*grades: Optional[Grade]) -> Optional[Grade]:
     return max(present, key=RANK.__getitem__) if present else None
 
 
+# ---------- what one test produced ----------
+
 class ToolCallRecord(BaseModel):
     name: str
-    input_parameters: dict[str, Any] = Field(default_factory=dict)
+    input_parameters: dict[str, Any] = {}
     output: Any = None
 
 
 class TurnRecord(BaseModel):
-    role: str
+    role: Literal["user", "assistant"]
     content: str
-    retrieval_context: list[str] = Field(default_factory=list)
-    tools_called: list[ToolCallRecord] = Field(default_factory=list)
+    retrieval_context: list[str] = []
+    tools_called: list[ToolCallRecord] = []
 
 
 class TestRecord(BaseModel):
-    """One attempt at one test case, in the shape the judge and the metrics read."""
+    """One attack or one normal question, plus what the target said.
+
+    Single-turn tests fill input/actual_output. Multi-turn tests fill turns (and the last
+    exchange in input/actual_output, so single-answer checks still run on them).
+    """
     __test__ = False  # not a pytest class
 
     test_id: str
-    case_name: str
-    failure_mode: Optional[str] = None
-    also_scores: list[str] = Field(default_factory=list)
-    set: str = "attack"  # attack | benign | calculation
-    attack_type: str = "PromptSending"
-    test_kind: Optional[str] = None
-    objective: str = ""
+    failure_mode: str                     # e.g. "SA-3"
+    technique: str                        # e.g. "Crescendo", "PromptSending"
+    converters: list[str] = []            # e.g. ["Base64"]
+    objective: str = ""                   # attack goal given to PyRIT
+    set: Literal["attack", "benign", "calculation"] = "attack"
+
     input: str = ""
     actual_output: str = ""
-    expected_output: Optional[str] = None  # gold answer
-    expected_behavior: Optional[str] = None
-    context: list[str] = Field(default_factory=list)  # KB passages from our own search
-    retrieval_context: list[str] = Field(default_factory=list)  # chunks the target retrieved
-    tools_called: list[ToolCallRecord] = Field(default_factory=list)
-    expected_tools: list[ToolCallRecord] = Field(default_factory=list)
-    turns: list[TurnRecord] = Field(default_factory=list)
+    expected_output: Optional[str] = None  # gold answer, from goldens.jsonl
+    context: list[str] = []                # KB reference text (HallucinationMetric)
+    retrieval_context: list[str] = []      # chunks the target actually retrieved
+    tools_called: list[ToolCallRecord] = []
+    expected_tools: list[ToolCallRecord] = []
+
+    turns: list[TurnRecord] = []
     chatbot_role: Optional[str] = None
-    topics: list[str] = Field(default_factory=list)  # fee, eligibility
-    metadata: dict[str, Any] = Field(default_factory=dict)
-    case: dict[str, Any] = Field(default_factory=dict)  # checks, flag_regex, must_not_contain, ...
-    valid: bool = True  # the bot actually answered
+    metadata: dict[str, Any] = {}          # reruns, pair_output, retrieved_doc_ids, tokens, latency_ms
+
+    # added for the AIFA harness
+    case_name: str = ""
+    also_scores: list[str] = []
+    test_kind: Optional[str] = None
+    expected_behavior: Optional[str] = None
+    topics: list[str] = []                 # fee, eligibility (strict thresholds)
+    case: dict[str, Any] = {}              # checks, flag_regex, must_not_contain, must_contain_any, success_hint
+    valid: bool = True                     # False = the bot never answered (error or empty): "not run"
     error: Optional[str] = None
 
 
@@ -72,92 +83,153 @@ class ScriptFinding(BaseModel):
     reason: str
 
 
+# ---------- judge output ----------
+
 class Verdict(BaseModel):
     test_id: str
     failure_mode: str
     grade: Grade
     reason: str
-    confidence: float = 1.0
-    graded_by: str = "llm_judge"
+    confidence: float = Field(ge=0, le=1)
+    graded_by: Literal["script", "classifier", "llm_judge", "script+llm_judge", "human", "unjudged"]
     needs_review: bool = False
     reviewed: bool = False
-    reviewer_note: Optional[str] = None
+
+    # added for the AIFA harness
     valid: bool = True
+    reviewer_note: Optional[str] = None
     case_name: Optional[str] = None
-    attack_type: Optional[str] = None
+    technique: Optional[str] = None
     input: Optional[str] = None
     output: Optional[str] = None
-    script_findings: list[ScriptFinding] = Field(default_factory=list)
+    script_findings: list[ScriptFinding] = []
 
     @property
     def confirmed(self) -> bool:
-        """A grade counts as its grade only once nobody needs to look at it."""
+        """A grade only counts as its grade once nobody needs to look at it."""
         return not self.needs_review or self.reviewed
 
+
+# ---------- what the Findings page reads ----------
 
 class MetricResult(BaseModel):
     id: str
     tab: str
     label: str
-    deepeval_class: str
+    deepeval_class: str        # shown without the "Metric" suffix
     failure_mode: str
-    target: float
-    threshold: Optional[float] = None
-    value: Optional[float] = None  # share of eligible cases that passed; None = not measured
+    target: float              # 0..1
+    value: Optional[float]     # 0..1, share of cases that passed. None = not measured
     cases: int = 0
     passed: int = 0
     skipped_reason: Optional[str] = None
-    preview: bool = False
+    preview: bool = False      # true when value is a placeholder, not measured
+
+    # added: release thresholds table
+    threshold: Optional[float] = None
     blocks_release: bool = False
     report_only: bool = False
-    gate_group: Optional[str] = None
-    blocking_value: Optional[float] = None  # e.g. consistency on eligibility questions only
+    gate_group: Optional[str] = None          # "grounded": Faithfulness or Hallucination
+    blocking_value: Optional[float] = None    # consistency on eligibility questions only
     blocking_target: Optional[float] = None
     blocking_cases: int = 0
-    low_sample: bool = False  # zero-tolerance metric with fewer than 30 cases
+    low_sample: bool = False                  # zero-tolerance metric with fewer than 30 cases
     failure_rate_upper_bound: Optional[float] = None  # rule of three when there are 0 failures
 
 
 class Issue(BaseModel):
     failure_mode: str
-    title: str
-    severity: str  # High | Medium
-    found: str
+    title: str                 # plain name, e.g. "Fake approvals and receipts"
+    severity: Literal["High", "Medium"]
+    found: str                 # e.g. "4 High in 4 tests"
     what_went_wrong: str
 
 
-class FailureModeSummary(BaseModel):
-    failure_mode: str
+class FailureModeCounts(BaseModel):
+    id: str
+    principle: str
+    tests: int = 0
+    pass_: int = Field(0, alias="pass")
+    low: int = 0
+    medium: int = 0
+    high: int = 0
+    critical: int = 0
+    review: int = 0
+    not_run: int = 0           # the bot never answered; excluded from tests
+
+    model_config = {"populate_by_name": True}
+
+
+class OverallScore(BaseModel):
+    score: Optional[float]
+    raw: Optional[float]
+    band: Literal["Pass", "Needs work", "Fail", "Not tested"]
+    capped_by: Optional[str] = None
+    low_coverage: bool = False
+
+
+class ReleaseGate(BaseModel):
+    tier: Literal["low", "medium", "high"]
+    blocked: bool
+    reasons: list[str]
+    not_measured: list[str] = []   # release-blocking metrics with no eligible cases yet
+
+
+class RunHealth(BaseModel):
+    total: int
+    valid: int
+    share: Optional[float]
+    min_share: float
+    invalid: bool              # True = under 95% valid: don't report scores
+
+
+class FailureModeStat(BaseModel):
+    id: str
     alias: str
     principle: str
-    tests: int
     valid: int
-    passed: int
-    low: int
+    passed: int                # pass + low
     medium: int
     high: int
     critical: int
-    unreviewed: int
+    review: int
     open_high: int
-    attack_success_rate: Optional[float]
-    meets_bar: Optional[bool]  # None = not tested
+    attack_success_rate: Optional[float]   # (confirmed Medium + High) / valid
+    meets_bar: Optional[bool]              # None = not tested
+
+
+class Headline(BaseModel):
+    meet_bar: int
+    tested: int
+    total: int
+    text: str
+
+
+class IndexScore(BaseModel):
+    value: Optional[float]
+    raw: Optional[float]
+    capped_by: Optional[str] = None
+    eligible_failure_modes: int = 0
+    label: str = "Our index, not a standard"
 
 
 class FindingsResponse(BaseModel):
     run_id: str
-    report_name: Optional[str] = None
     target_name: str
     run_date: str
     tests: int
-    demo: bool = False
-    policy_versions: dict[str, str] = Field(default_factory=dict)
-    run_health: dict[str, Any]
-    overall: dict[str, Any]
-    headline: dict[str, Any]
-    gate: dict[str, Any]
-    tabs: list[dict[str, str]]
+    overall: OverallScore
+    gate: ReleaseGate
+    tabs: list[dict]           # [{key, label, note}]
     metrics: list[MetricResult]
     issues: list[Issue]
-    failure_modes: list[FailureModeSummary]
-    principle_scores: dict[str, Optional[float]]
-    review_queue: list[Verdict]
+
+    # added
+    report_name: Optional[str] = None
+    demo: bool = False
+    policy_versions: dict[str, str] = {}
+    run_health: Optional[RunHealth] = None
+    headline: Optional[Headline] = None
+    index: Optional[IndexScore] = None
+    failure_modes: list[FailureModeStat] = []
+    review_queue: list[Verdict] = []

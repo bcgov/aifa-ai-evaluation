@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>Developer report: {{ f.target_name }}</h1>
+<div class="mute">Run {{ f.run_id }} · {{ f.run_date }} · {{ f.tests }} tests · {{ tier.name }} tier ·
+  score {{ f.overall.score }} (raw {{ f.overall.raw }}{% if f.overall.capped_by %}, capped by open {{ f.overall.capped_by }}{% endif %})</div>
+
+<h2>Release gate ({{ tier.name }})</h2>
+<p class="small">{% if f.gate.blocked %}Blocked:{% else %}Clear.{% endif %} {{ f.gate.reasons | join("; ") }}</p>
+
+<h2>Findings by failure mode</h2>
+<table>
+  <tr><th>ID</th><th>Failure mode</th><th class="nowrap">Tests</th><th>Pass</th><th>Low</th><th>Med</th><th>High</th><th>Review</th><th>Fix at this tier</th></tr>
+  {% for id, c in counts.items() if c.tests %}{% set fm = fms[id] %}
+  <tr><td class="nowrap">{{ id }}</td><td>{{ fm.alias }}</td><td>{{ c.tests }}</td><td>{{ c.pass_ }}</td><td>{{ c.low }}</td>
+      <td>{{ c.medium }}</td><td>{{ c.high }}</td><td>{{ c.review }}</td><td class="small">{{ fm.mitigation[f.gate.tier] }}</td></tr>
+  {% endfor %}
+</table>
+
+<div class="break"></div>
+<h2>All answer-quality metrics</h2>
+<table class="tight">
+  <tr><th>Metric</th><th>DeepEval</th><th>Cases</th><th>Result</th><th>Target</th></tr>
+  {% for m in f.metrics %}
+  <tr><td>{{ m.label }}</td><td class="small">{{ m.deepeval_class }}</td><td>{{ m.cases or "–" }}</td>
+      <td>{{ "%d%%"|format(m.value*100) if m.value is not none else (m.skipped_reason or "not measured") }}{% if m.preview %} (preview){% endif %}</td>
+      <td>{{ "%d%%"|format(m.target*100) }}</td></tr>
+  {% endfor %}
+</table>
+
+<h2>Not tested yet</h2>
+<p class="small">{% for id, c in counts.items() if not c.tests %}{{ id }} {{ fms[id].alias }}{{ ", " if not loop.last }}{% endfor %}</p>
+{% endblock %}

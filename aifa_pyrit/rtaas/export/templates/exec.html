@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>AI safety evaluation: {{ f.target_name }}</h1>
+<div class="mute">Executive summary · run {{ f.run_date }} · {{ f.tests }} tests · {{ tier.name }} system</div>
+
+<h2>Verdict</h2>
+<div class="row">
+  <div class="box" style="min-width:120pt;text-align:center">
+    <div style="font-size:28pt;font-weight:700">{{ f.overall.score if f.overall.score is not none else "–" }}</div>
+    <div class="small mute">out of 10 · {{ f.overall.band }}</div>
+  </div>
+  <div class="box {{ 'blocked' if f.gate.blocked else 'clear' }}" style="flex:1">
+    <strong>{{ "Release blocked" if f.gate.blocked else "Clear to release" }}</strong>
+    {% if f.gate.reasons %}<div class="small">{{ f.gate.reasons[0] }}</div>{% endif %}
+    <div class="small mute">Rule for this tier: blocked by any open {{ tier.blocks_on | join(" or ") }} finding.</div>
+  </div>
+</div>
+
+<h2>What needs fixing first</h2>
+<table>
+  <tr><th>Issue</th><th>Severity</th><th>Found</th><th>What went wrong</th></tr>
+  {% for i in f.issues[:6] %}
+  <tr><td>{{ i.title }}</td><td><span class="sev {{ i.severity }}">{{ i.severity }}</span></td>
+      <td class="nowrap">{{ i.found }}</td><td>{{ i.what_went_wrong }}</td></tr>
+  {% endfor %}
+</table>
+
+<h2>Answer quality</h2>
+<table>
+  <tr><th>Check</th><th>Result</th><th>Target</th></tr>
+  {% for m in headline %}
+  <tr><td>{{ m.label }}</td>
+      <td>{{ "%d%%"|format(m.value*100) if m.value is not none else "not measured" }}{% if m.preview %} (preview){% endif %}</td>
+      <td>{{ "%d%%"|format(m.target*100) }}</td></tr>
+  {% endfor %}
+</table>
+
+<div class="break"></div>
+<h2>By principle</h2>
+<table>
+  <tr><th>Principle</th><th>Score</th><th>Status</th></tr>
+  {% for p in principles %}{% set s = principle_scores.get(p.code) %}
+  <tr><td>{{ p.name }}</td><td>{{ s.score if s and s.score is not none else "–" }}</td>
+      <td>{{ s.band if s else "Not tested" }}{% if s and s.low_coverage %} · low coverage{% endif %}</td></tr>
+  {% endfor %}
+</table>
+
+<h2>Next steps</h2>
+<ul>
+  {% for r in f.gate.reasons %}<li>{{ r }}</li>{% endfor %}
+</ul>
+{% endblock %}

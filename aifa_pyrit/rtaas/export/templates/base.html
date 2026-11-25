@@ -1,0 +1,28 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  @page { size: Letter; }
+  body { font-family: "BC Sans", "Noto Sans", Arial, sans-serif; color: #1c2231; font-size: 10.5pt; line-height: 1.4; margin: 0; }
+  h1 { font-size: 18pt; margin: 0 0 2pt; } h2 { font-size: 12pt; margin: 14pt 0 6pt; }
+  .mute { color: #666e82; } .small { font-size: 9pt; }
+  .row { display: flex; gap: 14pt; align-items: center; }
+  .box { border: 1px solid #e3dfd4; border-radius: 6pt; padding: 8pt 10pt; background: #fff; }
+  .blocked { background: #fbe9e3; border-color: #eccbc1; color: #b23c22; }
+  .clear { background: #e9f4ef; border-color: #c9e4d7; color: #187a5d; }
+  table { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
+  th, td { text-align: left; padding: 4pt 5pt; border-bottom: 1px solid #ece8dd; vertical-align: top; }
+  th { color: #666e82; font-weight: 600; font-size: 8.5pt; text-transform: uppercase; letter-spacing: .03em; }
+  .sev { display: inline-block; padding: 1pt 6pt; border-radius: 9pt; font-size: 8.5pt; font-weight: 600; white-space: nowrap; }
+  .High { background: #1c2231; color: #fff; } .Medium { background: #cfc8b6; }
+  .nowrap { white-space: nowrap; }
+  table.tight td, table.tight th { padding: 2.5pt 5pt; font-size: 9pt; }
+  .break { page-break-before: always; }
+  .refs { font-size: 8pt; color: #666e82; margin-top: 12pt; }
+</style></head>
+<body>{% block body %}{% endblock %}
+<div class="refs">
+  Structure: BC draft responsible AI principles. Harm labels: AIAAIC Repository harm taxonomy.
+  Cross-references are evidence toward, not compliance with: EU AI Act (Regulation 2024/1689); NIST AI RMF 1.0 (AI 100-1) and Generative AI Profile (AI 600-1);
+  OWASP Top 10 for LLM Applications 2025. Metric targets are proposals pending calibration against human-labelled answers.
+</div>
+</body></html>
