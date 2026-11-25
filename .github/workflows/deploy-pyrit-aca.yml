@@ -19,8 +19,11 @@ on:
       - main
 
 permissions:
+  # Azure login with OIDC requires id-token: write.
+  # Repository checkout and Terraform source access require contents: read.
+  # GHCR image pulls and registry access require packages: write.
+  contents: read
   id-token: write
-  contents: write
   packages: write
 
 concurrency:
@@ -61,6 +64,11 @@ jobs:
     name: ${{ inputs.command == 'plan' && 'Plan' || 'Deploy' }} ACA
     needs: [builds, branch-slug]
     if: always() && (needs.builds.result == 'success' || needs.builds.result == 'skipped')
+    permissions:
+      # This deployment authenticates to Azure with OIDC and consumes GHCR images.
+      contents: read
+      id-token: write
+      packages: write
     environment: dev
     runs-on: ubuntu-latest
     env:

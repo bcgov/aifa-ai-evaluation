@@ -18,12 +18,18 @@ on:
         type: string
         default: './Dockerfile'
 permissions:
-  id-token: write
-  contents: write
+  # Required for actions/checkout and to push build artifacts to GHCR.
+  # GitHub's default token becomes read-only for many scopes after the upcoming change,
+  # so this workflow must declare the package write permission explicitly.
+  contents: read
   packages: write
 jobs:
   builds:
     name: Builds
+    permissions:
+      # Keep the job scoped to the minimum required permissions for checkout + GHCR push.
+      contents: read
+      packages: write
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
