@@ -15,6 +15,7 @@ CONVERTER_CLASSES: Dict[str, str] = {
 }
 
 LLM_CONVERTERS = {"translation"}
+TRANSLATION_LANGUAGES = ("french", "chinese", "hindi")
 DEFAULT_TRANSLATION_LANGUAGE = "french"
 
 CONVERTER_MODULES = ("pyrit.converter", "pyrit.prompt_converter")
@@ -28,7 +29,7 @@ CONFIGURATION_LOCATIONS = (
 
 
 def available_converters() -> List[str]:
-    return sorted(CONVERTER_CLASSES)
+    return sorted([*CONVERTER_CLASSES, *(f"translation:{lang}" for lang in TRANSLATION_LANGUAGES)])
 
 
 def needs_llm(names: Optional[List[str]]) -> bool:

@@ -81,7 +81,7 @@ function render() {
     chips.append(chip);
   });
   $('conv-empty').hidden = state.stack.length > 0;
-  const llmConv = state.stack.find((id) => LLM_CONVERTERS.includes(id));
+  const llmConv = state.stack.find((id) => LLM_CONVERTERS.includes(id.split(':')[0]));
   $('conv-note').hidden = !llmConv;
   $('conv-note').textContent = llmConv ? converterName(llmConv).split(' ·')[0] + LLM_NOTE : '';
 

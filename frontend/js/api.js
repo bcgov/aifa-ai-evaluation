@@ -29,6 +29,9 @@ const CONVERTER_LABELS = {
   morse: 'Morse code · instant',
   ascii_smuggler: 'Hidden text (ASCII smuggler) · instant',
   translation: 'Translation (French) · needs LLM',
+  'translation:french': 'Translation (French) · needs LLM',
+  'translation:chinese': 'Translation (Chinese) · needs LLM',
+  'translation:hindi': 'Translation (Hindi) · needs LLM',
 };
 export const LLM_CONVERTERS = ['translation'];
 
