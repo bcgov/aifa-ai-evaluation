@@ -106,6 +106,9 @@ class CustomBackendTarget(PromptTarget):
         
         # WebSocket connection state (lazy-loaded on first send)
         self._websocket = None
+        # TAP and other branching attacks send prompts concurrently on this shared
+        # connection; the websockets library forbids overlapping recv() calls.
+        self._ws_lock = asyncio.Lock()
         
         logger.info(
             "custom_backend_target_initialized",
@@ -294,120 +297,121 @@ class CustomBackendTarget(PromptTarget):
             )
             
             # Send and receive with retry for transient failures
-            for attempt in range(MAX_BACKEND_RETRIES + 1):
-                try:
-                    # Send request payload
-                    await self._websocket.send(json.dumps(request_payload))
+            async with self._ws_lock:
+                for attempt in range(MAX_BACKEND_RETRIES + 1):
+                    try:
+                        # Send request payload
+                        await self._websocket.send(json.dumps(request_payload))
                     
-                    response_text = None
-                    response_meta: dict[str, Any] = {}
-                    # Some backends emit session_init/meta events before the actual
-                    # aggregator response. Keep reading until a final response arrives.
-                    for _ in range(5):
-                        raw_response = await asyncio.wait_for(
-                            self._websocket.recv(),
-                            timeout=30
+                        response_text = None
+                        response_meta: dict[str, Any] = {}
+                        # Some backends emit session_init/meta events before the actual
+                        # aggregator response. Keep reading until a final response arrives.
+                        for _ in range(5):
+                            raw_response = await asyncio.wait_for(
+                                self._websocket.recv(),
+                                timeout=30
+                            )
+
+                            response_data = json.loads(raw_response)
+                            response_text, response_meta = self._extract_response(response_data)
+                            if response_text is not None:
+                                break
+
+                        if response_text is None:
+                            response_text = "INFRA_ERROR::NO_FINAL_RESPONSE"
+                    
+                        logger.info(
+                            "backend_response_received",
+                            session_id=self.session_id,
+                            response_length=len(response_text)
                         )
 
-                        response_data = json.loads(raw_response)
-                        response_text, response_meta = self._extract_response(response_data)
-                        if response_text is not None:
-                            break
-
-                    if response_text is None:
-                        response_text = "INFRA_ERROR::NO_FINAL_RESPONSE"
+                        if response_meta:
+                            response_text = (
+                                f"{response_text}\n{BACKEND_META_MARKER}"
+                                f"{json.dumps(response_meta, sort_keys=True)}"
+                            )
                     
-                    logger.info(
-                        "backend_response_received",
-                        session_id=self.session_id,
-                        response_length=len(response_text)
-                    )
-
-                    if response_meta:
-                        response_text = (
-                            f"{response_text}\n{BACKEND_META_MARKER}"
-                            f"{json.dumps(response_meta, sort_keys=True)}"
+                        # Return list of Message objects in PyRIT format
+                        response_message = Message.from_prompt(
+                            prompt=response_text,
+                            role="assistant"
+                        )
+                        return [response_message]
+                    
+                    except asyncio.TimeoutError:
+                        logger.error(
+                            "websocket_timeout",
+                            endpoint=self.endpoint,
+                            session_id=self.session_id,
+                            attempt=attempt + 1,
+                        )
+                        if attempt < MAX_BACKEND_RETRIES:
+                            await asyncio.sleep(0.5 * (attempt + 1))
+                            continue
+                    
+                        error_response = Message.from_prompt(
+                            prompt="INFRA_ERROR::BACKEND_TIMEOUT",
+                            role="assistant"
+                        )
+                        return [error_response]
+                    
+                    except ConnectionClosed as e:
+                        logger.error(
+                            "websocket_connection_closed",
+                            endpoint=self.endpoint,
+                            session_id=self.session_id,
+                            attempt=attempt + 1,
+                            code=e.rcvd.code if e.rcvd else None,
+                            reason=e.rcvd.reason if e.rcvd else None,
                         )
                     
-                    # Return list of Message objects in PyRIT format
-                    response_message = Message.from_prompt(
-                        prompt=response_text,
-                        role="assistant"
-                    )
-                    return [response_message]
+                        # Reset connection to allow reconnect
+                        self._websocket = None
                     
-                except asyncio.TimeoutError:
-                    logger.error(
-                        "websocket_timeout",
-                        endpoint=self.endpoint,
-                        session_id=self.session_id,
-                        attempt=attempt + 1,
-                    )
-                    if attempt < MAX_BACKEND_RETRIES:
-                        await asyncio.sleep(0.5 * (attempt + 1))
-                        continue
+                        if attempt < MAX_BACKEND_RETRIES:
+                            await asyncio.sleep(0.5 * (attempt + 1))
+                            # Reconnect for next attempt
+                            await self._ensure_websocket_connected()
+                            continue
                     
-                    error_response = Message.from_prompt(
-                        prompt="INFRA_ERROR::BACKEND_TIMEOUT",
-                        role="assistant"
-                    )
-                    return [error_response]
+                        error_response = Message.from_prompt(
+                            prompt="INFRA_ERROR::WEBSOCKET_CONNECTION_CLOSED",
+                            role="assistant"
+                        )
+                        return [error_response]
                     
-                except ConnectionClosed as e:
-                    logger.error(
-                        "websocket_connection_closed",
-                        endpoint=self.endpoint,
-                        session_id=self.session_id,
-                        attempt=attempt + 1,
-                        code=e.rcvd.code if e.rcvd else None,
-                        reason=e.rcvd.reason if e.rcvd else None,
-                    )
+                    except WebSocketException as e:
+                        logger.error(
+                            "websocket_error",
+                            endpoint=self.endpoint,
+                            session_id=self.session_id,
+                            error=str(e),
+                            attempt=attempt + 1,
+                        )
+                        if attempt < MAX_BACKEND_RETRIES:
+                            await asyncio.sleep(0.5 * (attempt + 1))
+                            continue
                     
-                    # Reset connection to allow reconnect
-                    self._websocket = None
+                        error_response = Message.from_prompt(
+                            prompt=f"INFRA_ERROR::WEBSOCKET_ERROR::{str(e)[:300]}",
+                            role="assistant"
+                        )
+                        return [error_response]
                     
-                    if attempt < MAX_BACKEND_RETRIES:
-                        await asyncio.sleep(0.5 * (attempt + 1))
-                        # Reconnect for next attempt
-                        await self._ensure_websocket_connected()
-                        continue
-                    
-                    error_response = Message.from_prompt(
-                        prompt="INFRA_ERROR::WEBSOCKET_CONNECTION_CLOSED",
-                        role="assistant"
-                    )
-                    return [error_response]
-                    
-                except WebSocketException as e:
-                    logger.error(
-                        "websocket_error",
-                        endpoint=self.endpoint,
-                        session_id=self.session_id,
-                        error=str(e),
-                        attempt=attempt + 1,
-                    )
-                    if attempt < MAX_BACKEND_RETRIES:
-                        await asyncio.sleep(0.5 * (attempt + 1))
-                        continue
-                    
-                    error_response = Message.from_prompt(
-                        prompt=f"INFRA_ERROR::WEBSOCKET_ERROR::{str(e)[:300]}",
-                        role="assistant"
-                    )
-                    return [error_response]
-                    
-                except json.JSONDecodeError as e:
-                    logger.error(
-                        "response_json_decode_error",
-                        endpoint=self.endpoint,
-                        session_id=self.session_id,
-                        error=str(e),
-                    )
-                    error_response = Message.from_prompt(
-                        prompt=f"INFRA_ERROR::INVALID_JSON_RESPONSE::{str(e)[:300]}",
-                        role="assistant"
-                    )
-                    return [error_response]
+                    except json.JSONDecodeError as e:
+                        logger.error(
+                            "response_json_decode_error",
+                            endpoint=self.endpoint,
+                            session_id=self.session_id,
+                            error=str(e),
+                        )
+                        error_response = Message.from_prompt(
+                            prompt=f"INFRA_ERROR::INVALID_JSON_RESPONSE::{str(e)[:300]}",
+                            role="assistant"
+                        )
+                        return [error_response]
                     
         except Exception as e:
             logger.error(
