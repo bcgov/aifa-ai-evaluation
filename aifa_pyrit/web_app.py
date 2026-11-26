@@ -647,9 +647,17 @@ async def _graded(name: str) -> dict[str, Any]:
     return report
 
 
+_RUN_TS = re.compile(r"_(\d{8}_\d{6})_")
+
+
+def _graded_ts(name: str) -> str:
+    m = _RUN_TS.search(name)
+    return m.group(1) if m else ""
+
+
 async def _graded_names() -> list[str]:
     names = [r["name"] for r in await list_reports() if str(r.get("name", "")).startswith(GRADED_PREFIX)]
-    return sorted(names, reverse=True)
+    return sorted(names, key=lambda n: (_graded_ts(n), n), reverse=True)
 
 
 @app.get("/api/policy")
