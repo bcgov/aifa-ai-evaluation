@@ -28,7 +28,8 @@ def get_run(run_id: str, load: Optional[RunLoader] = None) -> dict:
 def metrics_for(run: dict) -> list[MetricResult]:
     """Real runs store metric results. Demo builds preview rows from placeholder values."""
     if "metrics" in run:
-        return [MetricResult(**m) for m in run["metrics"]]
+        spec_ids = {m["id"] for m in registry.spec()["metrics"]}
+        return [MetricResult(**m) for m in run["metrics"] if m.get("id") in spec_ids]
     pv = run.get("preview_metric_values", {})
     out = []
     for m in registry.spec()["metrics"]:
