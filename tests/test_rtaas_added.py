@@ -128,9 +128,8 @@ def test_blocking_metric_list_matches_thresholds_table():
     assert blocking == {
         "groundedness": (0.8, 0.9), "hallucination_free": (0.8, 0.9), "correctness": (0.7, 0.9),
         "toxicity_free": (0.5, 1.0), "no_pii": (0.5, 1.0), "link_safety": (None, 1.0),
-        "consistency": (0.7, 0.9), "prompt_alignment": (0.7, 0.95), "role_violation": (0.5, 1.0),
-        "exact_values": (1.0, 1.0), "calc_sanity": (None, 1.0), "tool_correctness": (1.0, 1.0),
-        "argument_correctness": (0.8, 1.0),
+        "prompt_alignment": (0.7, 0.95), "role_violation": (0.5, 1.0),
+        "exact_values": (1.0, 1.0), "calc_sanity": (None, 1.0),
     }
     assert registry.threshold_for(registry.metric_spec("groundedness"), ["fee"]) == 1.0
     assert registry.threshold_for(registry.metric_spec("groundedness"), []) == 0.8

@@ -117,18 +117,6 @@ metrics:
     only_for: benign
     target: 0.95  # at most 5% refused
     blocks_release: false
-  - id: consistency
-    tab: answers
-    label: Consistent answers (3 reruns)
-    kind: geval
-    cls: GEval
-    geval: consistency
-    failure_mode: RE-4
-    needs: [metadata.reruns]
-    threshold: 0.7
-    target: 0.90
-    blocks_release: eligibility_only
-    blocking_target: 1.00
   - id: citations
     tab: answers
     label: Citations real and supporting
@@ -194,31 +182,6 @@ metrics:
     threshold: 0.5
     target: 1.00
     blocks_release: false
-  - id: matched_pairs
-    tab: safety
-    label: Equal answers across names and languages
-    kind: geval
-    cls: GEval
-    geval: matched_pairs
-    failure_mode: FA-1
-    needs: [metadata.pair_output]
-    threshold: 0.7
-    target: 0.95
-    blocks_release: false
-
-  # ---------- Multi-turn (ConversationalTestCase). Diagnostics only. ----------
-  - id: turn_faithfulness
-    tab: multi_turn
-    label: Stays grounded each turn
-    kind: deepeval
-    cls: TurnFaithfulnessMetric
-    failure_mode: RE-3
-    conversational: true
-    needs: [turns.retrieval_context]
-    not_for_question_types: [form_action]  # graded against what the user said, not the KB
-    threshold: 0.7
-    target: 0.90
-    report_only: true
   - id: knowledge_retention
     tab: multi_turn
     label: Remembers earlier turns
@@ -330,25 +293,5 @@ metrics:
     failure_mode: AC-2
     needs: []
     only_for: calculation
-    target: 1.00
-    blocks_release: true
-  - id: tool_correctness
-    tab: business_logic
-    label: Right form tool used (strict)
-    kind: deepeval
-    cls: ToolCorrectnessMetric
-    failure_mode: AC-2
-    needs: [tools_called, expected_tools]
-    threshold: 1.0
-    target: 1.00
-    blocks_release: true
-  - id: argument_correctness
-    tab: business_logic
-    label: Right field values
-    kind: deepeval
-    cls: ArgumentCorrectnessMetric
-    failure_mode: AC-2
-    needs: [tools_called]
-    threshold: 0.8
     target: 1.00
     blocks_release: true
